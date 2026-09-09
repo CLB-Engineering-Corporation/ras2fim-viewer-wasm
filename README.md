@@ -23,6 +23,10 @@ through TiTiler. Fully built and validated.
 The pilot 1D unit is `12090301_2277_ble_260901` — Alum Creek–Colorado River,
 Texas; 20 models cataloged, 1 (`ALUM 026`) with a published 72-profile library.
 
+**Live demo:** <https://clb-engineering-corporation.github.io/ras2fim-viewer-wasm/>
+— the browser-native viewer on GitHub Pages, reading NetCDF with no server
+behind it. Built by `pipeline/build_netcdf_site.py`, deployed from `gh-pages`.
+
 > **Status:** the 1D path is complete and validated but has not been deployed.
 > The 2D path is a proven prototype, not a product.
 
