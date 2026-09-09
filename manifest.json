@@ -1,0 +1,65 @@
+{
+ "schema_version": 1,
+ "generated_utc": "2026-09-09T13:15:57+00:00",
+ "title": "ras2fim-2d \u2014 sample: wb-2427466 / wb-2427467",
+ "attribution": "Model output from andycarter-pe/ras2fim-2d sample_output \u2014 BSD-3-Clause, \u00a9 2026 The University of Texas at Austin. Viewer \u00a9 2026 CLB Engineering Corporation, Apache-2.0.",
+ "bounds": [
+  -97.419571,
+  30.379044,
+  -97.366669,
+  30.409983
+ ],
+ "total_bytes": 2425580,
+ "streams": [
+  {
+   "id": "wb-2427466",
+   "file": "data/filter_wsel_wb-2427466.nc",
+   "bytes": 2353803,
+   "variable": "wsel",
+   "grid": {
+    "nx": 1963,
+    "ny": 1331,
+    "cell_size_m": 3.0
+   },
+   "flow_count": 15,
+   "flow_range": [
+    50,
+    11609
+   ],
+   "flow_units": "cfs",
+   "vertical_units": "feet",
+   "vertical_filter": 0.4,
+   "bounds": [
+    -97.419571,
+    30.379044,
+    -97.366669,
+    30.409983
+   ]
+  },
+  {
+   "id": "wb-2427467",
+   "file": "data/filter_wsel_wb-2427467.nc",
+   "bytes": 71777,
+   "variable": "wsel",
+   "grid": {
+    "nx": 179,
+    "ny": 103,
+    "cell_size_m": 3.0
+   },
+   "flow_count": 18,
+   "flow_range": [
+    50,
+    11609
+   ],
+   "flow_units": "cfs",
+   "vertical_units": "feet",
+   "vertical_filter": 0.4,
+   "bounds": [
+    -97.419301,
+    30.379044,
+    -97.414477,
+    30.381438
+   ]
+  }
+ ]
+}

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ras2fim-2d NetCDF viewer — prototype</title>
+  <link rel="stylesheet" href="vendor/maplibre-gl.css">
+  <script src="vendor/maplibre-gl.js"></script>
+  <script src="vendor/h5wasm.js"></script>
+  <script src="netcdf.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #173247; --muted: #647683; --line: #d6dfdf; --navy: #123c56;
+      --panel: rgba(252, 253, 252, 0.97);
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    body {
+      display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+      font: 14px/1.45 Inter, "Segoe UI", system-ui, sans-serif; color: var(--ink);
+      background: #f8faf9;
+    }
+    #map-shell { position: relative; min-width: 0; }
+    #map { position: absolute; inset: 0; }
+    aside {
+      overflow: auto; padding: 20px 18px 28px;
+      background: var(--panel); border-left: 1px solid var(--line);
+      box-shadow: -8px 0 28px rgba(13, 38, 52, 0.1);
+    }
+    .eyebrow {
+      color: #267043; font-size: .7rem; font-weight: 800;
+      letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px;
+    }
+    h1 { margin: 0 0 4px; font-size: 1.25rem; letter-spacing: -.01em; }
+    .sub { margin: 0 0 16px; color: var(--muted); font-size: .82rem; }
+    fieldset { margin: 0 0 14px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 7px; background: white; }
+    legend { padding: 0 5px; color: var(--muted); font-size: .68rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+    label { display: block; font-size: .78rem; }
+    select, input[type=range] { width: 100%; }
+    select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 5px; background: white; font: inherit; }
+    input[type=range] { margin: 9px 0 2px; accent-color: var(--navy); cursor: pointer; }
+    .flow-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .flow-value { color: var(--navy); font-size: 1.05rem; font-weight: 760; font-variant-numeric: tabular-nums; }
+    .scale { display: flex; justify-content: space-between; color: var(--muted); font-size: .68rem; font-variant-numeric: tabular-nums; }
+    dl { display: grid; grid-template-columns: minmax(96px, auto) minmax(0, 1fr); gap: 4px 10px; margin: 0; font-size: .76rem; }
+    dt { color: var(--muted); }
+    dd { margin: 0; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .ramp { height: 12px; margin: 7px 0 3px; border: 1px solid #b7c4c5; border-radius: 3px;
+            background: linear-gradient(90deg, #eaf3fb, #9ecae1, #4292c6, #08519c, #08306b); }
+    .metric { color: #267043; font-weight: 750; }
+    .warn { color: #8a4b1f; }
+    #status {
+      position: absolute; left: 12px; top: 12px; z-index: 5; max-width: 60%;
+      padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px;
+      background: rgba(255,255,255,.96); font-size: .8rem;
+      box-shadow: 0 4px 16px rgba(13,38,52,.14);
+    }
+    #status.done { color: #267043; }
+    #status.error { color: #a1341c; border-color: #e0b4a6; }
+    .note { margin: 10px 0 0; color: var(--muted); font-size: .72rem; }
+    button { font: inherit; padding: 4px 10px; border: 1px solid #b7c4c5; border-radius: 5px; background: #f8faf9; color: var(--navy); cursor: pointer; }
+    button[aria-pressed=true] { background: var(--navy); border-color: var(--navy); color: white; }
+    .row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+    .row input[type=range] { flex: 1; }
+  </style>
+</head>
+<body>
+  <div id="map-shell">
+    <div id="map"></div>
+    <div id="status">Loading h5wasm…</div>
+  </div>
+
+  <aside>
+    <div class="eyebrow">Prototype · CLB Engineering</div>
+    <h1>ras2fim-2d NetCDF</h1>
+    <p class="sub">Read straight from the native <code>.nc</code> in the browser.
+      No tile server, no COG conversion.</p>
+    <p class="note" id="attribution"></p>
+
+    <fieldset>
+      <legend>Stream</legend>
+      <label for="stream" class="sr-only"></label>
+      <select id="stream"><option>loading…</option></select>
+      <p class="note" id="catalog-note">Catalog loading…</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Flow</legend>
+      <div class="flow-head">
+        <span style="color:var(--muted);font-size:.72rem">discharge</span>
+        <output id="flow-value" class="flow-value">—</output>
+      </div>
+      <div class="row">
+        <input id="flow" type="range" min="0" max="0" value="0" step="1">
+        <button id="play" type="button" aria-pressed="false" title="Animate">▶</button>
+      </div>
+      <div class="scale"><span id="flow-min">—</span><span id="flow-max">—</span></div>
+      <p class="note">Every layer is already in memory — the slider does no network I/O.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Depth</legend>
+      <div class="ramp"></div>
+      <div class="scale"><span>0</span><span id="ramp-max">—</span></div>
+      <div class="row">
+        <span style="font-size:.72rem;color:var(--muted)">opacity</span>
+        <input id="opacity" type="range" min="10" max="100" step="5" value="85">
+      </div>
+      <dl id="stats" style="margin-top:10px"></dl>
+    </fieldset>
+
+    <fieldset>
+      <legend>File</legend>
+      <dl id="meta"></dl>
+    </fieldset>
+
+    <fieldset>
+      <legend>Timings</legend>
+      <dl id="timings"></dl>
+      <p class="note">This is what the whole question turns on: if decode is fast
+        and the file is small, the browser needs nothing behind it.</p>
+    </fieldset>
+  </aside>
+
+  <script src="app.js"></script>
+</body>
+</html>
