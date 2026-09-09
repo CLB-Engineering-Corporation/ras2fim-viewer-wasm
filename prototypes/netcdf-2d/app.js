@@ -219,6 +219,35 @@
   });
   byId("stream").addEventListener("change", function (event) { loadStream(event.target.value); });
 
+  /* The stream list comes from a manifest so the same viewer serves any
+     directory of ras2fim-2d output. Everything else about a stream -- grid,
+     packing, flows, georeferencing -- is read from the .nc itself on load, so
+     the manifest only has to answer "which files exist, and roughly where". */
+  function loadCatalog() {
+    return fetch("manifest.json", { cache: "no-store" })
+      .then(function (response) {
+        if (!response.ok) throw new Error("manifest.json -> HTTP " + response.status);
+        return response.json();
+      })
+      .then(function (manifest) {
+        var select = byId("stream");
+        select.innerHTML = "";
+        (manifest.streams || []).forEach(function (entry) {
+          var option = document.createElement("option");
+          option.value = entry.file;
+          option.textContent = entry.id + " — " + entry.grid.nx + " × " + entry.grid.ny +
+            ", " + entry.flow_count + " flows";
+          select.appendChild(option);
+        });
+        var total = (manifest.total_bytes || 0) / 1e6;
+        byId("catalog-note").textContent =
+          (manifest.streams || []).length + " stream(s), " + total.toFixed(2) + " MB total.";
+        if (manifest.attribution) byId("attribution").textContent = manifest.attribution;
+        if (!select.options.length) throw new Error("manifest lists no streams");
+        return select.value;
+      });
+  }
+
   var initStart = performance.now();
   /* `ready` resolves to the emscripten Module (FS plus the low-level bindings),
      but the high-level API -- File, Group, Dataset -- hangs off the h5wasm
@@ -227,7 +256,10 @@
     .then(function () {
       h5 = h5wasm;
       timings.init = performance.now() - initStart;
-      loadStream(byId("stream").value);
+      return loadCatalog();
+    })
+    .then(function (first) {
+      loadStream(first);
     })
     .catch(function (error) {
       setStatus("h5wasm failed to initialize: " + error.message, "error");

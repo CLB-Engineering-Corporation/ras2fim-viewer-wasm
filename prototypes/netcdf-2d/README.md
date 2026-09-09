@@ -10,8 +10,14 @@ first:
 
 ```bash
 bash prototypes/netcdf-2d/fetch-vendor.sh
-cp <ras2fim-2d>/sample_data/sample_output/06_simple_rasters/03_wsel_nc_filtered/*.nc    prototypes/netcdf-2d/data/
+cp <ras2fim-2d>/sample_output/06_simple_rasters/03_wsel_nc_filtered/*.nc    prototypes/netcdf-2d/data/
+python pipeline/build_netcdf_manifest.py prototypes/netcdf-2d/data    --out prototypes/netcdf-2d/manifest.json
 ```
+
+The viewer's stream list comes from that manifest, so the same page serves any
+directory of ras2fim-2d output. To build a standalone, deployable copy instead
+-- viewer, libraries, data, and manifest in one folder ready for any static
+host -- use `pipeline/build_netcdf_site.py`.
 
 Run it:
 

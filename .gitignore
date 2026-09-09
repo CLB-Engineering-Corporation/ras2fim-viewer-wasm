@@ -7,6 +7,7 @@ src/frontend/manifest.json
 # Prototype sample data, copied from ras2fim-2d/sample_data. Model output does
 # not belong in Git -- see the ras2fim-2d AGENTS.md rule.
 prototypes/netcdf-2d/data/
+prototypes/netcdf-2d/manifest.json
 
 # Prototype vendor libraries: 6.9 MB of permanent history for a prototype, all
 # of it reproducible from pinned URLs. Run fetch-vendor.sh. The production
