@@ -1,0 +1,37 @@
+ras2fim-viewer-wasm
+Copyright 2026 CLB Engineering Corporation
+
+This product includes software developed at CLB Engineering Corporation.
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+--------------------------------------------------------------------------
+Third-party components redistributed in this repository
+--------------------------------------------------------------------------
+
+MapLibre GL JS 5.24.0 -- src/frontend/vendor/maplibre-gl.js, maplibre-gl.css
+  Copyright (c) MapLibre contributors
+  BSD-3-Clause. https://github.com/maplibre/maplibre-gl-js
+
+PMTiles 4.5.0 -- src/frontend/vendor/pmtiles.js
+  Copyright (c) Protomaps LLC
+  BSD-3-Clause. https://github.com/protomaps/PMTiles
+
+Open Sans glyph ranges -- src/frontend/vendor/fonts/
+  SIL Open Font License 1.1. https://fonts.google.com/specimen/Open+Sans
+
+--------------------------------------------------------------------------
+Fetched at build time, not redistributed here
+--------------------------------------------------------------------------
+
+h5wasm 0.10.3 -- prototypes/netcdf-2d/fetch-vendor.sh
+  Public domain / NIST. https://github.com/usnistgov/h5wasm
+
+--------------------------------------------------------------------------
+Related upstream projects
+--------------------------------------------------------------------------
+
+This repository contains no upstream ras2fim source. It reads the outputs of:
+
+  NOAA-OWP/ras2fim         Apache-2.0  https://github.com/NOAA-OWP/ras2fim
+  andycarter-pe/ras2fim-2d             https://github.com/andycarter-pe/ras2fim-2d

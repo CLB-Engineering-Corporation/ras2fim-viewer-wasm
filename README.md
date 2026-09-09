@@ -1,12 +1,30 @@
-# CLB FIM Dashboard
+# ras2fim-viewer-wasm
 
-An interactive MapLibre webmap for ras2fim output: HEC-RAS **model extents**,
-**model geometry**, and the **flood inundation depth-grid library**, with a
-profile slider that steps through the library and reports each conflated NWM
-reach's stage and discharge.
+Interactive MapLibre webmaps for [ras2fim](https://github.com/NOAA-OWP/ras2fim)
+flood inundation output — HEC-RAS **model extents**, **model geometry**, and the
+**depth-grid library** — with a slider that steps through the library and
+reports each conflated NWM reach's hydraulics.
 
-Pilot unit: `12090301_2277_ble_260901` — Alum Creek–Colorado River, Texas.
-20 models cataloged, 1 (`ALUM 026`) with a published 72-profile depth library.
+There are two paths here, because the 1D and 2D outputs are shaped differently.
+
+**Browser-native (`prototypes/netcdf-2d/`)** — the direction the name points at.
+[ras2fim-2d](https://github.com/andycarter-pe/ras2fim-2d) writes NetCDF4, which
+is HDF5, already in EPSG:3857, with WSEL and terrain packed as `uint16`. So
+[h5wasm](https://github.com/usnistgov/h5wasm) reads it **directly in the
+browser**: no tile server, no conversion step, and depth is an integer subtract.
+Measured at 2.35 MB downloaded, 148 ms to decode 15 flow layers, 25–42 ms per
+slider step with zero network I/O.
+
+**Server-assisted (`src/frontend/`, `pipeline/`)** — the working 1D dashboard.
+ras2fim 1D emits dozens of separate GeoTIFFs in State Plane feet, which a
+browser cannot use as they are, so this path warps them to COGs and serves them
+through TiTiler. Fully built and validated.
+
+The pilot 1D unit is `12090301_2277_ble_260901` — Alum Creek–Colorado River,
+Texas; 20 models cataloged, 1 (`ALUM 026`) with a published 72-profile library.
+
+> **Status:** the 1D path is complete and validated but has not been deployed.
+> The 2D path is a proven prototype, not a product.
 
 ## What it shows
 
