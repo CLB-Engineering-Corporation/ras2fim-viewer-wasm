@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ras2fim Flood Inundation Mapping | CLB Engineering</title>
+  <meta name="description" content="Explore HEC-RAS model extents, geometry, and ras2fim depth-grid libraries by HUC8.">
+  <link rel="stylesheet" href="vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="vendor/maplibre-gl.js"></script>
+  <script src="vendor/pmtiles.js"></script>
+  <script src="config.js"></script>
+</head>
+<body>
+  <main id="app">
+    <section id="map-shell" aria-label="Flood inundation map">
+      <div id="map"></div>
+      <div id="map-status" class="map-status" role="status" aria-live="polite">Loading catalog…</div>
+      <div id="map-notice" class="map-notice" role="status" aria-live="polite" hidden></div>
+      <div id="zoom-readout" aria-hidden="true">Zoom —</div>
+      <button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true" title="Hide map controls">
+        <span class="sidebar-toggle-icon" aria-hidden="true">›</span>
+        <span class="sidebar-toggle-label">Hide panel</span>
+      </button>
+    </section>
+
+    <aside id="sidebar" aria-label="Map controls">
+      <div id="sidebar-resizer" role="separator" aria-label="Resize map controls" aria-orientation="vertical"
+        aria-valuemin="260" aria-valuemax="520" aria-valuenow="360" tabindex="0"
+        title="Drag to resize; double-click to reset"></div>
+
+      <header class="product-header">
+        <div class="eyebrow">CLB Engineering · WebGIS</div>
+        <h1>Flood Inundation Mapping</h1>
+        <p>HEC-RAS model extents, geometry, and ras2fim depth-grid libraries.</p>
+        <div class="catalog-status"><span class="status-dot"></span><span id="catalog-summary">Catalog loading</span></div>
+      </header>
+
+      <section class="panel open" data-panel="unit">
+        <button class="panel-heading" type="button" aria-expanded="true">
+          <span>Mapping unit</span><span class="chevron" aria-hidden="true">⌄</span>
+        </button>
+        <div class="panel-body">
+          <label class="sr-only" for="unit-select">Select a ras2fim unit</label>
+          <select id="unit-select"></select>
+          <dl id="unit-meta" class="meta-grid"></dl>
+        </div>
+      </section>
+
+      <section class="panel open" data-panel="fim">
+        <button class="panel-heading" type="button" aria-expanded="true">
+          <span>Flood inundation</span><span class="chevron" aria-hidden="true">⌄</span>
+        </button>
+        <div class="panel-body">
+          <div id="fim-empty" class="empty-state" hidden>No depth-grid library in this unit.</div>
+
+          <div id="fim-controls">
+            <div class="field-row" id="fim-model-row">
+              <label class="field-label" for="fim-model">Model</label>
+              <select id="fim-model"></select>
+            </div>
+
+            <label class="layer-row master-row" for="depth-visible">
+              <input id="depth-visible" type="checkbox" checked>
+              <span class="swatch swatch-depth"></span>
+              <span class="layer-name">Depth grid</span>
+            </label>
+
+            <div class="profile-control">
+              <div class="profile-heading">
+                <span class="profile-label">Profile</span>
+                <output id="profile-readout" for="profile-slider">—</output>
+              </div>
+              <div class="profile-row">
+                <button id="profile-prev" type="button" class="step-btn" title="Previous profile" aria-label="Previous profile">‹</button>
+                <input id="profile-slider" type="range" min="0" max="0" step="1" value="0" aria-label="Profile index">
+                <button id="profile-next" type="button" class="step-btn" title="Next profile" aria-label="Next profile">›</button>
+                <button id="profile-play" type="button" class="step-btn play" title="Animate the library" aria-label="Animate the library">▶</button>
+              </div>
+              <div class="range-scale" aria-hidden="true"><span id="profile-min">low</span><span id="profile-max">high</span></div>
+            </div>
+
+            <div id="reach-readouts" class="reach-readouts"></div>
+
+            <div class="legend" id="depth-legend">
+              <div class="legend-heading">
+                <span>Depth</span><span class="legend-unit" id="legend-unit">ft</span>
+              </div>
+              <div class="legend-ramp" id="legend-ramp"></div>
+              <div class="legend-scale"><span>0</span><span id="legend-max">—</span></div>
+              <p class="hint">One colour scale is held fixed across every profile, so the ramp
+                shows the flood rising rather than restretching at each step.</p>
+            </div>
+
+            <div class="range-control">
+              <div class="range-heading">
+                <label for="depth-opacity">Depth opacity</label>
+                <output id="depth-opacity-value" for="depth-opacity">85%</output>
+              </div>
+              <input id="depth-opacity" type="range" min="10" max="100" step="5" value="85">
+            </div>
+
+            <label class="layer-row" for="boundary-visible">
+              <input id="boundary-visible" type="checkbox">
+              <span class="swatch swatch-boundary"></span>
+              <span class="layer-name">Maximum extent outline</span>
+            </label>
+            <p class="hint" id="boundary-hint">The inundation boundary ras2fim writes at the top profile.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel open" data-panel="geometry">
+        <button class="panel-heading" type="button" aria-expanded="true">
+          <span>Model geometry</span><span class="chevron" aria-hidden="true">⌄</span>
+        </button>
+        <div class="panel-body">
+          <label class="layer-row master-row" for="geometry-all">
+            <input id="geometry-all" type="checkbox" checked>
+            <span class="swatch swatch-multi"></span>
+            <span class="layer-name">All geometry layers</span>
+          </label>
+          <div id="geometry-layers"></div>
+          <p class="hint">Extents appear first; cross sections and conflation points wait until
+            they are legible.</p>
+        </div>
+      </section>
+
+      <section class="panel open" data-panel="models">
+        <button class="panel-heading" type="button" aria-expanded="true">
+          <span>Models</span><span class="chevron" aria-hidden="true">⌄</span>
+        </button>
+        <div class="panel-body">
+          <div id="model-list" class="model-list">
+            <div class="empty-state">Select a unit to list its models.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="basemap">
+        <button class="panel-heading" type="button" aria-expanded="false">
+          <span>Basemap</span><span class="chevron" aria-hidden="true">›</span>
+        </button>
+        <div class="panel-body" hidden>
+          <label class="layer-row" for="base-satellite">
+            <input id="base-satellite" type="radio" name="basemap" value="satellite" checked>
+            <span class="layer-name">Satellite</span>
+          </label>
+          <label class="layer-row" for="base-streets">
+            <input id="base-streets" type="radio" name="basemap" value="streets">
+            <span class="layer-name">OpenStreetMap</span>
+          </label>
+          <div class="range-control">
+            <div class="range-heading">
+              <label for="basemap-transparency">Basemap transparency</label>
+              <output id="basemap-transparency-value" for="basemap-transparency">30%</output>
+            </div>
+            <input id="basemap-transparency" type="range" min="0" max="90" step="5" value="30">
+            <div class="range-scale" aria-hidden="true"><span>Solid</span><span>More transparent</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="feature-panel" class="feature-panel" hidden>
+        <div class="feature-kicker">Selected feature</div>
+        <h2 id="feature-title">Feature</h2>
+        <dl id="feature-properties"></dl>
+      </section>
+    </aside>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
