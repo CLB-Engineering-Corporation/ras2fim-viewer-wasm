@@ -14,6 +14,10 @@ prototypes/netcdf-2d/data/
 prototypes/netcdf-2d/vendor/
 agent_tasks/*_report.json
 
+# Real deployment values -- host addresses, storage roots, service layout.
+# Start from deploy.example.json.
+deploy.json
+
 # Python
 __pycache__/
 *.py[cod]

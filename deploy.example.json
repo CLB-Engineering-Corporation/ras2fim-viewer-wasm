@@ -1,0 +1,50 @@
+{
+  "_comment": [
+    "Template. Copy to deploy.json and fill in your own values; deploy.json is",
+    "gitignored so real host addresses and paths stay out of version control.",
+    "The shape matters more than the values: the notes below are the parts that",
+    "were learned the hard way."
+  ],
+  "schema_version": 1,
+  "deployment_name": "fim-dashboard",
+  "public_base_url": "https://maps.example.org",
+  "public_path": "/maps/fim/",
+  "status": "not-yet-deployed",
+  "source": {
+    "tooling_root": "/path/to/fim-dashboard",
+    "pipeline_environment": "a conda env with the GDAL 3.8+ Python bindings",
+    "build_location": "trusted-host-only",
+    "source_units": [
+      "/path/to/ras2fim_data/output_ras2fim/<huc8>_<crs>_<source>_<yymmdd>"
+    ]
+  },
+  "target": {
+    "host": "web-host.example.internal",
+    "releases_root": "/srv/fim-dashboard/releases",
+    "route_uses_immutable_release": true
+  },
+  "frontend": {
+    "source_root": "src/frontend",
+    "production_config": "src/frontend/config.js",
+    "runtime_services": [
+      {
+        "name": "fim-titiler",
+        "role": "serves the depth COGs",
+        "public_path": "/fim-tiles/",
+        "note": "rasterTileBase must be a same-origin proxy path, not a private host:port. A cross-origin tile base needs CORS on the tile service and breaks under HTTPS."
+      }
+    ]
+  },
+  "artifacts": {
+    "cogs": {
+      "path": "src/frontend/cogs/<unit>/<model_slug>/depth_<NNN>.tif",
+      "committed": false,
+      "note": "The tile service must be able to read these by the same URL the browser sends."
+    },
+    "pmtiles": {
+      "path": "src/frontend/pmtiles/fim_<unit>.pmtiles",
+      "committed": false,
+      "note": "Served as static files; needs HTTP byte-range support."
+    }
+  }
+}

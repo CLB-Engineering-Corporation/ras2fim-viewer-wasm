@@ -1,0 +1,86 @@
+# Agent notes — fim-dashboard
+
+Read `README.md` first. This file records the things that are easy to get wrong
+and expensive to notice later.
+
+## Environments: there are two, on purpose
+
+| What | Interpreter | Why |
+|---|---|---|
+| `pipeline/*` | `conda activate lwi-gdal` (Python 3.11, GDAL 3.13 bindings) | The area-matched overview builder writes overview levels directly. Only the `osgeo` API exposes that; rasterio has no equivalent. |
+| `serve/dev_tiles.py` | the plain workstation interpreter (rasterio + Pillow) | It only reads COGs and encodes PNGs, and `lwi-gdal` has neither rasterio nor Pillow. |
+
+Do not "simplify" this into one environment by rewriting `cog_postprocess.py` on
+rasterio. The overview algorithm is the reason the module exists.
+
+The GDAL on `PATH` at `C:\Program Files\GDAL` is **2.1.0 (2016)** and predates
+the COG driver entirely. Never invoke it. `pip install gdal` has no wheel for
+the workstation's Python.
+
+## Things that were already wrong once
+
+- **`ComputeRasterMinMax(True)` reads the overview pyramid.** These overviews
+  carry the mean of each coarse cell's wet contributors, so the approximate path
+  reported the pilot library's peak as 17.5 ft instead of 31.8 ft. The colour
+  ramp is built from that number, so it silently clipped the deepest water on
+  every profile. Always pass `approx_ok=False` on a depth grid.
+- **Gating UI initialization on `map.on("load")`.** MapLibre fires `load` only
+  after a first render, and `requestAnimationFrame` is throttled to zero in a
+  background tab — so the entire panel sat dead with a permanent "Catalog
+  loading" label and no way to tell why. Controls and the manifest fetch now run
+  immediately; only style-touching work goes through `whenMapReady`. Anything
+  calling `map.getStyle()` must check `map.isStyleLoaded()` first, because it
+  throws before the style exists.
+- **`stage_interval_ft` is not a property of a reach.** Profiles are uniformly
+  spaced in depth at the model's *controlling* cross section only. The manifest
+  records `profile_spacing` as prose at the model level and a per-reach observed
+  `stage_step_ft` {min, median, max}.
+
+## Contracts that must not drift
+
+- **The profile index is the join key.** `Depth (flow<N>_ft)`, `profile_num` in
+  the rating curves, and `profile_num` in the geocurves are the same zero-based
+  RASMapper `ProfileIndex`. Nothing may reorder or renumber it.
+- **Layer names in `build_fim_pmtiles.py` match `VECTORS[].id` in `app.js`.**
+  Renaming one without the other produces an empty layer and no error anywhere.
+  `validate_release.py` catches it.
+- **`finish_cog()` is the only way a COG gets written.** It stamps the codec,
+  the LERC tolerance, and the overview method into the artifact, validates the
+  layout with a real validator, and replaces the destination atomically. Never
+  reopen a finished COG with `GA_Update` to add metadata — GDAL either refuses
+  or produces a file that is no longer a COG.
+- **Keep `cog_postprocess.py` in step with `clb_lwi_webmap`.** It is vendored.
+  The deliberate divergences are exactly two: `DEFAULT_ENVELOPE` is CONUS-wide
+  rather than Louisiana, and `METADATA_PREFIX` is `FIM`. Anything else should be
+  ported back and forth rather than allowed to fork.
+
+## Before calling a build done
+
+```powershell
+conda activate lwi-gdal
+python pipeline/validate_release.py --frontend src/frontend --deep
+```
+
+454 checks pass on the pilot unit with one warning: reach `5789842`'s stage is
+not monotonic with profile index. That is real — it steps backwards by 0.04 ft —
+and it is a property of the ras2fim run, which writes its own
+`warning_stage_diff_gt_1ft_<huc8>.csv`. Do not silence it.
+
+Then preview it. A pipeline that passes validation can still render nothing, and
+the depth grid is the whole product:
+
+```powershell
+python serve/range_server.py 8100 src/frontend
+python serve/dev_tiles.py --port 8102 --root src/frontend
+```
+
+## Scope
+
+This repository publishes what ras2fim produced. It does not filter, smooth,
+reinterpret, or re-derive hydraulics. Wide inundation in flat terrain is a real
+characteristic of 1D RASMapper mapping, not a defect to correct here — if it
+needs addressing, it is addressed in the model or in `ras2fim`, upstream.
+
+Git: this tree is under `H:\CLB-Repos`, so use `clbgit` for working-tree
+operations, and native `git` only for GitHub sync. See the shared workspace
+`CLAUDE.md`.
