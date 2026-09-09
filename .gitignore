@@ -1,0 +1,28 @@
+# Generated release artifacts. These are rebuilt from a ras2fim output unit by
+# pipeline/, and a depth library is far too large to carry in Git history.
+src/frontend/cogs/
+src/frontend/pmtiles/
+src/frontend/manifest.json
+
+# Prototype sample data, copied from ras2fim-2d/sample_data. Model output does
+# not belong in Git -- see the ras2fim-2d AGENTS.md rule.
+prototypes/netcdf-2d/data/
+
+# Prototype vendor libraries: 6.9 MB of permanent history for a prototype, all
+# of it reproducible from pinned URLs. Run fetch-vendor.sh. The production
+# frontend's vendor/ IS committed -- a release must build without the network.
+prototypes/netcdf-2d/vendor/
+agent_tasks/*_report.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Editors and OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

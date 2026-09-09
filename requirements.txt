@@ -1,0 +1,16 @@
+# pipeline/ runs against the GDAL Python bindings, not rasterio: the
+# area-matched overview builder writes overview levels directly, which only the
+# osgeo API exposes. On CLB workstations this is the `lwi-gdal` conda
+# environment (GDAL 3.13, numpy 1.26).
+#
+#   conda activate lwi-gdal
+#
+# GDAL>=3.8 is required for the COG and PMTiles drivers.
+GDAL>=3.8
+numpy>=1.26,<3.0
+
+# serve/dev_tiles.py only. It is a local preview stand-in for TiTiler and runs
+# on the plain workstation interpreter, not in lwi-gdal.
+rasterio>=1.4
+Pillow>=10.0
+pyproj>=3.6
