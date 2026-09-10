@@ -36,25 +36,41 @@ def mercator_to_lonlat(x: float, y: float) -> tuple[float, float]:
     )
 
 
+def geotransform_error(text: str | None) -> str | None:
+    """Why a GeoTransform string cannot be used, or None if it is fine.
+
+    Split out from :func:`parse_geotransform` so a validator can name the
+    specific failure. A builder only needs to know that the file is not
+    publishable; a validator has to tell someone what to fix.
+    """
+    if not text:
+        return "is absent"
+    try:
+        parts = [float(p) for p in str(text).split()]
+    except ValueError:
+        return "is not a list of numbers"
+    if len(parts) != 6:
+        return f"has {len(parts)} numbers, expected 6"
+    if not all(math.isfinite(p) for p in parts):
+        return "contains a non-finite value"
+    return None
+
+
 def parse_geotransform(text: str | None) -> dict[str, float] | None:
     """Parse GDAL's six-number GeoTransform, or return None if unusable.
 
     Order is ``originX pixelW rotX originY rotY pixelH``. Returns None rather
     than raising, because an unparseable transform means "this file is not
-    publishable", which every caller handles by skipping the file.
+    publishable", which every caller handles by skipping the file. Use
+    :func:`geotransform_error` when the reason matters.
 
     Non-finite values are rejected here rather than downstream: NaN survives a
     length check and then serialises as bare ``NaN``, which is not valid JSON
     and fails in the browser at ``JSON.parse``, a long way from the cause.
     """
-    if not text:
+    if geotransform_error(text) is not None:
         return None
-    try:
-        parts = [float(p) for p in str(text).split()]
-    except ValueError:
-        return None
-    if len(parts) != 6 or not all(math.isfinite(p) for p in parts):
-        return None
+    parts = [float(p) for p in str(text).split()]
     return {
         "origin_x": parts[0], "pixel_w": parts[1], "rot_x": parts[2],
         "origin_y": parts[3], "rot_y": parts[4], "pixel_h": parts[5],
@@ -85,6 +101,23 @@ def grid_bounds_lonlat(gt: dict[str, float], nx: int, ny: int) -> tuple[float, f
     lon_w, lat_s = mercator_to_lonlat(west, south)
     lon_e, lat_n = mercator_to_lonlat(east, north)
     return (lon_w, lat_s, lon_e, lat_n)
+
+
+def transform_bounds(gt, width: int, height: int) -> tuple[float, float, float, float]:
+    """Extent of a raster from GDAL's GeoTransform 6-tuple, as (x0, y0, x1, y1).
+
+    Takes the tuple GDAL's ``GetGeoTransform()`` returns, not the parsed dict --
+    the caller already has the open dataset, and re-serialising it to a string
+    just to parse it back would be silly.
+
+    All four corners are mapped, not just two. For a north-up grid the other two
+    are redundant and the result is identical; for a rotated one, taking only
+    the origin and the far corner understates the extent. Both copies this
+    replaced took the two-corner shortcut.
+    """
+    xs = [gt[0] + x * gt[1] + y * gt[2] for x, y in ((0, 0), (width, 0), (0, height), (width, height))]
+    ys = [gt[3] + x * gt[4] + y * gt[5] for x, y in ((0, 0), (width, 0), (0, height), (width, height))]
+    return (min(xs), min(ys), max(xs), max(ys))
 
 
 def union_bounds(a: tuple | None, b: tuple | None) -> tuple | None:

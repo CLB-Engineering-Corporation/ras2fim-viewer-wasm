@@ -83,6 +83,8 @@ from typing import Iterable, Sequence
 import numpy as np
 from osgeo import gdal, osr
 
+from ..common.geodesy import looks_like_lonlat, transform_bounds
+
 gdal.UseExceptions()
 
 # --------------------------------------------------------------------------
@@ -607,11 +609,7 @@ def assert_wgs84_bounds(
     ds = gdal.Open(str(path))
     if ds is None:
         raise CogError(f"cannot open: {path}")
-    gt = ds.GetGeoTransform()
-    w, h = ds.RasterXSize, ds.RasterYSize
-    xs = [gt[0], gt[0] + w * gt[1] + h * gt[2]]
-    ys = [gt[3], gt[3] + w * gt[4] + h * gt[5]]
-    bounds = (min(xs), min(ys), max(xs), max(ys))
+    bounds = transform_bounds(ds.GetGeoTransform(), ds.RasterXSize, ds.RasterYSize)
 
     wkt = ds.GetProjection()
     ds = None
@@ -626,7 +624,7 @@ def assert_wgs84_bounds(
             "expected geographic WGS84. Reproject; do not re-stamp the code."
         )
 
-    if not (-180 <= bounds[0] and bounds[2] <= 180 and -90 <= bounds[1] and bounds[3] <= 90):
+    if not looks_like_lonlat(bounds):
         raise CogError(
             f"{Path(path).name}: bounds {bounds} are outside +-180/+-90 — "
             "the raster is almost certainly in projected units carrying a "

@@ -26,6 +26,8 @@ from urllib.parse import urlparse
 
 import netCDF4
 
+from ..common.geodesy import geotransform_error, is_north_up, parse_geotransform
+
 #: What the viewer's app.js understands. Bump both together.
 EXPECTED_SCHEMA = 1
 
@@ -194,11 +196,9 @@ def validate_data(site: Path, manifest: dict, report: Report) -> None:
 
             if "spatial_ref" in nc.variables:
                 raw = getattr(nc.variables["spatial_ref"], "GeoTransform", None)
-                parts = [float(p) for p in str(raw).split()] if raw else []
-                if report.check(len(parts) == 6, f"{name}: spatial_ref has no 6-number GeoTransform"):
-                    report.check(all(math.isfinite(p) for p in parts),
-                                 f"{name}: GeoTransform contains a non-finite value")
-                    report.check(parts[2] == 0 and parts[4] == 0,
+                problem = geotransform_error(raw)
+                if report.check(problem is None, f"{name}: spatial_ref GeoTransform {problem}"):
+                    report.check(is_north_up(parse_geotransform(raw)),
                                  f"{name}: rotated grid; the viewer refuses these")
             else:
                 report.check(False, f"{name}: no spatial_ref variable")

@@ -32,7 +32,7 @@ from pathlib import Path
 
 from osgeo import gdal, ogr, osr
 
-from ..common.geodesy import union_bounds
+from ..common.geodesy import transform_bounds, union_bounds
 from .source import Model, Unit, read_unit
 
 gdal.UseExceptions()
@@ -47,18 +47,9 @@ def _cog_bounds(path: Path) -> tuple[float, float, float, float]:
     ds = gdal.Open(str(path))
     if ds is None:
         raise RuntimeError(f"cannot open COG: {path}")
-    gt = ds.GetGeoTransform()
-    w, h = ds.RasterXSize, ds.RasterYSize
-    xs = (gt[0], gt[0] + w * gt[1] + h * gt[2])
-    ys = (gt[3], gt[3] + w * gt[4] + h * gt[5])
+    bounds = transform_bounds(ds.GetGeoTransform(), ds.RasterXSize, ds.RasterYSize)
     ds = None
-    return (min(xs), min(ys), max(xs), max(ys))
-
-
-def _union(a: tuple | None, b: tuple) -> tuple:
-    if a is None:
-        return b
-    return (min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3]))
+    return bounds
 
 
 def _vector_bounds(path: Path) -> tuple[float, float, float, float] | None:
@@ -190,7 +181,7 @@ def _model_entry(
         # the deepest water on every profile.
         lo, hi = band.ComputeRasterMinMax(False)
         ds = None
-        bbox = _union(bbox, _cog_bounds(cog))
+        bbox = union_bounds(bbox, _cog_bounds(cog))
         depth_max = max(depth_max, float(hi))
         profiles.append(
             {
@@ -264,15 +255,15 @@ def build_manifest(
         for model in unit.models:
             entry, bbox = _model_entry(unit, model, cog_root, frontend, xs_counts)
             models.append(entry)
-            unit_bbox = _union(unit_bbox, bbox) if bbox else unit_bbox
+            unit_bbox = union_bounds(unit_bbox, bbox) if bbox else unit_bbox
 
         # The vector layers reach past the FIM model -- 20 cataloged models
         # against one published library -- so they set the unit's extent.
         for name in ("ras_cross_sections", "ras_streams", "huc12"):
             if (path := unit.vectors.get(name)) and (b := _vector_bounds(path)):
-                unit_bbox = _union(unit_bbox, b)
+                unit_bbox = union_bounds(unit_bbox, b)
 
-        overall = _union(overall, unit_bbox) if unit_bbox else overall
+        overall = union_bounds(overall, unit_bbox) if unit_bbox else overall
         catalog.append(
             {
                 "unit": unit.unit_name,
