@@ -3,7 +3,7 @@
 **Date:** 2026-09-10
 **Scope:** whole repository — files, module boundaries, naming, API surface, docs
 **Model:** `ras-commander`'s structure and its API-consistency auditor
-**Status:** gaps identified; nothing changed yet
+**Status:** all ten gaps addressed; see Progress below
 
 ---
 
@@ -245,7 +245,10 @@ of what the repository looked like on 2026-09-10.
 | R2 — 1D/2D split | **done.** `src/viewer-1d`, `src/viewer-2d`, `pipeline/fim1d`, `pipeline/fim2d`. Verified by a byte-identical 2D rebuild. |
 | R6 — shared geodesy | **done.** All four Python copies are gone. `transform_bounds()` and `geotransform_error()` were added to carry what the call sites actually needed. |
 | R3 — tests | **done.** 65 tests, under a second, plus CI. |
-| R5, R4, R7, R8 | not started |
+| R5 — CLI normalisation | **done.** The thing being read is the positional everywhere; `--out` and `--report` throughout. `unit` survives as a documented exception. |
+| R4 — conventions + checker | **done.** `.conventions.yaml` holds 23 rules with their reasoning; `pipeline/check_conventions.py` enforces 12 across 131 checks and warns about any rule nothing verifies. |
+| R7 — docs split | **done.** README 275 → 105 lines, the rest moved verbatim into `docs/`, plus `CONTRIBUTING.md` and `CHANGELOG.md`. |
+| R8 — packaging | **done.** `pyproject.toml` with `fim1d`, `fim2d`, `serve` and `test` groups and an empty base, so "works on a bare checkout" is a thing CI proves. |
 | "1D is unproven" | **closed** — see [2026-09-11-1d-path-proven.md](2026-09-11-1d-path-proven.md). The viewer renders depth grids from the pilot unit; the blocker was a hidden automated tab never running MapLibre's render loop, not the code. A *public* 1D example still does not exist. |
 
 ### What R3 turned out to be
@@ -275,6 +278,8 @@ finiteness with `parts.some(isNaN)`, and `isNaN(Infinity)` is `false`, so it
 accepted an infinite origin that Python rejected. That is exactly the silent
 drift G5 predicted, found the first time the two were compared.
 
+### The one recommendation not taken
+
 `src/shared/` from the R2 sketch was **not** created. Extracting the sidebar,
 resizer, basemap switcher and panel accordions is a real deduplication, but it
 is a behavioural change to two working frontends with no test between them.
@@ -284,3 +289,11 @@ One thing the move nearly broke silently, worth recording because the next bulk
 rename will meet it too: `.gitignore` has no file extension, so a rewrite
 filtered by suffix skips it, and 4.3 MB of generated COGs staged themselves on
 the first `add`. Any path rewrite must include extensionless files by name.
+
+Both frontends still carry their own sidebar, resizer, basemap switcher and
+panel accordions. The duplication is real, and so is the reason it survived: it
+is a behavioural change to two working, deployed viewers, and the test suite
+covers the reader and the pipeline, not the UI. It stays open, and it is the
+right first thing to reach for if UI tests ever arrive.
+
+Everything else the audit recommended is done.
