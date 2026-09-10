@@ -26,7 +26,6 @@ import argparse
 import ast
 import json
 import re
-import sys
 from pathlib import Path
 
 
@@ -223,20 +222,50 @@ def _referenced_assets(viewer: Path) -> set[str]:
     return found
 
 
-def check_viewer_files(root: Path, findings: Findings) -> None:
-    sys.path.insert(0, str(root))
-    from pipeline.fim1d import site as site1d
-    from pipeline.fim2d import site as site2d
+def module_constants(path: Path, names: tuple[str, ...]) -> dict[str, tuple]:
+    """Read module-level tuple constants without importing the module.
 
-    for viewer_name, module, generated in (
-        ("viewer-1d", site1d, set(site1d.GENERATED_FILES)),
-        ("viewer-2d", site2d, set()),
-    ):
-        viewer = root / "src" / viewer_name
-        if not viewer.is_dir():
+    Importing pipeline.fim2d.site pulls in netCDF4, which made this checker
+    depend on a package it claims not to need -- and it claims not to need one
+    so it can run in CI before any wheel is built. ast.literal_eval reads the
+    assignment directly and cannot execute anything.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    found: dict[str, tuple] = {}
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
             continue
-        published = (set(module.VIEWER_FILES) | generated
-                     | {f"vendor/{n}" for n in module.VENDOR_FILES})
+        for target in node.targets:
+            if isinstance(target, ast.Name) and target.id in names:
+                try:
+                    found[target.id] = tuple(ast.literal_eval(node.value))
+                except (ValueError, TypeError):
+                    pass
+    return found
+
+
+def check_viewer_files(root: Path, findings: Findings) -> None:
+    builders = (
+        ("viewer-1d", root / "pipeline" / "fim1d" / "site.py"),
+        ("viewer-2d", root / "pipeline" / "fim2d" / "site.py"),
+    )
+    for viewer_name, builder in builders:
+        viewer = root / "src" / viewer_name
+        if not viewer.is_dir() or not builder.is_file():
+            continue
+        constants = module_constants(builder, ("VIEWER_FILES", "VENDOR_FILES", "GENERATED_FILES"))
+        viewer_files = constants.get("VIEWER_FILES", ())
+        if not findings.check(
+            "viewer-files-complete",
+            bool(viewer_files),
+            f"{builder.relative_to(root).as_posix()}: VIEWER_FILES could not be read; "
+            f"this check would pass vacuously",
+        ):
+            continue
+
+        published = (set(viewer_files)
+                     | set(constants.get("GENERATED_FILES", ()))
+                     | {f"vendor/{n}" for n in constants.get("VENDOR_FILES", ())})
         references = _referenced_assets(viewer)
         findings.check(
             "viewer-files-complete",
@@ -251,7 +280,7 @@ def check_viewer_files(root: Path, findings: Findings) -> None:
                 f"{viewer_name}: {reference} is loaded by the page but is in neither "
                 f"VIEWER_FILES nor VENDOR_FILES; the built site would 404 it",
             )
-        for name in module.VIEWER_FILES:
+        for name in viewer_files:
             findings.check(
                 "viewer-files-complete",
                 (viewer / name).is_file(),

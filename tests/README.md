@@ -1,11 +1,12 @@
 # Tests
 
 ```sh
-node --test tests/*.test.mjs             # the browser reader, no dependencies
+node --test tests/*.test.mjs                # the browser reader, no dependencies
 python -m unittest discover -s tests -t .   # the pipeline, needs numpy + netCDF4
+python -m pipeline.check_conventions        # the rules in .conventions.yaml
 ```
 
-Both run in well under a second. Neither needs a browser, a tile server, GDAL,
+All three run in about a second. Neither needs a browser, a tile server, GDAL,
 any committed data, or the network -- the round-trip test builds against a
 temporary viewer root with stub vendor files, so it never triggers
 `fetch-vendor.sh`.
@@ -21,6 +22,9 @@ split rather than papering over it.
 | `test_geodesy.py` | `unittest` | nothing | `pipeline/common/geodesy.py`, and its agreement with the JavaScript copy |
 | `test_site_safety.py` | `unittest` | `netCDF4` | the destructive-`--clean` refusals and the `VIEWER_FILES` contract |
 | `test_roundtrip.py` | `unittest` | `netCDF4`, `numpy` | build a site from synthesised NetCDF, then deep-validate it |
+| `test_site_1d.py` | `unittest` | `netCDF4` | building a publishable 1D release, and every refusal it makes |
+| `test_ramp.py` | `unittest` | `numpy` | the depth colour ramp three things have to agree on |
+| `test_conventions.py` | `unittest` | nothing | the conventions checker, and that it needs nothing installed |
 
 The 1D pipeline is **not** covered here. It needs the GDAL Python bindings and
 real ras2fim output, neither of which belongs in a two-minute CI job. Its gate
