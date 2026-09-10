@@ -27,14 +27,41 @@
     node.textContent = text;
     node.className = mode || "";
   }
+  /* A styled run of text inside a definition-list value. Values reach this
+     panel from NetCDF attributes -- 00_stream_id and 09_vertical_filter are
+     written by whoever produced the file -- so nothing here may go through
+     innerHTML. Callers describe emphasis with seg(); the text itself always
+     lands in a text node. */
+  function seg(text, className) {
+    return { text: text, className: className || null };
+  }
+
   function fillList(id, pairs) {
     var host = byId(id);
-    host.innerHTML = "";
+    host.textContent = "";
     pairs.forEach(function (pair) {
       if (pair[1] == null) return;
-      var dt = document.createElement("dt"); dt.textContent = pair[0];
-      var dd = document.createElement("dd"); dd.innerHTML = pair[1];
-      host.appendChild(dt); host.appendChild(dd);
+      var dt = document.createElement("dt");
+      dt.textContent = pair[0];
+
+      var dd = document.createElement("dd");
+      var parts = Array.isArray(pair[1]) ? pair[1] : [seg(pair[1])];
+      parts.forEach(function (part) {
+        // A bare string is data; only an explicit seg() can carry a class, and
+        // the class is ours, never the file's.
+        var piece = part && typeof part === "object" ? part : seg(part);
+        if (piece.className) {
+          var span = document.createElement("span");
+          span.className = piece.className;
+          span.textContent = String(piece.text);
+          dd.appendChild(span);
+        } else {
+          dd.appendChild(document.createTextNode(String(piece.text)));
+        }
+      });
+
+      host.appendChild(dt);
+      host.appendChild(dd);
     });
   }
 
@@ -116,21 +143,24 @@
     var stats = R2F2D.depthStats(stack, index);
     var pct = (100 * wet) / (stack.ny * stack.nx);
     fillList("stats", [
-      ["Wet cells", fmt(wet) + " <span style='color:#647683'>(" + pct.toFixed(1) + "% of grid)</span>"],
+      ["Wet cells", [seg(fmt(wet)), seg(" (" + pct.toFixed(1) + "% of grid)", "muted")]],
       ["Max depth", fmt(stats.max, 2) + " ft"],
       ["Mean depth", fmt(stats.mean, 2) + " ft"],
-      ["Min (signed)", "<span class='" + (stats.min < 0 ? "warn" : "") + "'>" + fmt(stats.min, 2) + " ft</span>"],
+      ["Min (signed)", [seg(fmt(stats.min, 2) + " ft", stats.min < 0 ? "warn" : null)]],
       ["Below terrain", stats.negative
-        ? "<span class='warn'>" + fmt(stats.negative) + " cells</span>"
+        ? [seg(fmt(stats.negative) + " cells", "warn")]
         : "0 cells"]
     ]);
 
     byId("flow-value").textContent = fmt(stack.flows[index]) + " " + stack.flowUnits;
     fillList("timings", [
-      ["Download", "<span class='metric'>" + fmt(timings.fetch, 0) + " ms</span> (" + (stack.bytes / 1e6).toFixed(2) + " MB)"],
+      ["Download", [seg(fmt(timings.fetch, 0) + " ms", "metric"),
+                    seg(" (" + (stack.bytes / 1e6).toFixed(2) + " MB)")]],
       ["h5wasm init", fmt(timings.init, 0) + " ms"],
-      ["Decode all", "<span class='metric'>" + fmt(stack.decodeMs, 0) + " ms</span> (" + stack.nFlow + " layers)"],
-      ["Paint layer", "<span class='metric'>" + fmt(timings.paint, 1) + " ms</span> per slider step"],
+      ["Decode all", [seg(fmt(stack.decodeMs, 0) + " ms", "metric"),
+                      seg(" (" + stack.nFlow + " layers)")]],
+      ["Paint layer", [seg(fmt(timings.paint, 1) + " ms", "metric"),
+                       seg(" per slider step")]],
       ["In memory", fmt((stack.wsel.byteLength + stack.terrain.byteLength) / 1e6, 1) + " MB uint16"]
     ]);
   }
@@ -166,6 +196,9 @@
         byId("flow-min").textContent = fmt(stack.flows[0]) + " cfs";
         byId("flow-max").textContent = fmt(stack.flows[stack.nFlow - 1]) + " cfs";
 
+        // stack.streamId, stack.variable and stack.verticalFilter come from the
+        // file's own attributes. They are data, so they go through fillList as
+        // plain strings and land in text nodes.
         fillList("meta", [
           ["Stream", stack.streamId],
           ["Variable", stack.variable + " → depth"],
@@ -173,7 +206,7 @@
           ["Layers", stack.nFlow + " flows"],
           ["Packing", "uint16 × " + stack.scale + ", fill " + stack.fill],
           ["Filter", stack.verticalFilter ? stack.verticalFilter + " ft" : "—"],
-          ["CRS", "EPSG:3857 <span style='color:#267043'>(native)</span>"]
+          ["CRS", [seg("EPSG:3857 "), seg("(native)", "native")]]
         ]);
 
         render(stack.nFlow - 1);
@@ -231,7 +264,7 @@
       })
       .then(function (manifest) {
         var select = byId("stream");
-        select.innerHTML = "";
+        select.textContent = "";
         (manifest.streams || []).forEach(function (entry) {
           var option = document.createElement("option");
           option.value = entry.file;

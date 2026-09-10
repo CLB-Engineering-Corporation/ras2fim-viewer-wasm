@@ -72,8 +72,13 @@ def describe(path: Path, root: Path) -> dict | None:
         if "spatial_ref" in nc.variables:
             raw = _attr(nc.variables["spatial_ref"], "GeoTransform")
             if raw:
-                parts = [float(p) for p in str(raw).split()]
-                if len(parts) == 6:
+                try:
+                    parts = [float(p) for p in str(raw).split()]
+                except ValueError:
+                    parts = []
+                # NaN passes a length check and then serialises as invalid JSON,
+                # so it is rejected here rather than shipped.
+                if len(parts) == 6 and all(math.isfinite(p) for p in parts):
                     geotransform = parts
         if geotransform is None:
             return None
@@ -89,7 +94,12 @@ def describe(path: Path, root: Path) -> dict | None:
         lon_w, lat_s = _mercator_to_lonlat(west, south)
         lon_e, lat_n = _mercator_to_lonlat(east, north)
 
-        flows = [int(v) for v in nc.variables["flow"][:].tolist()]
+        # Flows are not necessarily integers. int() would turn 1.75 into 1 and
+        # mislabel the slider with a discharge the model never ran.
+        raw_flows = nc.variables["flow"][:].tolist()
+        if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in raw_flows):
+            return None
+        flows = [int(v) if float(v).is_integer() else float(v) for v in raw_flows]
         return {
             "id": _attr(nc, "00_stream_id") or path.stem,
             "file": path.relative_to(root).as_posix(),
@@ -169,7 +179,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    # allow_nan=False: json.dumps happily emits bare NaN/Infinity, which is not
+    # valid JSON and fails in the browser at JSON.parse, far from the cause.
+    out.write_text(json.dumps(manifest, indent=1, allow_nan=False), encoding="utf-8")
 
     print(f"{out}: {len(manifest['streams'])} stream(s), "
           f"{manifest['total_bytes'] / 1e6:.2f} MB total")
