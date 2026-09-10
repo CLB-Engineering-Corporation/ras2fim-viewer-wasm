@@ -144,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
         help="directory the 'file' paths are relative to; defaults to the manifest's own directory",
     )
     parser.add_argument("--title", default="ras2fim-2d flood inundation")
+    parser.add_argument("--report", help="write the build report to this JSON path")
     parser.add_argument(
         "--attribution",
         help="shown in the viewer; use it to credit whoever produced the model output",
@@ -165,6 +166,14 @@ def main(argv: list[str] | None = None) -> int:
     # allow_nan=False: json.dumps happily emits bare NaN/Infinity, which is not
     # valid JSON and fails in the browser at JSON.parse, far from the cause.
     out.write_text(json.dumps(manifest, indent=1, allow_nan=False), encoding="utf-8")
+
+    if args.report:
+        Path(args.report).write_text(json.dumps({
+            "manifest": str(out),
+            "streams": len(manifest["streams"]),
+            "total_bytes": manifest["total_bytes"],
+            "bounds": manifest.get("bounds"),
+        }, indent=2), encoding="utf-8")
 
     print(f"{out}: {len(manifest['streams'])} stream(s), "
           f"{manifest['total_bytes'] / 1e6:.2f} MB total")

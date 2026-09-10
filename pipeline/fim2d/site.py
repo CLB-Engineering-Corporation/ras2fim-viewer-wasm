@@ -258,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--viewer", help="viewer source dir (default: src/viewer-2d)")
     parser.add_argument("--title", default="ras2fim-2d flood inundation")
     parser.add_argument("--attribution", help="credit for whoever produced the model output")
+    parser.add_argument("--report", help="write the build report to this JSON path")
     parser.add_argument(
         "--data-base-url",
         help="host the .nc files elsewhere (e.g. an S3 bucket) instead of copying them "
@@ -275,15 +276,25 @@ def main(argv: list[str] | None = None) -> int:
     if not source.is_dir():
         parser.error(f"not a directory: {source}")
 
-    return build(
+    out = Path(args.out).resolve()
+    code = build(
         source,
-        Path(args.out).resolve(),
+        out,
         viewer_root=args.viewer,
         title=args.title,
         attribution=args.attribution,
         data_base_url=args.data_base_url,
         clean=args.clean,
     )
+    if code == 0 and args.report:
+        files = [p for p in out.rglob("*") if p.is_file()]
+        Path(args.report).write_text(json.dumps({
+            "out": str(out),
+            "files": len(files),
+            "site_bytes": sum(p.stat().st_size for p in files),
+        }, indent=2), encoding="utf-8")
+        print(f"    report: {args.report}")
+    return code
 
 
 if __name__ == "__main__":

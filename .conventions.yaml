@@ -1,0 +1,219 @@
+# Conventions, with the reasoning attached.
+#
+# Modelled on ras-commander's .auditor.yaml. The transferable idea is not the
+# specific rules -- it is that conventions are written down as an artifact, with
+# the rationale and the exceptions, and that something checks the mechanical
+# subset. Prose in AGENTS.md relies on someone remembering.
+#
+# Enforced by: python -m pipeline.check_conventions
+#
+# A rule with `enforced: false` is a statement of intent that no checker can
+# express. It is here so a reviewer can cite it, not so a script can.
+
+version: 1
+
+structure:
+  - id: product-split
+    rule: >
+      Every pipeline module belongs to exactly one product package: fim1d for
+      the ras2fim 1D COG/TiTiler path, fim2d for the ras2fim-2d NetCDF path, or
+      common for what is genuinely shared.
+    why: >
+      The repository holds two products with different data models and almost no
+      shared code. Before the split the naming was asymmetric -- the 2D half was
+      qualified and the 1D half was not -- so build_manifest.py read as *the*
+      manifest builder when it was 1D-only.
+    enforced: true
+
+  - id: no-cross-product-imports
+    rule: fim1d must not import fim2d, and fim2d must not import fim1d.
+    why: >
+      They share nothing but geodesy and the colour ramp, both of which live in
+      common/. An import across the split is a sign that something belongs in
+      common/ instead.
+    enforced: true
+
+  - id: environment-split
+    rule: >
+      fim2d and serve must import cleanly without the GDAL bindings. fim1d may
+      require them, but fim1d.validate must import without them so a published
+      release can be validated on the host that will serve it.
+    why: >
+      Half the pipeline needs GDAL 3.8+ Python bindings and half must not run
+      there. The 2D path is deliberately GDAL-free, which is what lets it run in
+      CI in seconds.
+    enforced: true
+
+  - id: run-as-modules
+    rule: Tools are invoked as `python -m package.module`, never by file path.
+    why: >
+      Package-relative imports work; sys.path hacks do not, and the repository
+      removed nine of them. serve/ became a package for exactly this reason,
+      so it could share the colour ramp with the pipeline.
+    enforced: false
+
+cli:
+  - id: input-positional
+    rule: The thing being read is a positional argument, never a flag.
+    why: >
+      --frontend, --site and --json meant no two tools agreed, so every one had
+      to be read before it could be used.
+    exceptions:
+      - >
+        The positional is named `unit` where the argument genuinely is a ras2fim
+        output unit directory (fim1d.source, fim1d.cogs, fim1d.pmtiles,
+        fim1d.manifest) and `source` where it is a directory of files or a built
+        tree. This is deliberate: `unit` is the domain term ras2fim itself uses,
+        and flattening it to `source` would lose information for the sake of a
+        uniformity nobody benefits from.
+    enforced: true
+
+  - id: output-flag
+    rule: Output location is --out.
+    why: --frontend and --site were the same idea under three names.
+    exceptions:
+      - >
+        fim1d.cog_postprocess keeps subcommands and their own arguments. It is
+        genuinely a multi-tool, and it is vendored from clb_lwi_webmap, where
+        divergence has a cost.
+    enforced: true
+
+  - id: machine-readable-report
+    rule: Any tool worth scripting accepts --report PATH and writes JSON there.
+    why: >
+      It was on two builders out of five, and one tool spelled it --json and
+      printed to stdout instead, so a caller had to know which was which.
+    enforced: true
+
+  - id: deep-flag
+    rule: Where a slow, thorough mode exists it is --deep.
+    why: Consistency; both validators already agreed and nothing else has one.
+    enforced: false
+
+data:
+  - id: wet-is-two-populations
+    rule: >
+      `positive` counts cells with depth > 0 and is what gets painted. `valid`
+      counts every cell with data, including zero and below-terrain, and is what
+      the signed statistics describe. They are never merged.
+    why: >
+      They were two different definitions in two functions. Folding one into the
+      other silently redefined the numbers the panel reports.
+    enforced: false
+
+  - id: rescale-against-the-library
+    rule: >
+      A depth ramp is scaled to the maximum over the whole profile library,
+      never to the profile being drawn.
+    why: >
+      A per-profile stretch renders every profile with the same darkest blue,
+      which hides the one thing a stage slider exists to show.
+    enforced: false
+
+  - id: zero-depth-is-not-inundation
+    rule: A depth of exactly 0.0 ft is left transparent.
+    why: >
+      RASMapper writes plenty of zero-depth cells at the extent edge. Painting
+      them draws a hard collar of the ramp's lightest colour around every flood.
+    enforced: false
+
+  - id: one-ramp
+    rule: >
+      The depth colour ramp is defined once, in pipeline/common/ramp.py, and
+      imported by everything that renders depth.
+    why: >
+      serve/dev_tiles.py applies it per request and fim1d/depth_pmtiles.py bakes
+      it into pixels. If they drift, a preview and a publication of the same
+      data show different depths.
+    enforced: true
+
+  - id: manifest-describes-the-release
+    rule: >
+      A manifest names every file the release carries and no file it does not.
+      How depth is delivered is recorded in the manifest, not in config.js.
+    why: >
+      A manifest pointing at absent files is a broken contract. Putting delivery
+      in per-deployment config would make a release behave differently depending
+      on who opened it.
+    enforced: false
+
+release:
+  - id: viewer-files-complete
+    rule: >
+      VIEWER_FILES must list every file the page loads. Both site builders are
+      checked against the HTML and JS they ship.
+    why: >
+      Nothing but app.js references netcdf-worker.js, so omitting it builds
+      cleanly and 404s only in a browser. This is the highest-risk line in the
+      repository.
+    enforced: true
+
+  - id: no-output-input-overlap
+    rule: >
+      A site builder refuses any layout where --out overlaps an input, in either
+      direction, and refuses a filesystem root.
+    why: The output directory is deleted and rebuilt.
+    enforced: true
+
+  - id: stage-then-replace
+    rule: Site builders build into staging and replace the output at the end.
+    why: >
+      Writing in place means a rebuild after an input is removed leaves the
+      stale copy behind, and the manifest picks it straight back up.
+    enforced: false
+
+  - id: select-before-copy
+    rule: The publishable inventory is selected and validated before anything moves.
+    why: >
+      Deciding after copying leaves a rejected file in the output, publicly
+      downloadable and invisible to the picker -- the worst of both.
+    enforced: false
+
+  - id: no-generated-artifacts-in-git
+    rule: >
+      COGs, PMTiles, NetCDF, vendored viewer libraries and deploy.json are
+      gitignored on main. The gh-pages branch is the exception; it is generated
+      output by definition.
+    why: >
+      A depth library is far too large for Git history, and deploy.json carries
+      real host addresses.
+    enforced: true
+
+frontend:
+  - id: reader-is-dom-free
+    rule: >
+      src/viewer-2d/netcdf.js must not touch the DOM, window, or MapLibre. It
+      scopes to `self` so it loads unchanged inside a worker.
+    why: >
+      It is the property that lets the sparse-vs-dense oracle run in Node with
+      no browser, which is what makes CI cheap enough to be worth having.
+    enforced: true
+
+  - id: dense-arrays-stay-in-the-worker
+    rule: The worker transfers per-layer paint packets, never the decoded stack.
+    why: >
+      Posting stack.wsel is an 83 MB structured clone that presents as
+      unexplained main-thread jank, not as an error.
+    enforced: false
+
+  - id: sparse-matches-dense
+    rule: paintSparse must agree with paintDense byte for byte.
+    why: The dense renderer is retained only as that oracle.
+    enforced: false
+
+  - id: clear-then-paint
+    rule: >
+      Clear the previously painted set, then paint the next one. Never paint
+      first.
+    why: >
+      Cells wet in both get zeroed and repainted, which is correct. The reverse
+      order erases them, and painting without clearing leaves stale flooding
+      when the flow recedes.
+    enforced: false
+
+  - id: no-task-yield-via-settimeout
+    rule: Use a MessageChannel round trip to yield inside a worker.
+    why: >
+      setTimeout(fn, 0) is clamped to about a second in a worker owned by a
+      background tab, which turns one-layer-per-task into 15 seconds.
+    enforced: true

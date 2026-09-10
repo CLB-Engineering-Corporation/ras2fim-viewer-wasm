@@ -1,0 +1,95 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ras2fim-viewer-wasm"
+version = "0.3.0"
+description = "Browser-native viewers for ras2fim 1D depth-grid libraries and ras2fim-2d NetCDF, with the pipelines that publish them"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "CLB Engineering Corporation" }]
+keywords = ["flood", "inundation", "hec-ras", "ras2fim", "cog", "pmtiles", "netcdf", "maplibre"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: GIS",
+  "Topic :: Scientific/Engineering :: Hydrology",
+]
+
+# Nothing at all, on purpose.
+#
+# `pipeline.common` and the whole test suite import only the standard library,
+# which is what lets CI verify "works on a bare checkout" before installing
+# anything. Everything else is an optional group below, because the two halves
+# of this pipeline deliberately cannot share an environment.
+dependencies = []
+
+[project.optional-dependencies]
+
+# The 2D path: read ras2fim-2d NetCDF metadata, write JSON, assemble a site.
+# No GDAL, which is the property that makes this half run in CI in seconds.
+fim2d = [
+  "netCDF4>=1.6",
+  "numpy>=1.26,<3.0",
+]
+
+# The 1D path. GDAL 3.8+ is required for the COG and PMTiles drivers, and the
+# area-matched overview builder writes overview levels directly -- only the
+# osgeo API exposes that, which is why rasterio is not a substitute here.
+#
+# pip has no wheel for GDAL on Windows. On CLB workstations this group is
+# satisfied by the `lwi-gdal` conda environment (GDAL 3.13, numpy 1.26); install
+# it with conda and use this group as the statement of what is required, not as
+# something to `pip install` on its own.
+#
+# `pipeline.fim1d.depth_pmtiles` also needs the `pmtiles` CLI on PATH, which is
+# a Go binary and cannot be declared here:
+#   https://github.com/protomaps/go-pmtiles/releases
+fim1d = [
+  "GDAL>=3.8",
+  "numpy>=1.26,<3.0",
+]
+
+# serve/dev_tiles.py, the local TiTiler stand-in. It only reads COGs and encodes
+# PNGs, so it runs on the plain interpreter rather than in the GDAL environment
+# -- and lwi-gdal has neither rasterio nor Pillow.
+serve = [
+  "rasterio>=1.4",
+  "Pillow>=10.0",
+  "pyproj>=3.6",
+  "numpy>=1.26,<3.0",
+]
+
+# What CI installs. Deliberately the 2D group plus nothing: the 1D pipeline
+# needs GDAL and real ras2fim output, so its gate stays manual.
+test = [
+  "netCDF4>=1.6",
+  "numpy>=1.26,<3.0",
+]
+
+[tool.setuptools]
+packages = ["pipeline", "pipeline.common", "pipeline.fim1d", "pipeline.fim2d", "serve"]
+
+[tool.setuptools.package-data]
+pipeline = ["*.md"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "ARG", "SIM"]
+ignore = [
+  # The pipeline is full of deliberately explicit branches whose shape mirrors a
+  # documented rule; collapsing them hides the rule.
+  "SIM108",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests name what they are testing; a long assertion message is the point.
+"tests/*" = ["E501"]
