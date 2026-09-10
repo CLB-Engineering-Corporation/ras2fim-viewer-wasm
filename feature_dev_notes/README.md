@@ -11,3 +11,4 @@ absence of X in the source.
 | Note | Subject |
 |---|---|
 | [2026-09-09-netcdf-viewer-performance.md](2026-09-09-netcdf-viewer-performance.md) | Where the browser NetCDF reader's cost actually is, and why range reads are not the answer at current file sizes |
+| [2026-09-10-netcdf-viewer-implemented.md](2026-09-10-netcdf-viewer-implemented.md) | What happened when those decisions were built, the measured results, and the five things the plan had wrong |

@@ -53,6 +53,21 @@ var state = {
   reference: null
 };
 
+/* A task boundary that survives background-tab throttling.
+   setTimeout(fn, 0) is clamped to ~1000 ms in a throttled context; a
+   MessageChannel round trip is not. */
+var yieldChannel = new MessageChannel();
+var yieldQueue = [];
+yieldChannel.port1.onmessage = function () {
+  var fn = yieldQueue.shift();
+  if (fn) fn();
+};
+
+function yieldThen(fn) {
+  yieldQueue.push(fn);
+  yieldChannel.port2.postMessage(0);
+}
+
 function post(message, transfer) {
   self.postMessage(message, transfer || []);
 }
@@ -109,8 +124,11 @@ function prepareNext() {
   }, [layer.offsets.buffer, layer.depths.buffer]);
 
   // One layer per task, so a prioritize message is serviced between layers
-  // rather than after all of them.
-  setTimeout(prepareNext, 0);
+  // rather than after all of them -- but NOT via setTimeout. A worker owned by a
+  // background tab has its timers clamped to roughly a second, which turns
+  // fifteen layers into fifteen seconds. Message events are not clamped that
+  // way, so a MessageChannel is the yield that actually yields.
+  yieldThen(prepareNext);
 }
 
 function verifyLayer(index, layer) {

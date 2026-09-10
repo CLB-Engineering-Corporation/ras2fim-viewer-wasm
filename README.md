@@ -12,8 +12,19 @@ There are two paths here, because the 1D and 2D outputs are shaped differently.
 is HDF5, already in EPSG:3857, with WSEL and terrain packed as `uint16`. So
 [h5wasm](https://github.com/usnistgov/h5wasm) reads it **directly in the
 browser**: no tile server, no conversion step, and depth is an integer subtract.
-Measured at 2.35 MB downloaded, 148 ms to decode 15 flow layers, 25–42 ms per
-slider step with zero network I/O.
+
+Measured in Chrome on `wb-2427466` (1963 × 1331, 15 flow layers, 2.35 MB):
+
+| | |
+|---|---|
+| Download | 34 ms |
+| Decode 15 layers | 168 ms — in a worker, so the page never blocks |
+| Prepare 15 layers | 213 ms, once |
+| Paint one layer | **0.8 ms** (dense equivalent: 13.0 ms — 16.3×) |
+| Held on the main thread | **20.2 MB** of sparse index, not 83.6 MB of dense arrays |
+
+The slider does no network I/O and no per-step scanning: every layer is prepared
+once, and stepping paints only the ~12% of cells that are wet.
 
 **Server-assisted (`src/frontend/`, `pipeline/`)** — the working 1D dashboard.
 ras2fim 1D emits dozens of separate GeoTIFFs in State Plane feet, which a
@@ -28,7 +39,9 @@ Texas; 20 models cataloged, 1 (`ALUM 026`) with a published 72-profile library.
 behind it. Built by `pipeline/build_netcdf_site.py`, deployed from `gh-pages`.
 
 > **Status:** the 1D path is complete and validated but has not been deployed.
-> The 2D path is a proven prototype, not a product.
+> The 2D path is built, validated and live. Both have validators
+> (`pipeline/validate_release.py`, `pipeline/validate_netcdf_release.py`) that
+> gate the failures that are otherwise silent in a browser.
 
 ## What it shows
 

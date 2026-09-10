@@ -54,11 +54,33 @@ the workstation's Python.
   rather than Louisiana, and `METADATA_PREFIX` is `FIM`. Anything else should be
   ported back and forth rather than allowed to fork.
 
+## NetCDF viewer contracts
+
+- **`VIEWER_FILES` must list every file the page loads.** Nothing references
+  `netcdf-worker.js` but `app.js`, so omitting it builds cleanly and 404s at
+  runtime. `validate_netcdf_release.py` scans the shipped JS for `new Worker`
+  and `importScripts` literals precisely to catch this.
+- **`paintSparse` must agree with `paintDense` byte for byte.** Run `?verify=1`
+  after touching either. The dense renderer is retained only as that oracle.
+- **The dense arrays never leave the worker.** Posting `stack.wsel` is an 83 MB
+  structured clone that shows up as unexplained main-thread jank, not an error.
+- **"Wet" is two populations.** `positive` is what gets painted; `valid` is what
+  the signed statistics describe. Do not merge them.
+- **`setTimeout(fn, 0)` is not a task yield** in a worker owned by a background
+  tab -- it is clamped to ~1 s. Use the `MessageChannel` yield.
+
 ## Before calling a build done
 
 ```powershell
 conda activate lwi-gdal
 python pipeline/validate_release.py --frontend src/frontend --deep
+```
+
+For the 2D viewer -- no GDAL, plain interpreter:
+
+```powershell
+python pipeline/build_netcdf_site.py <dir-of-nc> --out site/
+python pipeline/validate_netcdf_release.py --site site/ --deep
 ```
 
 454 checks pass on the pilot unit with one warning: reach `5789842`'s stage is
