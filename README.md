@@ -1,7 +1,7 @@
 # ras2fim-viewer-wasm — live demo
 
 Built by `pipeline/build_netcdf_site.py` on the `main` branch. Do not edit here;
-this branch is generated.
+this branch is generated and is replaced wholesale on each deploy.
 
 The page reads ras2fim-2d NetCDF **directly in the browser** with h5wasm. There
 is no tile server and no conversion step — the `.nc` files under `data/` are
