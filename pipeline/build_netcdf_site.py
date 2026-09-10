@@ -46,7 +46,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_netcdf_manifest as manifest_builder  # noqa: E402
 
-VIEWER_FILES = ("index.html", "app.js", "netcdf.js")
+# Every file the page loads. Miss one -- the worker especially, which nothing
+# else references -- and the build succeeds while the deployed site 404s at
+# runtime with no error from any tool. validate_netcdf_release.py checks this by
+# scanning the shipped JS for Worker/importScripts literals.
+VIEWER_FILES = ("index.html", "app.js", "netcdf.js", "netcdf-worker.js")
 VENDOR_FILES = ("h5wasm.js", "maplibre-gl.js", "maplibre-gl.css")
 
 

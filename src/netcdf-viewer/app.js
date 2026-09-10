@@ -6,13 +6,16 @@
   var canvas = document.createElement("canvas");
   var ctx = canvas.getContext("2d", { willReadFrequently: false });
   var imageData = null;
-  var ramp = R2F2D.buildRamp([
+  /* Shared with the worker so its verification paints the same colours, and
+     mirrored by the .ramp gradient in index.html. */
+  var RAMP_STOPS = [
     [0.00, 234, 243, 251],
     [0.25, 158, 202, 225],
     [0.50, 66, 146, 198],
     [0.75, 8, 81, 156],
     [1.00, 8, 48, 107]
-  ]);
+  ];
+  var ramp = R2F2D.buildRamp(RAMP_STOPS);
   var maxDepth = 1;
   var rampU32 = null;          // ramp as packed RGBA words, built with the stack
   var px = null;               // Uint32Array view over imageData, one word per pixel
@@ -27,7 +30,9 @@
      in flight still resolves and a queued map callback still runs. The check
      happens at every asynchronous commit point, including the error path. */
   var generation = 0;
-  var inFlight = null;
+  var worker = null;
+  var pendingRender = null;   // layer index waiting on its prepared data
+  var catalogSummary = "";
 
   function byId(id) { return document.getElementById(id); }
   function fmt(v, d) {
@@ -162,36 +167,25 @@
     return { x: box.x0, y: box.y0, w: box.x1 - box.x0 + 1, h: box.y1 - box.y0 + 1 };
   }
 
-  /** ?verify=1 -- assert the sparse path draws exactly what the dense one does.
-   *
-   * The dense renderer is retained for this. An 8x optimisation that quietly
-   * changes the picture is worse than no optimisation, and this is the only
-   * cheap way to know it did not.
-   */
-  function verifyAgainstDense(index, painted) {
-    var reference = ctx.createImageData(stack.nx, stack.ny);
-    var densePainted = R2F2D.paintDense(stack, index, reference, ramp, maxDepth);
-    var mine = imageData.data, theirs = reference.data;
-    var differing = 0, maxDelta = 0;
-    for (var i = 0; i < mine.length; i += 1) {
-      var delta = Math.abs(mine[i] - theirs[i]);
-      if (delta) { differing += 1; if (delta > maxDelta) maxDelta = delta; }
+  /** Bytes of prepared index currently on this thread. */
+  function indexBytes() {
+    var total = 0;
+    for (var i = 0; i < layers.length; i += 1) {
+      if (layers[i]) total += layers[i].offsets.byteLength + layers[i].depths.byteLength;
     }
-    var ok = differing === 0 && painted === densePainted;
-    var message = "layer " + index + ": sparse " + painted + " vs dense " + densePainted +
-      " painted, " + differing + " differing bytes (max " + maxDelta + ")";
-    if (ok) { if (window.console) console.log("[verify] OK  " + message); }
-    else {
-      if (window.console) console.error("[verify] MISMATCH  " + message);
-      setStatus("verify: " + message, "error");
-    }
-    return ok;
+    return total;
   }
 
   function render(index) {
     if (!stack) return;
     var layer = layers[index];
-    if (!layer) return;
+    if (!layer) {
+      // Not prepared yet. Ask the worker to jump the queue and leave the last
+      // good frame up -- disabling the slider would read as broken.
+      pendingRender = index;
+      if (worker) worker.postMessage({ type: "prioritize", epoch: generation, index: index });
+      return;
+    }
 
     var t0 = performance.now();
     // Clear what the previous layer painted, then paint this one. Only the
@@ -209,8 +203,6 @@
     var rect = dirtyRect(layer);
     if (rect) ctx.putImageData(imageData, 0, 0, rect.x, rect.y, rect.w, rect.h);
     timings.copy = performance.now() - t1;
-
-    if (verify) verifyAgainstDense(index, painted);
 
     ensureLayer();
     pushCanvas();
@@ -243,94 +235,142 @@
       ["Paint layer", [seg(fmt(timings.paint, 2) + " ms", "metric"),
                        seg(" per slider step")]],
       ["Canvas copy", fmt(timings.copy, 2) + " ms"],
-      ["In memory", fmt((stack.wsel.byteLength + (stack.terrain ? stack.terrain.byteLength : 0)) / 1e6, 1) + " MB uint16"]
+      ["Held here", [seg(fmt(indexBytes() / 1e6, 1) + " MB", "metric"),
+                     seg(" of sparse index (dense arrays stay in the worker)")]]
     ]);
+  }
+
+  /** Terminate and respawn rather than trying to cancel.
+   *
+   * AbortController cannot interrupt a synchronous wasm decode already running,
+   * and messages already dispatched still run their handlers. Terminating kills
+   * the decode outright and guarantees the 84 MB is freed rather than relying on
+   * a dropped reference and GC timing. The replacement is spawned immediately so
+   * its h5wasm init overlaps the next fetch.
+   */
+  function respawnWorker() {
+    if (worker) worker.terminate();
+    worker = new Worker("netcdf-worker.js");
+    worker.onmessage = onWorkerMessage;
+    worker.onerror = function (event) {
+      setStatus("worker failed: " + (event.message || "unknown"), "error");
+    };
+    return worker;
+  }
+
+  function onWorkerMessage(event) {
+    var message = event.data || {};
+    // Belt and braces: terminate() does not un-dispatch messages already queued
+    // on this thread, so the epoch is checked here too.
+    if (message.epoch !== generation && message.type !== "progress") return;
+
+    if (message.type === "progress" && message.phase === "ready") {
+      timings.init = message.ms;
+      return;
+    }
+    if (message.type === "meta") {
+      timings.fetch = message.meta.fetchMs;
+      adoptMeta(message.meta);
+    } else if (message.type === "layer") {
+      layers[message.index] = {
+        offsets: message.offsets,
+        depths: message.depths,
+        bbox: message.bbox,
+        stats: message.stats,
+        painted: message.painted
+      };
+      onLayerReady(message.index, message.remaining);
+    } else if (message.type === "done") {
+      timings.prepare = message.timings.prepare;
+      timings.fetch = message.timings.fetch;
+      if (stack) render(Number(byId("flow").value));
+      if (stack) setStatus("Read " + stack.streamId + " directly from NetCDF — no server", "done");
+    } else if (message.type === "verify") {
+      var r = message.report;
+      var detail = "layer " + message.index + ": sparse " + r.sparsePainted +
+        " vs dense " + r.densePainted + " painted, " + r.differing +
+        " differing bytes (max " + r.maxDelta + ")";
+      if (window.console) console.error("[verify] MISMATCH  " + detail);
+      setStatus("verify: " + detail, "error");
+    } else if (message.type === "error") {
+      var hint = message.phase === "fetch"
+        ? " — if the data is on another origin, that host must send Access-Control-Allow-Origin"
+        : "";
+      setStatus(message.message + hint, "error");
+    }
+  }
+
+  function adoptMeta(meta) {
+    stack = meta;
+    layers = new Array(meta.nFlow);
+    shown = null;
+
+    canvas.width = meta.nx;
+    canvas.height = meta.ny;      // also zeroes the backing store
+    imageData = ctx.createImageData(meta.nx, meta.ny);
+    px = new Uint32Array(imageData.data.buffer);
+    rampU32 = R2F2D.buildRampU32(ramp);
+
+    var slider = byId("flow");
+    slider.max = String(meta.nFlow - 1);
+    slider.value = String(meta.nFlow - 1);
+    byId("flow-min").textContent = fmt(meta.flows[0]) + " cfs";
+    byId("flow-max").textContent = fmt(meta.flows[meta.nFlow - 1]) + " cfs";
+    pendingRender = meta.nFlow - 1;
+
+    fillList("meta", [
+      ["Stream", meta.streamId],
+      ["Variable", meta.mode === "depth" ? meta.variable + " (already depth)" : meta.variable + " → depth"],
+      ["Grid", meta.nx + " × " + meta.ny + " @ 3 m"],
+      ["Layers", meta.nFlow + " flows"],
+      ["Packing", "uint16 × " + meta.scale + (meta.offset ? " + " + meta.offset : "") +
+        (meta.hasFill ? ", fill " + meta.fill : ", no fill value")],
+      ["Filter", meta.verticalFilter ? meta.verticalFilter + " ft" : "—"],
+      ["CRS", [seg("EPSG:3857 "), seg("(native)", "native")]]
+    ]);
+
+    var fitTo = meta.bounds.slice();
+    var mine = generation;
+    whenMapReady(function () {
+      if (mine !== generation) return;
+      map.fitBounds([[fitTo[0], fitTo[1]], [fitTo[2], fitTo[3]]], { padding: 40, duration: 0 });
+    });
+  }
+
+  function onLayerReady(index, remaining) {
+    // The top layer arrives first and fixes the ramp for the whole library.
+    if (index === stack.nFlow - 1) {
+      maxDepth = Math.max(1, Math.ceil(layers[index].stats.max || 1));
+      byId("ramp-max").textContent = maxDepth + " ft";
+    }
+    if (pendingRender === index) {
+      pendingRender = null;
+      render(index);
+    }
+    setPending(remaining);
+  }
+
+  function setPending(remaining) {
+    var note = byId("catalog-note");
+    if (!note) return;
+    note.textContent = remaining
+      ? "preparing " + remaining + " more layer" + (remaining === 1 ? "" : "s") + "…"
+      : catalogSummary;
   }
 
   function loadStream(url) {
     setStatus("Fetching " + url.split("/").pop() + "…");
     stopPlay();
-    var t0 = performance.now();
-
-    var mine = ++generation;
-    if (inFlight) inFlight.abort();
-    // Releases the socket promptly. It is an optimisation, not the correctness
-    // mechanism -- that is the generation check below.
-    var controller = new AbortController();
-    inFlight = controller;
-
-    // Published NetCDF objects do not change under their URL, so ordinary HTTP
-    // caching applies. "no-store" re-downloaded the whole file on every revisit.
-    fetch(url, { signal: controller.signal })
-      .then(function (response) {
-        if (!response.ok) throw new Error(url + " → HTTP " + response.status);
-        return response.arrayBuffer();
-      })
-      .then(function (buffer) {
-        if (mine !== generation) return;
-        timings.fetch = performance.now() - t0;
-        setStatus("Decoding HDF5…");
-        stack = R2F2D.readStack(h5, buffer, url.split("/").pop());
-
-        // Setting width/height also zeroes the backing store, which is the
-        // initial clear the sparse painter would otherwise have to do.
-        canvas.width = stack.nx;
-        canvas.height = stack.ny;
-        imageData = ctx.createImageData(stack.nx, stack.ny);
-        px = new Uint32Array(imageData.data.buffer);
-        rampU32 = R2F2D.buildRampU32(ramp);
-        shown = null;
-
-        // One dense pass per layer, here, instead of two per slider step
-        // forever. The top layer goes first because it fixes maxDepth for the
-        // whole library, and every other layer is coloured against it.
-        var tPrep = performance.now();
-        layers = new Array(stack.nFlow);
-        var lastIndex = stack.nFlow - 1;
-        layers[lastIndex] = R2F2D.buildIndex(stack, lastIndex);
-        maxDepth = Math.max(1, Math.ceil(layers[lastIndex].stats.max || 1));
-        for (var li = 0; li < lastIndex; li += 1) layers[li] = R2F2D.buildIndex(stack, li);
-        timings.prepare = performance.now() - tPrep;
-
-        byId("ramp-max").textContent = maxDepth + " ft";
-
-        var slider = byId("flow");
-        slider.max = String(stack.nFlow - 1);
-        slider.value = String(stack.nFlow - 1);
-        byId("flow-min").textContent = fmt(stack.flows[0]) + " cfs";
-        byId("flow-max").textContent = fmt(stack.flows[stack.nFlow - 1]) + " cfs";
-
-        // stack.streamId, stack.variable and stack.verticalFilter come from the
-        // file's own attributes. They are data, so they go through fillList as
-        // plain strings and land in text nodes.
-        fillList("meta", [
-          ["Stream", stack.streamId],
-          ["Variable", stack.mode === "depth" ? stack.variable + " (already depth)" : stack.variable + " → depth"],
-          ["Grid", stack.nx + " × " + stack.ny + " @ 3 m"],
-          ["Layers", stack.nFlow + " flows"],
-          ["Packing", "uint16 × " + stack.scale + (stack.offset ? " + " + stack.offset : "") +
-            (stack.hasFill ? ", fill " + stack.fill : ", no fill value")],
-          ["Filter", stack.verticalFilter ? stack.verticalFilter + " ft" : "—"],
-          ["CRS", [seg("EPSG:3857 "), seg("(native)", "native")]]
-        ]);
-
-        render(stack.nFlow - 1);
-        // Capture the bounds now: by the time the map is ready this stream may
-        // no longer be the selected one.
-        var fitTo = stack.bounds.slice();
-        whenMapReady(function () {
-          if (mine !== generation) return;
-          map.fitBounds([[fitTo[0], fitTo[1]], [fitTo[2], fitTo[3]]],
-            { padding: 40, duration: 0 });
-        });
-        setStatus("Read " + stack.streamId + " directly from NetCDF — no server", "done");
-      })
-      .catch(function (error) {
-        if (error && error.name === "AbortError") return;
-        if (mine !== generation) return;
-        setStatus(error.message, "error");
-        if (window.console) console.error(error);
-      });
+    stack = null;
+    shown = null;
+    layers = [];
+    pendingRender = null;
+    generation += 1;
+    timings = { init: timings.init };
+    respawnWorker().postMessage({
+      type: "load", epoch: generation, url: url,
+      verify: verify, rampStops: RAMP_STOPS
+    });
   }
 
   function stopPlay() {
@@ -387,29 +427,26 @@
           select.appendChild(option);
         });
         var total = (manifest.total_bytes || 0) / 1e6;
-        byId("catalog-note").textContent =
+        catalogSummary =
           (manifest.streams || []).length + " stream(s), " + total.toFixed(2) + " MB total.";
+        byId("catalog-note").textContent = catalogSummary;
         if (manifest.attribution) byId("attribution").textContent = manifest.attribution;
         if (!select.options.length) throw new Error("manifest lists no streams");
         return select.value;
       });
   }
 
+  /* h5wasm now lives entirely in the worker, so the catalog fetch and the
+     decoder's startup overlap instead of queuing behind each other. */
   var initStart = performance.now();
-  /* `ready` resolves to the emscripten Module (FS plus the low-level bindings),
-     but the high-level API -- File, Group, Dataset -- hangs off the h5wasm
-     namespace itself. Await the one, then use the other. */
-  h5wasm.ready
-    .then(function () {
-      h5 = h5wasm;
-      timings.init = performance.now() - initStart;
-      return loadCatalog();
-    })
+  timings.init = 0;
+  loadCatalog()
     .then(function (first) {
+      timings.init = performance.now() - initStart;
       loadStream(first);
     })
     .catch(function (error) {
-      setStatus("h5wasm failed to initialize: " + error.message, "error");
+      setStatus("catalog failed to load: " + error.message, "error");
       if (window.console) console.error(error);
     });
 })();
