@@ -125,6 +125,22 @@ python serve/range_server.py 8100 src/viewer-1d
 python serve/dev_tiles.py --port 8102 --root src/viewer-1d
 ```
 
+### An automated browser tab does not render the map
+
+An agent-driven Chrome tab reports `document.hidden === true`. Chrome then never
+fires `requestAnimationFrame`, so MapLibre's render loop never runs and it never
+requests a tile for the viewport. The panel, the manifest fetch, the profile
+readouts and the rating curves all update normally, which is exactly what makes
+this convincing as a product bug: the numbers move and the map does not.
+
+It cost an afternoon once. The tell is that `/cog/tiles/...` returns 200 to
+`curl` while the browser makes no tile request at all. A single real drag on the
+canvas forces a render and the tiles arrive immediately.
+
+The same constraint applies to the 2D viewer's worker: one created after page
+load is never scheduled in a hidden tab, so stream switching cannot be exercised
+there. Both are testing constraints, not defects.
+
 ## Scope
 
 This repository publishes what ras2fim produced. It does not filter, smooth,

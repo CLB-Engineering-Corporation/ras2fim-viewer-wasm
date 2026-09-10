@@ -246,6 +246,7 @@ of what the repository looked like on 2026-09-10.
 | R6 — shared geodesy | **done.** All four Python copies are gone. `transform_bounds()` and `geotransform_error()` were added to carry what the call sites actually needed. |
 | R3 — tests | **done.** 65 tests, under a second, plus CI. |
 | R5, R4, R7, R8 | not started |
+| "1D is unproven" | **closed** — see [2026-09-11-1d-path-proven.md](2026-09-11-1d-path-proven.md). The viewer renders depth grids from the pilot unit; the blocker was a hidden automated tab never running MapLibre's render loop, not the code. A *public* 1D example still does not exist. |
 
 ### What R3 turned out to be
 
