@@ -6,12 +6,12 @@
     "were learned the hard way."
   ],
   "schema_version": 1,
-  "deployment_name": "fim-dashboard",
+  "deployment_name": "ras2fim-viewer-wasm",
   "public_base_url": "https://maps.example.org",
   "public_path": "/maps/fim/",
   "status": "not-yet-deployed",
   "source": {
-    "tooling_root": "/path/to/fim-dashboard",
+    "tooling_root": "/path/to/ras2fim-viewer-wasm",
     "pipeline_environment": "a conda env with the GDAL 3.8+ Python bindings",
     "build_location": "trusted-host-only",
     "source_units": [
@@ -20,7 +20,7 @@
   },
   "target": {
     "host": "web-host.example.internal",
-    "releases_root": "/srv/fim-dashboard/releases",
+    "releases_root": "/srv/ras2fim-viewer-wasm/releases",
     "route_uses_immutable_release": true
   },
   "frontend": {

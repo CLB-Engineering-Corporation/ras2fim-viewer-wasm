@@ -1,4 +1,4 @@
-# Agent notes — fim-dashboard
+# Agent notes — ras2fim-viewer-wasm
 
 Read `README.md` first. This file records the things that are easy to get wrong
 and expensive to notice later.

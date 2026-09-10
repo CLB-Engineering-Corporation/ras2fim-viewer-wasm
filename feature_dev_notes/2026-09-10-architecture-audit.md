@@ -231,3 +231,28 @@ and a plain group for the 2D pipeline and `serve/`. Pin versions.
 
 R2 is the one that pays for the rest: until the 1D/2D split is structural, every
 other change has to keep explaining which half it applies to.
+
+---
+
+## Progress
+
+Appended rather than folded into the gaps above — the gap list is a dated record
+of what the repository looked like on 2026-09-10.
+
+| | Status |
+|---|---|
+| R1 — one name | **done.** Directory renamed to `ras2fim-viewer-wasm`; `CLAUDE.md`, `AGENTS.md` and `deploy.example.json` updated. |
+| R2 — 1D/2D split | **done.** `src/viewer-1d`, `src/viewer-2d`, `pipeline/fim1d`, `pipeline/fim2d`. Verified by a byte-identical 2D rebuild. |
+| R6 — shared geodesy | **partial.** `pipeline/common/geodesy.py` exists and `fim2d.manifest` uses it. `fim1d.manifest`, `fim1d.cog_postprocess` and `fim2d.validate` still carry their own copies. |
+| R3 — tests | next |
+| R5, R4, R7, R8 | not started |
+
+`src/shared/` from the R2 sketch was **not** created. Extracting the sidebar,
+resizer, basemap switcher and panel accordions is a real deduplication, but it
+is a behavioural change to two working frontends with no test between them.
+It waits for R3.
+
+One thing the move nearly broke silently, worth recording because the next bulk
+rename will meet it too: `.gitignore` has no file extension, so a rewrite
+filtered by suffix skips it, and 4.3 MB of generated COGs staged themselves on
+the first `add`. Any path rewrite must include extensionless files by name.
