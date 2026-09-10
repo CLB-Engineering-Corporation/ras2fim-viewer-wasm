@@ -7,7 +7,7 @@ reports each conflated NWM reach's hydraulics.
 
 There are two paths here, because the 1D and 2D outputs are shaped differently.
 
-**Browser-native (`prototypes/netcdf-2d/`)** — the direction the name points at.
+**Browser-native (`src/netcdf-viewer/`)** — the direction the name points at.
 [ras2fim-2d](https://github.com/andycarter-pe/ras2fim-2d) writes NetCDF4, which
 is HDF5, already in EPSG:3857, with WSEL and terrain packed as `uint16`. So
 [h5wasm](https://github.com/usnistgov/h5wasm) reads it **directly in the
@@ -205,7 +205,7 @@ Vendored under `src/frontend/vendor/`, unmodified:
 
 The NetCDF prototype additionally uses
 [h5wasm](https://github.com/usnistgov/h5wasm) 0.10.3, fetched by
-`prototypes/netcdf-2d/fetch-vendor.sh` rather than committed.
+`src/netcdf-viewer/fetch-vendor.sh` rather than committed.
 
 ## Why a webmap rather than an existing FIM viewer
 

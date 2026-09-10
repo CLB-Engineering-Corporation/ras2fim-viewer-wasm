@@ -24,7 +24,7 @@ Open Sans glyph ranges -- src/frontend/vendor/fonts/
 Fetched at build time, not redistributed here
 --------------------------------------------------------------------------
 
-h5wasm 0.10.3 -- prototypes/netcdf-2d/fetch-vendor.sh
+h5wasm 0.10.3 -- src/netcdf-viewer/fetch-vendor.sh
   Public domain / NIST. https://github.com/usnistgov/h5wasm
 
 --------------------------------------------------------------------------

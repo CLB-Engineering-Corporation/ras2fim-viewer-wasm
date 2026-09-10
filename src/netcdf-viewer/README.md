@@ -9,9 +9,9 @@ Vendor libraries and sample data are pinned, not committed -- populate them
 first:
 
 ```bash
-bash prototypes/netcdf-2d/fetch-vendor.sh
-cp <ras2fim-2d>/sample_output/06_simple_rasters/03_wsel_nc_filtered/*.nc    prototypes/netcdf-2d/data/
-python pipeline/build_netcdf_manifest.py prototypes/netcdf-2d/data    --out prototypes/netcdf-2d/manifest.json
+bash src/netcdf-viewer/fetch-vendor.sh
+cp <ras2fim-2d>/sample_output/06_simple_rasters/03_wsel_nc_filtered/*.nc    src/netcdf-viewer/data/
+python pipeline/build_netcdf_manifest.py src/netcdf-viewer/data    --out src/netcdf-viewer/manifest.json
 ```
 
 The viewer's stream list comes from that manifest, so the same page serves any
@@ -22,7 +22,7 @@ host -- use `pipeline/build_netcdf_site.py`.
 Run it:
 
 ```powershell
-python serve/range_server.py 8110 prototypes/netcdf-2d
+python serve/range_server.py 8110 src/netcdf-viewer
 ```
 
 then open <http://127.0.0.1:8110/>. To reach it from another device, pass this
@@ -30,7 +30,7 @@ machine's own address as a third argument -- one specific interface, never
 `0.0.0.0`:
 
 ```powershell
-python serve/range_server.py 8110 prototypes/netcdf-2d 10.0.0.42
+python serve/range_server.py 8110 src/netcdf-viewer 10.0.0.42
 ```
 
 Every path in the page is relative, so nothing needs reconfiguring for a

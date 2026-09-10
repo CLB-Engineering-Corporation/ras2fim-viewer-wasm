@@ -51,7 +51,7 @@ VENDOR_FILES = ("h5wasm.js", "maplibre-gl.js", "maplibre-gl.css")
 
 
 def _viewer_root(explicit: str | None) -> Path:
-    root = Path(explicit) if explicit else Path(__file__).resolve().parent.parent / "prototypes" / "netcdf-2d"
+    root = Path(explicit) if explicit else Path(__file__).resolve().parent.parent / "src" / "netcdf-viewer"
     missing = [f for f in VIEWER_FILES if not (root / f).is_file()]
     if missing:
         raise SystemExit(f"FAIL  viewer source incomplete at {root}: missing {', '.join(missing)}")
@@ -249,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("source", help="directory containing ras2fim-2d .nc output")
     parser.add_argument("--out", required=True, help="site output directory")
-    parser.add_argument("--viewer", help="viewer source dir (default: prototypes/netcdf-2d)")
+    parser.add_argument("--viewer", help="viewer source dir (default: src/netcdf-viewer)")
     parser.add_argument("--title", default="ras2fim-2d flood inundation")
     parser.add_argument("--attribution", help="credit for whoever produced the model output")
     parser.add_argument(

@@ -9,6 +9,11 @@
 GDAL>=3.8
 numpy>=1.26,<3.0
 
+# pipeline/build_netcdf_manifest.py and build_netcdf_site.py (the 2D path).
+# These need no GDAL at all -- they read NetCDF metadata and write JSON -- so
+# they run on the plain workstation interpreter, not in the lwi-gdal env.
+netCDF4>=1.6
+
 # serve/dev_tiles.py only. It is a local preview stand-in for TiTiler and runs
 # on the plain workstation interpreter, not in lwi-gdal.
 rasterio>=1.4

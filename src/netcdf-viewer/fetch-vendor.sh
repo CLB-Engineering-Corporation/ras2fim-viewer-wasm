@@ -6,7 +6,7 @@
 # production frontend already carries -- 6.9 MB of permanent history for a
 # prototype is a bad trade when two pinned URLs reproduce it exactly.
 #
-#   bash prototypes/netcdf-2d/fetch-vendor.sh
+#   bash src/netcdf-viewer/fetch-vendor.sh
 #
 # The production frontend under src/frontend/vendor/ IS committed: that one is
 # the deliverable, and a release has to be reproducible without the network.
@@ -35,7 +35,7 @@ fetch "https://cdn.jsdelivr.net/npm/h5wasm@${H5WASM_VERSION}/dist/iife/h5wasm.js
 for asset in maplibre-gl.js maplibre-gl.css; do
   if [ ! -s "$vendor/$asset" ]; then
     printf '  copy  %s\n' "$asset"
-    cp "$here/../../src/frontend/vendor/$asset" "$vendor/$asset"
+    cp "$here/../frontend/vendor/$asset" "$vendor/$asset"
   else
     printf '  have  %s\n' "$asset"
   fi
