@@ -16,6 +16,13 @@
   var maxDepth = 1;
   var playTimer = null;
   var timings = {};
+  /* Every load carries a generation. An earlier request that finishes after a
+     later one must not write `stack`, the panel, the canvas, or the map -- and
+     aborting the fetch alone does not achieve that, because a response already
+     in flight still resolves and a queued map callback still runs. The check
+     happens at every asynchronous commit point, including the error path. */
+  var generation = 0;
+  var inFlight = null;
 
   function byId(id) { return document.getElementById(id); }
   function fmt(v, d) {
@@ -93,10 +100,18 @@
   /* The depth layer is a canvas source rather than tiles. The grid is already
      EPSG:3857 and north-up, so its four corners land on MapLibre's own
      projection exactly -- there is nothing to reproject and nothing to tile. */
+  var placedCoordinates = null;
+
   function ensureLayer() {
     whenMapReady(function () {
       if (map.getSource("depth")) {
-        map.getSource("depth").setCoordinates(stack.coordinates);
+        // Only when the footprint actually changed. setCoordinates recomputes
+        // the source's geometry and fires a content change; calling it on every
+        // slider step did that work for nothing.
+        if (placedCoordinates !== stack.coordinates) {
+          map.getSource("depth").setCoordinates(stack.coordinates);
+          placedCoordinates = stack.coordinates;
+        }
         return;
       }
       map.addSource("depth", {
@@ -105,6 +120,7 @@
         coordinates: stack.coordinates,
         animate: false
       });
+      placedCoordinates = stack.coordinates;
       map.addLayer({
         id: "depth",
         type: "raster",
@@ -133,7 +149,7 @@
   function render(index) {
     if (!stack) return;
     var t0 = performance.now();
-    var wet = R2F2D.paintDepth(stack, index, imageData, ramp, maxDepth);
+    var painted = R2F2D.paintDepth(stack, index, imageData, ramp, maxDepth);
     ctx.putImageData(imageData, 0, 0);
     timings.paint = performance.now() - t0;
 
@@ -141,9 +157,13 @@
     pushCanvas();
 
     var stats = R2F2D.depthStats(stack, index);
-    var pct = (100 * wet) / (stack.ny * stack.nx);
+    var pct = (100 * painted) / (stack.ny * stack.nx);
+    // "Inundated" is what is drawn (depth > 0). The signed statistics below
+    // describe every cell with data, including zero and below-terrain, which is
+    // a larger population -- labelling both "wet" hid that.
     fillList("stats", [
-      ["Wet cells", [seg(fmt(wet)), seg(" (" + pct.toFixed(1) + "% of grid)", "muted")]],
+      ["Inundated", [seg(fmt(painted)), seg(" (" + pct.toFixed(1) + "% of grid)", "muted")]],
+      ["Cells with data", fmt(stats.valid)],
       ["Max depth", fmt(stats.max, 2) + " ft"],
       ["Mean depth", fmt(stats.mean, 2) + " ft"],
       ["Min (signed)", [seg(fmt(stats.min, 2) + " ft", stats.min < 0 ? "warn" : null)]],
@@ -161,7 +181,7 @@
                       seg(" (" + stack.nFlow + " layers)")]],
       ["Paint layer", [seg(fmt(timings.paint, 1) + " ms", "metric"),
                        seg(" per slider step")]],
-      ["In memory", fmt((stack.wsel.byteLength + stack.terrain.byteLength) / 1e6, 1) + " MB uint16"]
+      ["In memory", fmt((stack.wsel.byteLength + (stack.terrain ? stack.terrain.byteLength : 0)) / 1e6, 1) + " MB uint16"]
     ]);
   }
 
@@ -170,12 +190,22 @@
     stopPlay();
     var t0 = performance.now();
 
-    fetch(url, { cache: "no-store" })
+    var mine = ++generation;
+    if (inFlight) inFlight.abort();
+    // Releases the socket promptly. It is an optimisation, not the correctness
+    // mechanism -- that is the generation check below.
+    var controller = new AbortController();
+    inFlight = controller;
+
+    // Published NetCDF objects do not change under their URL, so ordinary HTTP
+    // caching applies. "no-store" re-downloaded the whole file on every revisit.
+    fetch(url, { signal: controller.signal })
       .then(function (response) {
         if (!response.ok) throw new Error(url + " → HTTP " + response.status);
         return response.arrayBuffer();
       })
       .then(function (buffer) {
+        if (mine !== generation) return;
         timings.fetch = performance.now() - t0;
         setStatus("Decoding HDF5…");
         stack = R2F2D.readStack(h5, buffer, url.split("/").pop());
@@ -201,22 +231,29 @@
         // plain strings and land in text nodes.
         fillList("meta", [
           ["Stream", stack.streamId],
-          ["Variable", stack.variable + " → depth"],
+          ["Variable", stack.mode === "depth" ? stack.variable + " (already depth)" : stack.variable + " → depth"],
           ["Grid", stack.nx + " × " + stack.ny + " @ 3 m"],
           ["Layers", stack.nFlow + " flows"],
-          ["Packing", "uint16 × " + stack.scale + ", fill " + stack.fill],
+          ["Packing", "uint16 × " + stack.scale + (stack.offset ? " + " + stack.offset : "") +
+            (stack.hasFill ? ", fill " + stack.fill : ", no fill value")],
           ["Filter", stack.verticalFilter ? stack.verticalFilter + " ft" : "—"],
           ["CRS", [seg("EPSG:3857 "), seg("(native)", "native")]]
         ]);
 
         render(stack.nFlow - 1);
+        // Capture the bounds now: by the time the map is ready this stream may
+        // no longer be the selected one.
+        var fitTo = stack.bounds.slice();
         whenMapReady(function () {
-          map.fitBounds([[stack.bounds[0], stack.bounds[1]], [stack.bounds[2], stack.bounds[3]]],
+          if (mine !== generation) return;
+          map.fitBounds([[fitTo[0], fitTo[1]], [fitTo[2], fitTo[3]]],
             { padding: 40, duration: 0 });
         });
         setStatus("Read " + stack.streamId + " directly from NetCDF — no server", "done");
       })
       .catch(function (error) {
+        if (error && error.name === "AbortError") return;
+        if (mine !== generation) return;
         setStatus(error.message, "error");
         if (window.console) console.error(error);
       });
@@ -257,7 +294,10 @@
      packing, flows, georeferencing -- is read from the .nc itself on load, so
      the manifest only has to answer "which files exist, and roughly where". */
   function loadCatalog() {
-    return fetch("manifest.json", { cache: "no-store" })
+    // The manifest is the freshness anchor -- it changes whenever the site is
+    // rebuilt -- so it is always revalidated. "no-cache" still allows a 304,
+    // where "no-store" forced a full re-download of a file that rarely differs.
+    return fetch("manifest.json", { cache: "no-cache" })
       .then(function (response) {
         if (!response.ok) throw new Error("manifest.json -> HTTP " + response.status);
         return response.json();

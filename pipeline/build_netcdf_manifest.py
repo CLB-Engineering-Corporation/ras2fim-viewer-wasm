@@ -55,15 +55,22 @@ def describe(path: Path, root: Path) -> dict | None:
         variable = _attr(nc, "01_type") or next(
             (n for n in ("wsel", "depth") if n in nc.variables), None
         )
-        if not variable or variable not in nc.variables:
+        if variable not in ("wsel", "depth") or variable not in nc.variables:
             return None
-        if "terrain" not in nc.variables or "flow" not in nc.variables:
+        if "flow" not in nc.variables:
+            return None
+        # A wsel stack needs terrain subtracted from it; a depth stack is already
+        # depth and carries none. Requiring terrain unconditionally rejected a
+        # perfectly valid depth product.
+        if variable == "wsel" and "terrain" not in nc.variables:
             return None
 
         var = nc.variables[variable]
         if var.ndim != 3:
             return None
         n_flow, ny, nx = var.shape
+        if variable == "wsel" and nc.variables["terrain"].shape != (ny, nx):
+            return None
 
         # The extent comes from GeoTransform, not the x/y vectors: those are
         # cell centres, and using them as an extent shifts the raster half a
@@ -105,6 +112,7 @@ def describe(path: Path, root: Path) -> dict | None:
             "file": path.relative_to(root).as_posix(),
             "bytes": path.stat().st_size,
             "variable": variable,
+            "mode": variable,
             "grid": {"nx": int(nx), "ny": int(ny), "cell_size_m": abs(pixel_w)},
             "flow_count": int(n_flow),
             "flow_range": [flows[0], flows[-1]] if flows else None,
