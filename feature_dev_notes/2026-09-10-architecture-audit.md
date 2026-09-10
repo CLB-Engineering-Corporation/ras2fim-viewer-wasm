@@ -243,9 +243,36 @@ of what the repository looked like on 2026-09-10.
 |---|---|
 | R1 — one name | **done.** Directory renamed to `ras2fim-viewer-wasm`; `CLAUDE.md`, `AGENTS.md` and `deploy.example.json` updated. |
 | R2 — 1D/2D split | **done.** `src/viewer-1d`, `src/viewer-2d`, `pipeline/fim1d`, `pipeline/fim2d`. Verified by a byte-identical 2D rebuild. |
-| R6 — shared geodesy | **partial.** `pipeline/common/geodesy.py` exists and `fim2d.manifest` uses it. `fim1d.manifest`, `fim1d.cog_postprocess` and `fim2d.validate` still carry their own copies. |
-| R3 — tests | next |
+| R6 — shared geodesy | **done.** All four Python copies are gone. `transform_bounds()` and `geotransform_error()` were added to carry what the call sites actually needed. |
+| R3 — tests | **done.** 65 tests, under a second, plus CI. |
 | R5, R4, R7, R8 | not started |
+
+### What R3 turned out to be
+
+The gap list called the sparse-vs-dense oracle "the highest value" because it
+gates the 16x paint optimisation and only ran when someone opened a browser.
+That was right, and it was also cheaper than expected: `netcdf.js` is already
+DOM-free and `self`-scoped, so `node:vm` loads the shipped file unmodified with
+`self` bound the way a worker binds it. No build step, no module shim, no
+h5wasm, no fixture NetCDF. That property is now itself under test.
+
+CI is two jobs and about a minute. The Node job installs nothing, deliberately —
+if it ever needs `npm ci`, the reader has grown a dependency it should not have.
+The Python job runs the geodesy tests *before* installing anything, so "works on
+a bare checkout" is demonstrated rather than asserted. The 1D pipeline stays out
+of CI: it needs the GDAL bindings and real ras2fim output.
+
+Two things only running it could find. Node's `--test` did not expand a quoted
+glob before version 22, so the pattern that worked locally failed outright on
+Node 20. And the round-trip test called `fetch-vendor.sh`, which downloads 6.9 MB
+from two CDNs — right for a real build, wrong for a test, and guaranteed to fail
+on a fresh checkout. It builds against a temporary viewer root with stub vendor
+files now.
+
+The shared geodesy fixture earned its place immediately: the JavaScript tested
+finiteness with `parts.some(isNaN)`, and `isNaN(Infinity)` is `false`, so it
+accepted an infinite origin that Python rejected. That is exactly the silent
+drift G5 predicted, found the first time the two were compared.
 
 `src/shared/` from the R2 sketch was **not** created. Extracting the sidebar,
 resizer, basemap switcher and panel accordions is a real deduplication, but it
