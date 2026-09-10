@@ -6,7 +6,7 @@ python -m unittest discover -s tests -t .   # the pipeline, needs numpy + netCDF
 python -m pipeline.check_conventions        # the rules in .conventions.yaml
 ```
 
-All three run in about a second. Neither needs a browser, a tile server, GDAL,
+All three run in about a second. None needs a browser, a tile server, GDAL,
 any committed data, or the network -- the round-trip test builds against a
 temporary viewer root with stub vendor files, so it never triggers
 `fetch-vendor.sh`.
