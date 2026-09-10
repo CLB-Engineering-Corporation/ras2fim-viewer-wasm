@@ -23,6 +23,13 @@
   var shown = null;            // the layer currently on the canvas
   var verify = /[?&]verify=1/.test(location.search);
   var playTimer = null;
+  var rafPending = 0;         // requestAnimationFrame handle for coalesced input
+  var rafTarget = null;       // the layer the most recent input asked for
+  /* Playback pace. Scheduling the next frame the instant the previous one
+     finishes would run as fast as the machine allows -- hundreds of texture
+     uploads a second for no benefit. This is the floor; a slower machine simply
+     falls below it rather than queueing work it cannot keep up with. */
+  var PLAY_INTERVAL_MS = 260;
   var timings = {};
   /* Every load carries a generation. An earlier request that finishes after a
      later one must not write `stack`, the panel, the canvas, or the map -- and
@@ -374,9 +381,27 @@
   }
 
   function stopPlay() {
-    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+    if (playTimer) { clearTimeout(playTimer); playTimer = null; }
     byId("play").setAttribute("aria-pressed", "false");
     byId("play").textContent = "▶";
+  }
+
+  /** Schedule the next frame only after this one is done.
+   *
+   * A fixed setInterval has no backpressure: if a step takes longer than the
+   * interval, frames pile up and playback falls behind rather than slowing
+   * down. This paces from completion, so a slow machine drops to a lower frame
+   * rate instead.
+   */
+  function playStep() {
+    if (!stack) { stopPlay(); return; }
+    var slider = byId("flow");
+    var next = (Number(slider.value) + 1) % stack.nFlow;
+    var t0 = performance.now();
+    slider.value = String(next);
+    render(next);
+    var spent = performance.now() - t0;
+    playTimer = setTimeout(playStep, Math.max(0, PLAY_INTERVAL_MS - spent));
   }
 
   byId("play").addEventListener("click", function () {
@@ -384,17 +409,35 @@
     if (!stack) return;
     byId("play").setAttribute("aria-pressed", "true");
     byId("play").textContent = "❚❚";
-    playTimer = setInterval(function () {
-      var slider = byId("flow");
-      var next = (Number(slider.value) + 1) % stack.nFlow;
-      slider.value = String(next);
-      render(next);
-    }, 260);
+    playStep();
   });
+
+  /* requestAnimationFrame is throttled to zero in a background tab, so a
+     playback loop paced on it stalls and then bursts on refocus. This repo has
+     been bitten by that throttling once already; stopping explicitly is better
+     than discovering it again. */
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) stopPlay();
+  });
+
+  /** Render at most once per animation frame, always the most recent request.
+   *
+   * Dragging the slider fires input events far faster than a frame, and
+   * rendering each one synchronously queued work that was obsolete before it
+   * ran. Only the latest target survives.
+   */
+  function requestRender(index) {
+    rafTarget = index;
+    if (rafPending) return;
+    rafPending = requestAnimationFrame(function () {
+      rafPending = 0;
+      if (rafTarget !== null) render(rafTarget);
+    });
+  }
 
   byId("flow").addEventListener("input", function (event) {
     stopPlay();
-    render(Number(event.target.value));
+    requestRender(Number(event.target.value));
   });
   byId("opacity").addEventListener("input", function (event) {
     if (map.getLayer("depth")) {
