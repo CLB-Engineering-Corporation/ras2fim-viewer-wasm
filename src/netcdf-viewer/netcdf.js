@@ -317,6 +317,138 @@
     return painted;
   }
 
+  /* ==================================================================
+     Sparse layer preparation
+     ================================================================== */
+
+  /** Prepare one flow layer: statistics and the cells worth painting, in one pass.
+   *
+   * The dense scan cannot be avoided -- something has to look at every cell to
+   * find out which are wet. What it can be is done ONCE per layer instead of
+   * once per slider step, which is the whole trade: ~10 ms per layer up front
+   * against ~15 ms on every step forever. Break-even is around a dozen steps;
+   * a session with a play button is hundreds.
+   *
+   * `offsets` holds the cells with depth > 0 -- what gets drawn. The statistics
+   * describe every cell with data, including zero and below-terrain. Those are
+   * different populations and the panel reports both.
+   */
+  function buildIndex(stack, index) {
+    var n = stack.ny * stack.nx;
+    var off = index * n;
+    var nx = stack.nx;
+
+    // Grown rather than sized by a counting pass: a second full scan to learn
+    // the length costs more than the occasional copy.
+    var cap = Math.max(1024, n >> 3);
+    var offsets = new Uint32Array(cap);
+    var depths = new Float32Array(cap);
+    var count = 0;
+
+    var min = Infinity, max = -Infinity, sum = 0;
+    var valid = 0, negative = 0;
+    var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+
+    /* Same split as the paint loop: for a wsel stack packed like its terrain,
+       the per-cell work is an integer subtract, and the scale is applied once
+       per surviving cell rather than once per cell examined. Calling depthAt()
+       2.6M times instead costs roughly double. */
+    var fast = stack.mode === "wsel" && stack.fastPath;
+    var wsel = stack.wsel, terrain = stack.terrain;
+    var scale = stack.scale;
+    var fill = stack.fill, tFill = stack.terrainFill;
+    var hasFill = stack.hasFill, tHasFill = stack.terrainHasFill;
+
+    for (var i = 0; i < n; i += 1) {
+      var d;
+      if (fast) {
+        var w = wsel[off + i];
+        if (hasFill && w === fill) continue;
+        var t = terrain[i];
+        if (tHasFill && t === tFill) continue;
+        d = (w - t) * scale;
+      } else {
+        d = depthAt(stack, off, i);
+        if (d !== d) continue; // NaN: nodata in either input
+      }
+      valid += 1;
+      if (d < 0) negative += 1;
+      if (d < min) min = d;
+      if (d > max) max = d;
+      sum += d;
+      if (d <= 0) continue;
+
+      if (count === cap) {
+        cap *= 2;
+        var grownOffsets = new Uint32Array(cap); grownOffsets.set(offsets); offsets = grownOffsets;
+        var grownDepths = new Float32Array(cap); grownDepths.set(depths); depths = grownDepths;
+      }
+      offsets[count] = i;
+      depths[count] = d;
+      count += 1;
+
+      var y = (i / nx) | 0;
+      var x = i - y * nx;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+
+    return {
+      // slice() rather than subarray(): an exactly-sized buffer that can be
+      // transferred on its own without detaching a shared allocation.
+      offsets: offsets.slice(0, count),
+      depths: depths.slice(0, count),
+      painted: count,
+      bbox: count ? { x0: x0, y0: y0, x1: x1, y1: y1 } : null,
+      stats: valid
+        ? { valid: valid, wet: valid, positive: count, negative: negative,
+            min: min, max: max, mean: sum / valid }
+        : { valid: 0, wet: 0, positive: 0, negative: 0, min: null, max: null, mean: null }
+    };
+  }
+
+  /** Clear the cells a previously painted layer wrote. */
+  function clearSparse(px, layer) {
+    var offsets = layer.offsets;
+    for (var i = 0, n = offsets.length; i < n; i += 1) px[offsets[i]] = 0;
+  }
+
+  /** Paint one prepared layer. `rampU32` is 256 packed RGBA words.
+   *
+   * Call order matters: clear the previous layer first, then paint this one.
+   * Cells wet in both get zeroed and repainted, which is correct; painting
+   * first and clearing second would erase them.
+   */
+  function paintSparse(px, layer, rampU32, maxDepth) {
+    var offsets = layer.offsets, depths = layer.depths;
+    var invMax = 1 / Math.max(1e-9, maxDepth);
+    for (var i = 0, n = offsets.length; i < n; i += 1) {
+      var d = depths[i] * invMax;
+      px[offsets[i]] = rampU32[d >= 1 ? 255 : (d * 255) | 0];
+    }
+    return offsets.length;
+  }
+
+  /** The 256-entry ramp as packed RGBA words, matching the platform's byte order. */
+  function buildRampU32(ramp) {
+    var out = new Uint32Array(256);
+    var probe = new Uint32Array(1);
+    var bytes = new Uint8Array(probe.buffer);
+    probe[0] = 0x01020304;
+    // Derived rather than assumed: a big-endian platform would otherwise get
+    // its channels reversed, which is the classic "works on my machine" bug.
+    var littleEndian = bytes[0] === 0x04;
+    for (var i = 0; i < 256; i += 1) {
+      var r = ramp[i * 4], g = ramp[i * 4 + 1], b = ramp[i * 4 + 2];
+      out[i] = littleEndian
+        ? (255 << 24) | (b << 16) | (g << 8) | r
+        : (r << 24) | (g << 16) | (b << 8) | 255;
+    }
+    return out;
+  }
+
   /** Expand colour stops into a 256-entry RGBA lookup table. */
   function buildRamp(stops) {
     var ramp = new Uint8Array(256 * 4);
@@ -339,7 +471,15 @@
   var api = {
     readStack: readStack,
     depthStats: depthStats,
+    // Retained as the reference implementation the sparse path is checked
+    // against. It is the only cheap proof an 8x optimisation did not quietly
+    // change the picture.
+    paintDense: paintDepth,
     paintDepth: paintDepth,
+    buildIndex: buildIndex,
+    paintSparse: paintSparse,
+    clearSparse: clearSparse,
+    buildRampU32: buildRampU32,
     depthAt: depthAt,
     buildRamp: buildRamp,
     mercatorToLonLat: mercatorToLonLat,
