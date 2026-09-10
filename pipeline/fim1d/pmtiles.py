@@ -30,14 +30,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+from osgeo import gdal, ogr, osr
 
-from osgeo import gdal, ogr, osr  # noqa: E402
-
-from ras2fim_source import Unit, read_unit  # noqa: E402
+from .source import Unit, read_unit
 
 gdal.UseExceptions()
 ogr.UseExceptions()

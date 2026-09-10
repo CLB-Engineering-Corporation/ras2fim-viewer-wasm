@@ -1,6 +1,6 @@
 """Shared COG post-processing for ras2fim FIM raster products.
 
-Vendored from ``clb_lwi_webmap/pipeline/cog_postprocess.py`` (2026-09-06). The
+Vendored from ``clb_lwi_webmap/pipeline/fim1d/cog_postprocess.py`` (2026-09-06). The
 only deliberate divergence is the plausibility envelope, which is CONUS-wide
 here because ras2fim is a national tool. Keep the rest in step with LWI: the
 rendering tradeoffs below were measured once and should not be re-litigated per

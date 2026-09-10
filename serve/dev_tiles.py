@@ -1,6 +1,6 @@
 """A local stand-in for TiTiler, for previewing the map without deploying one.
 
-Implements only the endpoints ``src/frontend/app.js`` actually calls, with the
+Implements only the endpoints ``src/viewer-1d/app.js`` actually calls, with the
 same paths, query parameters, and response shapes TiTiler uses:
 
 * ``GET /cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png`` -- one 256 px RGBA tile
@@ -14,7 +14,7 @@ single-process, has no caching, and reads from the local filesystem. Point
 
 Usage::
 
-    python serve/dev_tiles.py --port 8102 --root src/frontend
+    python serve/dev_tiles.py --port 8102 --root src/viewer-1d
 
 Requires ``rasterio`` and ``Pillow`` (see pipeline/requirements-frontend-dev.txt).
 """
@@ -290,7 +290,7 @@ def make_handler(root: Path):
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=8102)
-    parser.add_argument("--root", default="src/frontend", help="directory the COG URLs resolve against")
+    parser.add_argument("--root", default="src/viewer-1d", help="directory the COG URLs resolve against")
     parser.add_argument("--host", default="127.0.0.1")
     args = parser.parse_args(argv)
 
@@ -300,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
 
     server = ThreadingHTTPServer((args.host, args.port), make_handler(root))
     print(f"dev tiles on http://{args.host}:{args.port}  root={root}")
-    print("  set rasterTileBase in src/frontend/config.js to this address")
+    print("  set rasterTileBase in src/viewer-1d/config.js to this address")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

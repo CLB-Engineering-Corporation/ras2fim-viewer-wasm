@@ -29,16 +29,13 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+from osgeo import gdal
 
-from osgeo import gdal  # noqa: E402
-
-import cog_postprocess as cp  # noqa: E402
-from ras2fim_source import Model, Unit, read_unit  # noqa: E402
+from . import cog_postprocess as cp
+from .source import Model, Unit, read_unit
 
 gdal.UseExceptions()
 

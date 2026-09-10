@@ -8,21 +8,19 @@ without any error anywhere. Each of those is a one-line check here.
 
 Run it before every release, and after any pipeline change::
 
-    python pipeline/validate_release.py --frontend src/frontend
+    python -m pipeline.fim1d.validate --frontend src/viewer-1d
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+from osgeo import gdal
 
-from osgeo import gdal  # noqa: E402
-
-import cog_postprocess as cp  # noqa: E402
+from ..common.geodesy import looks_like_lonlat
+from . import cog_postprocess as cp
 
 gdal.UseExceptions()
 
@@ -164,7 +162,7 @@ def validate_bbox(manifest: dict, report: Report) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--frontend", default="src/frontend")
+    parser.add_argument("--frontend", default="src/viewer-1d")
     parser.add_argument(
         "--deep",
         action="store_true",

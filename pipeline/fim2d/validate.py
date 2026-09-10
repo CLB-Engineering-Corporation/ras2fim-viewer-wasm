@@ -1,6 +1,6 @@
 """Check that a built NetCDF viewer site is actually servable and correct.
 
-Modelled on ``validate_release.py`` and written for the same reason its opening
+Modelled on ``fim1d/validate.py`` and written for the same reason its opening
 gives: *most ways this breaks are silent in the browser*. A worker file left out
 of the build 404s at runtime with no error from any tool. A manifest that
 disagrees with its data shows an empty map. A ``float32`` stack renders garbage,
@@ -8,7 +8,7 @@ because the whole reader is built on an integer subtract.
 
 Every check below corresponds to one of those.
 
-    python pipeline/validate_netcdf_release.py --site site/ --deep
+    python -m pipeline.fim2d.validate --site site/ --deep
 
 No GDAL: ``netCDF4`` is enough, so this runs on the plain interpreter rather
 than in the pipeline's conda environment.

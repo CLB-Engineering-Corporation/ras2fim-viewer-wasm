@@ -6,9 +6,9 @@
 # production frontend already carries -- 6.9 MB of permanent history for a
 # prototype is a bad trade when two pinned URLs reproduce it exactly.
 #
-#   bash src/netcdf-viewer/fetch-vendor.sh
+#   bash src/viewer-2d/fetch-vendor.sh
 #
-# The production frontend under src/frontend/vendor/ IS committed: that one is
+# The production frontend under src/viewer-1d/vendor/ IS committed: that one is
 # the deliverable, and a release has to be reproducible without the network.
 set -euo pipefail
 

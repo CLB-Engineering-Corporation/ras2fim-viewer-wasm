@@ -7,7 +7,7 @@ reports each conflated NWM reach's hydraulics.
 
 There are two paths here, because the 1D and 2D outputs are shaped differently.
 
-**Browser-native (`src/netcdf-viewer/`)** — the direction the name points at.
+**Browser-native (`src/viewer-2d/`)** — the direction the name points at.
 [ras2fim-2d](https://github.com/andycarter-pe/ras2fim-2d) writes NetCDF4, which
 is HDF5, already in EPSG:3857, with WSEL and terrain packed as `uint16`. So
 [h5wasm](https://github.com/usnistgov/h5wasm) reads it **directly in the
@@ -26,7 +26,7 @@ Measured in Chrome on `wb-2427466` (1963 × 1331, 15 flow layers, 2.35 MB):
 The slider does no network I/O and no per-step scanning: every layer is prepared
 once, and stepping paints only the ~12% of cells that are wet.
 
-**Server-assisted (`src/frontend/`, `pipeline/`)** — the working 1D dashboard.
+**Server-assisted (`src/viewer-1d/`, `pipeline/`)** — the working 1D dashboard.
 ras2fim 1D emits dozens of separate GeoTIFFs in State Plane feet, which a
 browser cannot use as they are, so this path warps them to COGs and serves them
 through TiTiler. Fully built and validated.
@@ -36,11 +36,11 @@ Texas; 20 models cataloged, 1 (`ALUM 026`) with a published 72-profile library.
 
 **Live demo:** <https://clb-engineering-corporation.github.io/ras2fim-viewer-wasm/>
 — the browser-native viewer on GitHub Pages, reading NetCDF with no server
-behind it. Built by `pipeline/build_netcdf_site.py`, deployed from `gh-pages`.
+behind it. Built by `pipeline/fim2d/site.py`, deployed from `gh-pages`.
 
 > **Status:** the 1D path is complete and validated but has not been deployed.
 > The 2D path is built, validated and live. Both have validators
-> (`pipeline/validate_release.py`, `pipeline/validate_netcdf_release.py`) that
+> (`pipeline/fim1d/validate.py`, `pipeline/fim2d/validate.py`) that
 > gate the failures that are otherwise silent in a browser.
 
 ## What it shows
@@ -68,12 +68,12 @@ A consequence worth knowing before reading the numbers: because the spacing is
 uniform at the *controlling* section, every other section — and so every
 conflated reach — sees its own uneven stage steps. On the pilot unit, reach
 `5789842` even steps **backwards** by 0.04 ft between two profiles.
-`validate_release.py` reports this as a warning rather than a failure, because
+`fim1d/validate.py` reports this as a warning rather than a failure, because
 it is a property of the model, not of the publication.
 
 ## Rendering contract
 
-Inherited from `clb_lwi_webmap` — `pipeline/cog_postprocess.py` is vendored from
+Inherited from `clb_lwi_webmap` — `pipeline/fim1d/cog_postprocess.py` is vendored from
 it, and the two should stay in step. The reasoning lives in that file; the short
 version:
 
@@ -102,7 +102,7 @@ version:
 ## Repository layout
 
 ```text
-src/frontend/            no-build web application
+src/viewer-1d/            no-build web application
   index.html  app.js  styles.css
   config.js              per-deployment settings (TiTiler base URL)
   manifest.json          generated browser catalog
@@ -110,14 +110,14 @@ src/frontend/            no-build web application
   cogs/                  generated depth COGs       (not committed)
   vendor/                pinned MapLibre + PMTiles + glyphs
 pipeline/
-  ras2fim_source.py      reads a ras2fim output unit; the only module that
+  fim1d/source.py      reads a ras2fim output unit; the only module that
                          knows that directory's shape
   cog_postprocess.py     vendored raster contract; every COG write goes through
                          finish_cog()
-  build_fim_cogs.py      depth grids -> COGs
-  build_fim_pmtiles.py   geometry + conflation layers -> one PMTiles per unit
-  build_manifest.py      assembles manifest.json, embeds the rating curves
-  validate_release.py    does everything the manifest advertises resolve?
+  fim1d/cogs.py      depth grids -> COGs
+  fim1d/pmtiles.py   geometry + conflation layers -> one PMTiles per unit
+  fim1d/manifest.py      assembles manifest.json, embeds the rating curves
+  fim1d/validate.py    does everything the manifest advertises resolve?
 serve/
   preview.py             starts both preview servers on one host
   range_server.py        static server with PMTiles byte-range support
@@ -136,15 +136,15 @@ conda activate lwi-gdal
 $unit = "C:\ras2fim_data\output_ras2fim\12090301_2277_ble_260901"
 
 # What did this unit publish?
-python pipeline/ras2fim_source.py $unit
+python -m pipeline.fim1d.source $unit
 
-python pipeline/build_fim_cogs.py    $unit --out src/frontend/cogs
-python pipeline/build_fim_pmtiles.py $unit --out src/frontend/pmtiles
-python pipeline/build_manifest.py    $unit --frontend src/frontend
-python pipeline/validate_release.py --frontend src/frontend --deep
+python -m pipeline.fim1d.cogs    $unit --out src/viewer-1d/cogs
+python -m pipeline.fim1d.pmtiles $unit --out src/viewer-1d/pmtiles
+python -m pipeline.fim1d.manifest    $unit --frontend src/viewer-1d
+python -m pipeline.fim1d.validate --frontend src/viewer-1d --deep
 ```
 
-`build_fim_cogs.py` skips COGs that already exist; pass `--force` to rebuild.
+`fim1d/cogs.py` skips COGs that already exist; pass `--force` to rebuild.
 `--limit N` builds only the first N profiles, which is the right way to smoke
 test a new unit.
 
@@ -208,7 +208,7 @@ generation there.
 
 ## Third-party components
 
-Vendored under `src/frontend/vendor/`, unmodified:
+Vendored under `src/viewer-1d/vendor/`, unmodified:
 
 | Component | Version | License |
 |---|---|---|
@@ -218,7 +218,7 @@ Vendored under `src/frontend/vendor/`, unmodified:
 
 The NetCDF prototype additionally uses
 [h5wasm](https://github.com/usnistgov/h5wasm) 0.10.3, fetched by
-`src/netcdf-viewer/fetch-vendor.sh` rather than committed.
+`src/viewer-2d/fetch-vendor.sh` rather than committed.
 
 ## Why a webmap rather than an existing FIM viewer
 

@@ -1,17 +1,17 @@
 # Generated release artifacts. These are rebuilt from a ras2fim output unit by
 # pipeline/, and a depth library is far too large to carry in Git history.
-src/frontend/cogs/
-src/frontend/pmtiles/
-src/frontend/manifest.json
+src/viewer-1d/cogs/
+src/viewer-1d/pmtiles/
+src/viewer-1d/manifest.json
 
 # Sample data copied from ras2fim-2d. Model output does not belong in Git.
-src/netcdf-viewer/data/
-src/netcdf-viewer/manifest.json
+src/viewer-2d/data/
+src/viewer-2d/manifest.json
 
 # Viewer vendor libraries: 6.9 MB, all reproducible from pinned sources.
-# Run src/netcdf-viewer/fetch-vendor.sh. The 1D frontend's vendor/ IS committed
+# Run src/viewer-2d/fetch-vendor.sh. The 1D frontend's vendor/ IS committed
 # -- that one is the deliverable and a release must build without the network.
-src/netcdf-viewer/vendor/
+src/viewer-2d/vendor/
 agent_tasks/*_report.json
 
 # Real deployment values -- host addresses, storage roots, service layout.

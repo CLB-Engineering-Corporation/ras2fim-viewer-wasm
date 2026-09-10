@@ -27,15 +27,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+from osgeo import gdal, ogr, osr
 
-from osgeo import gdal, ogr, osr  # noqa: E402
-
-from ras2fim_source import Model, Unit, read_unit  # noqa: E402
+from ..common.geodesy import union_bounds
+from .source import Model, Unit, read_unit
 
 gdal.UseExceptions()
 
@@ -206,7 +204,7 @@ def _model_entry(
 
     if not profiles:
         raise RuntimeError(
-            f"{model.slug}: no COGs under {cog_dir}. Run build_fim_cogs.py before build_manifest.py."
+            f"{model.slug}: no COGs under {cog_dir}. Run fim1d/cogs.py before fim1d/manifest.py."
         )
 
     entry = {
@@ -257,7 +255,7 @@ def build_manifest(
         pmtiles = pmtiles_root / f"fim_{unit.unit_name}.pmtiles"
         if not pmtiles.is_file():
             raise RuntimeError(
-                f"{unit.unit_name}: {pmtiles} missing. Run build_fim_pmtiles.py before build_manifest.py."
+                f"{unit.unit_name}: {pmtiles} missing. Run fim1d/pmtiles.py before fim1d/manifest.py."
             )
 
         xs_counts = _cross_section_counts(unit)
@@ -316,7 +314,7 @@ def build_manifest(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("unit", nargs="+", help="ras2fim output unit directory (repeatable)")
-    parser.add_argument("--frontend", required=True, help="src/frontend root")
+    parser.add_argument("--frontend", required=True, help="src/viewer-1d root")
     parser.add_argument("--title", default="ras2fim Flood Inundation Mapping")
     parser.add_argument(
         "--description",

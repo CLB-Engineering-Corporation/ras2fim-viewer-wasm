@@ -41,9 +41,9 @@ the workstation's Python.
 - **The profile index is the join key.** `Depth (flow<N>_ft)`, `profile_num` in
   the rating curves, and `profile_num` in the geocurves are the same zero-based
   RASMapper `ProfileIndex`. Nothing may reorder or renumber it.
-- **Layer names in `build_fim_pmtiles.py` match `VECTORS[].id` in `app.js`.**
+- **Layer names in `fim1d/pmtiles.py` match `VECTORS[].id` in `app.js`.**
   Renaming one without the other produces an empty layer and no error anywhere.
-  `validate_release.py` catches it.
+  `fim1d/validate.py` catches it.
 - **`finish_cog()` is the only way a COG gets written.** It stamps the codec,
   the LERC tolerance, and the overview method into the artifact, validates the
   layout with a real validator, and replaces the destination atomically. Never
@@ -58,7 +58,7 @@ the workstation's Python.
 
 - **`VIEWER_FILES` must list every file the page loads.** Nothing references
   `netcdf-worker.js` but `app.js`, so omitting it builds cleanly and 404s at
-  runtime. `validate_netcdf_release.py` scans the shipped JS for `new Worker`
+  runtime. `fim2d/validate.py` scans the shipped JS for `new Worker`
   and `importScripts` literals precisely to catch this.
 - **`paintSparse` must agree with `paintDense` byte for byte.** Run `?verify=1`
   after touching either. The dense renderer is retained only as that oracle.
@@ -73,14 +73,14 @@ the workstation's Python.
 
 ```powershell
 conda activate lwi-gdal
-python pipeline/validate_release.py --frontend src/frontend --deep
+python -m pipeline.fim1d.validate --frontend src/viewer-1d --deep
 ```
 
 For the 2D viewer -- no GDAL, plain interpreter:
 
 ```powershell
-python pipeline/build_netcdf_site.py <dir-of-nc> --out site/
-python pipeline/validate_netcdf_release.py --site site/ --deep
+python -m pipeline.fim2d.site <dir-of-nc> --out site/
+python -m pipeline.fim2d.validate --site site/ --deep
 ```
 
 454 checks pass on the pilot unit with one warning: reach `5789842`'s stage is
@@ -92,8 +92,8 @@ Then preview it. A pipeline that passes validation can still render nothing, and
 the depth grid is the whole product:
 
 ```powershell
-python serve/range_server.py 8100 src/frontend
-python serve/dev_tiles.py --port 8102 --root src/frontend
+python serve/range_server.py 8100 src/viewer-1d
+python serve/dev_tiles.py --port 8102 --root src/viewer-1d
 ```
 
 ## Scope

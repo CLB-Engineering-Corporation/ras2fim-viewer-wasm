@@ -3,7 +3,7 @@
 PMTiles is read with HTTP range requests, so a server that ignores ``Range``
 returns the whole archive for every tile fetch and the map appears to hang.
 
-Usage: ``python serve/range_server.py 8100 src/frontend``
+Usage: ``python serve/range_server.py 8100 src/viewer-1d``
 
 The depth COGs need a tile server as well -- see ``serve/dev_tiles.py``.
 """

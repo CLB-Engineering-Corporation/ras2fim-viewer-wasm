@@ -26,7 +26,7 @@
   var PLAY_INTERVAL_MS = 280;
 
   /* Vector layers in draw order, bottom first. `source_layer` matches the layer
-     names build_fim_pmtiles.py writes; a unit that lacks one simply gets no
+     names fim1d/pmtiles.py writes; a unit that lacks one simply gets no
      layer rather than an error, because ras2fim's optional steps can be off. */
   var VECTORS = [
     { id: "huc12", label: "HUC12 boundaries", group: "Context", type: "line",

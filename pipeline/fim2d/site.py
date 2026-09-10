@@ -4,7 +4,7 @@ The output is a folder you can drop on GitHub Pages, S3 static hosting, or any
 plain web server. There is no tile server, no database, and no build step at
 serve time -- the browser opens the ``.nc`` files directly.
 
-    python pipeline/build_netcdf_site.py <dir-of-nc> --out site/
+    python -m pipeline.fim2d.site <dir-of-nc> --out site/
 
 What you get::
 
@@ -38,24 +38,26 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-import build_netcdf_manifest as manifest_builder  # noqa: E402
+from . import manifest as manifest_builder
 
 # Every file the page loads. Miss one -- the worker especially, which nothing
 # else references -- and the build succeeds while the deployed site 404s at
-# runtime with no error from any tool. validate_netcdf_release.py checks this by
+# runtime with no error from any tool. fim2d/validate.py checks this by
 # scanning the shipped JS for Worker/importScripts literals.
+def _repo_root() -> Path:
+    """The repository root, two levels up from pipeline/fim2d/."""
+    return Path(__file__).resolve().parent.parent.parent
+
+
 VIEWER_FILES = ("index.html", "app.js", "netcdf.js", "netcdf-worker.js")
 VENDOR_FILES = ("h5wasm.js", "maplibre-gl.js", "maplibre-gl.css")
 
 
 def _viewer_root(explicit: str | None) -> Path:
-    root = Path(explicit) if explicit else Path(__file__).resolve().parent.parent / "src" / "netcdf-viewer"
+    root = Path(explicit) if explicit else _repo_root() / "src" / "viewer-2d"
     missing = [f for f in VIEWER_FILES if not (root / f).is_file()]
     if missing:
         raise SystemExit(f"FAIL  viewer source incomplete at {root}: missing {', '.join(missing)}")
@@ -253,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("source", help="directory containing ras2fim-2d .nc output")
     parser.add_argument("--out", required=True, help="site output directory")
-    parser.add_argument("--viewer", help="viewer source dir (default: src/netcdf-viewer)")
+    parser.add_argument("--viewer", help="viewer source dir (default: src/viewer-2d)")
     parser.add_argument("--title", default="ras2fim-2d flood inundation")
     parser.add_argument("--attribution", help="credit for whoever produced the model output")
     parser.add_argument(

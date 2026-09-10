@@ -24,8 +24,8 @@
     "route_uses_immutable_release": true
   },
   "frontend": {
-    "source_root": "src/frontend",
-    "production_config": "src/frontend/config.js",
+    "source_root": "src/viewer-1d",
+    "production_config": "src/viewer-1d/config.js",
     "runtime_services": [
       {
         "name": "fim-titiler",
@@ -37,12 +37,12 @@
   },
   "artifacts": {
     "cogs": {
-      "path": "src/frontend/cogs/<unit>/<model_slug>/depth_<NNN>.tif",
+      "path": "src/viewer-1d/cogs/<unit>/<model_slug>/depth_<NNN>.tif",
       "committed": false,
       "note": "The tile service must be able to read these by the same URL the browser sends."
     },
     "pmtiles": {
-      "path": "src/frontend/pmtiles/fim_<unit>.pmtiles",
+      "path": "src/viewer-1d/pmtiles/fim_<unit>.pmtiles",
       "committed": false,
       "note": "Served as static files; needs HTTP byte-range support."
     }

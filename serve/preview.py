@@ -50,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
         help="one specific address to bind (default loopback). Use this machine's "
         "own LAN or Tailscale address to preview from another device.",
     )
-    parser.add_argument("--root", default="src/frontend", help="frontend directory to serve")
+    parser.add_argument("--root", default="src/viewer-1d", help="frontend directory to serve")
     parser.add_argument("--port", type=int, default=DEFAULT_STATIC_PORT)
     parser.add_argument("--tile-port", type=int, default=DEFAULT_TILE_PORT)
     args = parser.parse_args(argv)
@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"no index.html under {root} -- is --root the frontend directory?")
     if not (root / "manifest.json").is_file():
         parser.error(
-            f"no manifest.json under {root}. Run pipeline/build_manifest.py before previewing."
+            f"no manifest.json under {root}. Run pipeline/fim1d/manifest.py before previewing."
         )
 
     for port in (args.port, args.tile_port):
@@ -86,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
     # letting a non-default --tile-port fail silently in the map.
     if args.tile_port != DEFAULT_TILE_PORT:
         print(
-            f"NOTE  src/frontend/config.js expects the tile server on {DEFAULT_TILE_PORT}; "
+            f"NOTE  src/viewer-1d/config.js expects the tile server on {DEFAULT_TILE_PORT}; "
             f"update rasterTileBase to use {args.tile_port}.",
             flush=True,
         )

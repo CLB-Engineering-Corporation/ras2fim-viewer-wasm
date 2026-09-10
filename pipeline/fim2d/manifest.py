@@ -10,7 +10,7 @@ Unlike the 1D pipeline, this needs no GDAL and no conversion step. It opens
 each file read-only, copies out a handful of numbers, and writes JSON. The
 files themselves are published exactly as ras2fim-2d wrote them.
 
-    python pipeline/build_netcdf_manifest.py <dir-of-nc> --out <dir>/manifest.json
+    python -m pipeline.fim2d.manifest <dir-of-nc> --out <dir>/manifest.json
 """
 
 from __future__ import annotations
@@ -23,18 +23,9 @@ from pathlib import Path
 
 import netCDF4
 
+from ..common.geodesy import grid_bounds_lonlat, parse_geotransform, union_bounds
+
 SCHEMA_VERSION = 1
-
-#: Half the circumference of the Web Mercator plane, in metres.
-MERCATOR_R = 20037508.342789244
-
-
-def _mercator_to_lonlat(x: float, y: float) -> tuple[float, float]:
-    return (
-        (x / MERCATOR_R) * 180.0,
-        math.degrees(math.atan(math.exp((y / MERCATOR_R) * math.pi))) * 2.0 - 90.0,
-    )
-
 
 def _attr(obj, name, default=None):
     try:
@@ -75,31 +66,18 @@ def describe(path: Path, root: Path) -> dict | None:
         # The extent comes from GeoTransform, not the x/y vectors: those are
         # cell centres, and using them as an extent shifts the raster half a
         # cell. Without it there is nothing reliable to fit the map to.
-        geotransform = None
+        gt = None
         if "spatial_ref" in nc.variables:
-            raw = _attr(nc.variables["spatial_ref"], "GeoTransform")
-            if raw:
-                try:
-                    parts = [float(p) for p in str(raw).split()]
-                except ValueError:
-                    parts = []
-                # NaN passes a length check and then serialises as invalid JSON,
-                # so it is rejected here rather than shipped.
-                if len(parts) == 6 and all(math.isfinite(p) for p in parts):
-                    geotransform = parts
-        if geotransform is None:
+            gt = parse_geotransform(_attr(nc.variables["spatial_ref"], "GeoTransform"))
+        if gt is None:
             return None
-
-        origin_x, pixel_w, rot_x, origin_y, rot_y, pixel_h = geotransform
-        if rot_x or rot_y:
-            # Four corners cannot place a rotated grid; the viewer refuses these
-            # too, so do not advertise one it will fail to draw.
+        # Four corners cannot place a rotated grid; the viewer refuses these too,
+        # so do not advertise one it will fail to draw.
+        try:
+            lon_w, lat_s, lon_e, lat_n = grid_bounds_lonlat(gt, nx, ny)
+        except Exception:
             return None
-
-        west, north = origin_x, origin_y
-        east, south = west + nx * pixel_w, north + ny * pixel_h
-        lon_w, lat_s = _mercator_to_lonlat(west, south)
-        lon_e, lat_n = _mercator_to_lonlat(east, north)
+        pixel_w = gt["pixel_w"]
 
         # Flows are not necessarily integers. int() would turn 1.75 into 1 and
         # mislabel the slider with a discharge the model never ran.
@@ -143,11 +121,8 @@ def build(source: Path, root: Path, title: str, attribution: str | None) -> dict
 
     bounds = None
     for entry in streams:
-        b = entry["bounds"]
-        bounds = b[:] if bounds is None else [
-            min(bounds[0], b[0]), min(bounds[1], b[1]),
-            max(bounds[2], b[2]), max(bounds[3], b[3]),
-        ]
+        bounds = union_bounds(bounds, tuple(entry["bounds"]))
+    bounds = list(bounds) if bounds else None
 
     return {
         "schema_version": SCHEMA_VERSION,
