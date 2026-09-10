@@ -76,7 +76,7 @@ the workstation's Python.
 ## Tests
 
 ```sh
-node --test "tests/*.test.mjs"              # browser reader, no dependencies
+node --test tests/*.test.mjs                # browser reader, no dependencies
 python -m unittest discover -s tests -t .   # pipeline, needs numpy + netCDF4
 ```
 

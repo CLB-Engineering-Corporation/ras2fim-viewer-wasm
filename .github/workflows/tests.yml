@@ -41,7 +41,10 @@ jobs:
       # dependencies and the tests load it through node:vm exactly as a worker
       # would. If this job ever needs `npm ci`, the reader has grown a
       # dependency it should not have.
-      - run: node --test "tests/*.test.mjs"
+      # Unquoted, so bash expands the glob and Node receives explicit paths.
+      # Node's own glob handling in --test arrived after 20, and a quoted
+      # pattern fails there with "Could not find" rather than running nothing.
+      - run: node --test tests/*.test.mjs
 
   pipeline:
     name: pipeline (python ${{ matrix.python }})

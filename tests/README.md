@@ -1,12 +1,14 @@
 # Tests
 
 ```sh
-node --test "tests/*.test.mjs"          # the browser reader, no dependencies
+node --test tests/*.test.mjs             # the browser reader, no dependencies
 python -m unittest discover -s tests -t .   # the pipeline, needs numpy + netCDF4
 ```
 
 Both run in well under a second. Neither needs a browser, a tile server, GDAL,
-or any committed data.
+any committed data, or the network -- the round-trip test builds against a
+temporary viewer root with stub vendor files, so it never triggers
+`fetch-vendor.sh`.
 
 ## Why the suite is split
 
@@ -58,6 +60,10 @@ Regenerate it only when the contract itself changes, and re-run both suites:
 ```sh
 python -m tests.regenerate_geodesy_fixture
 ```
+
+The Node glob is unquoted so the shell expands it. Node only learned to expand
+`--test` patterns itself after version 20, and a quoted pattern fails there
+rather than silently running nothing.
 
 ## Fixtures are synthesised, not committed
 

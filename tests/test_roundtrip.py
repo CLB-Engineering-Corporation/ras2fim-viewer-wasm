@@ -28,12 +28,40 @@ from pipeline.fim2d import validate as validator
 from . import fixture_nc
 
 
+def temp_viewer_root(parent: Path) -> Path:
+    """A viewer source directory the build can use without touching the network.
+
+    ``_ensure_vendor()`` runs ``fetch-vendor.sh`` when a vendor library is
+    missing, which downloads 6.9 MB of h5wasm and MapLibre. That is right for a
+    real build and wrong for a test: it makes the suite depend on two CDNs, and
+    it fails on any checkout that has not vendored yet -- which is every CI run.
+
+    So the real viewer files are copied into a temporary root beside stub vendor
+    files, and the build is pointed at that. The stubs are never executed; the
+    build only copies them. What is under test is the pipeline's own logic.
+
+    That the *real* ``src/viewer-2d`` root resolves and holds every file in
+    ``VIEWER_FILES`` is asserted in ``test_site_safety.py``, so nothing is lost.
+    """
+    root = parent / "viewer"
+    (root / "vendor").mkdir(parents=True, exist_ok=True)
+    real = Path(site.__file__).resolve().parent.parent.parent / "src" / "viewer-2d"
+    for name in site.VIEWER_FILES:
+        shutil.copy2(real / name, root / name)
+    for name in site.VENDOR_FILES:
+        (root / "vendor" / name).write_text(
+            f"/* test stub for {name}; the build copies it and never runs it */\n",
+            encoding="utf-8")
+    return root
+
+
 class RoundTripTest(unittest.TestCase):
     """One source tree containing everything the builder must handle."""
 
     @classmethod
     def setUpClass(cls):
         cls.tmp = Path(tempfile.mkdtemp(prefix="fim-roundtrip-"))
+        cls.viewer = temp_viewer_root(cls.tmp)
         cls.source = cls.tmp / "source"
         # Two models sharing a basename in different directories. A flat
         # data/<basename> layout silently publishes one and loses the other.
@@ -48,7 +76,7 @@ class RoundTripTest(unittest.TestCase):
         cls.out = cls.tmp / "site"
         cls.build_log = io.StringIO()
         with redirect_stdout(cls.build_log):
-            code = site.build(cls.source, cls.out, viewer_root=None,
+            code = site.build(cls.source, cls.out, viewer_root=str(cls.viewer),
                               title="round-trip fixture", attribution=None,
                               data_base_url=None)
         assert code == 0, cls.build_log.getvalue()
@@ -114,7 +142,7 @@ class RoundTripTest(unittest.TestCase):
     def test_rebuilding_is_deterministic_apart_from_the_timestamp(self):
         second = self.tmp / "site2"
         with redirect_stdout(io.StringIO()):
-            site.build(self.source, second, viewer_root=None,
+            site.build(self.source, second, viewer_root=str(self.viewer),
                        title="round-trip fixture", attribution=None, data_base_url=None)
         a = json.loads((self.out / "manifest.json").read_text("utf-8"))
         b = json.loads((second / "manifest.json").read_text("utf-8"))
