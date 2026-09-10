@@ -1,0 +1,84 @@
+name: tests
+
+# Two jobs, because the repository deliberately spans two environments and the
+# split is the interesting part.
+#
+# The browser reader is DOM-free by design, so its tests need Node and nothing
+# else -- no h5wasm, no headless Chrome, no fixture NetCDF. That is what makes
+# the sparse-vs-dense oracle, the gate on a 16x paint optimisation, cheap enough
+# to run on every push instead of by hand in a browser with ?verify=1.
+#
+# The 1D pipeline needs the GDAL Python bindings and real ras2fim output, and is
+# therefore NOT run here. Its release gate stays manual; see tests/README.md.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  reader:
+    name: browser reader (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # No install step and no lockfile: src/viewer-2d/netcdf.js has no
+      # dependencies and the tests load it through node:vm exactly as a worker
+      # would. If this job ever needs `npm ci`, the reader has grown a
+      # dependency it should not have.
+      - run: node --test "tests/*.test.mjs"
+
+  pipeline:
+    name: pipeline (python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # Run the geodesy tests first, before anything is installed. They are the
+      # cross-language contract with the browser reader and they must keep
+      # working on a bare checkout -- proving it here is cheaper than asserting
+      # it in a comment.
+      - name: geodesy, with no dependencies installed
+        run: python -m unittest tests.test_geodesy -v
+
+      - name: install the 2D pipeline's dependencies
+        run: python -m pip install --upgrade pip numpy netCDF4
+
+      - name: full suite
+        run: python -m unittest discover -s tests -t . -v
+
+  # A single required check to protect the branch with, so adding a matrix entry
+  # later does not silently leave the branch unprotected against it.
+  all-green:
+    name: all tests green
+    if: always()
+    needs: [reader, pipeline]
+    runs-on: ubuntu-latest
+    steps:
+      - name: fail if any job did not succeed
+        run: |
+          echo "reader=${{ needs.reader.result }} pipeline=${{ needs.pipeline.result }}"
+          [ "${{ needs.reader.result }}" = "success" ] || exit 1
+          [ "${{ needs.pipeline.result }}" = "success" ] || exit 1

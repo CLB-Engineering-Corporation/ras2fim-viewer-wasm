@@ -60,14 +60,43 @@ the workstation's Python.
   `netcdf-worker.js` but `app.js`, so omitting it builds cleanly and 404s at
   runtime. `fim2d/validate.py` scans the shipped JS for `new Worker`
   and `importScripts` literals precisely to catch this.
-- **`paintSparse` must agree with `paintDense` byte for byte.** Run `?verify=1`
-  after touching either. The dense renderer is retained only as that oracle.
+- **`paintSparse` must agree with `paintDense` byte for byte.** The dense
+  renderer is retained only as that oracle. `tests/netcdf-reader.test.mjs` runs
+  it in Node on synthetic layers covering fill, zero, negative, positive, empty
+  and receding flow; `?verify=1` runs it in a real browser on real data. The
+  first is the guard on every change, the second is the acceptance step before
+  a deploy.
 - **The dense arrays never leave the worker.** Posting `stack.wsel` is an 83 MB
   structured clone that shows up as unexplained main-thread jank, not an error.
 - **"Wet" is two populations.** `positive` is what gets painted; `valid` is what
   the signed statistics describe. Do not merge them.
 - **`setTimeout(fn, 0)` is not a task yield** in a worker owned by a background
   tab -- it is clamped to ~1 s. Use the `MessageChannel` yield.
+
+## Tests
+
+```sh
+node --test "tests/*.test.mjs"              # browser reader, no dependencies
+python -m unittest discover -s tests -t .   # pipeline, needs numpy + netCDF4
+```
+
+Under a second each, and neither needs a browser, a tile server or GDAL. Run
+both before committing anything under `src/viewer-2d/` or `pipeline/`.
+
+Two things they encode that are easy to undo by accident:
+
+- **`netcdf.js` must stay loadable outside a browser.** The tests load it
+  through `node:vm` with `self` bound the way a worker binds it. If that stops
+  working, the sparse-vs-dense oracle goes back to being a manual `?verify=1`
+  step and the 16x paint optimisation loses its only cheap guard.
+- **`tests/fixtures/geodesy_cases.json` is a two-language contract.** Change a
+  rule in `pipeline/common/geodesy.py` and the JavaScript copy fails, and the
+  other way round. Regenerate with `python -m tests.regenerate_geodesy_fixture`
+  only when the rule itself is meant to change.
+
+CI (`.github/workflows/tests.yml`) runs exactly these two commands. The 1D
+pipeline is not in CI: it needs the GDAL bindings and real ras2fim output, so
+its gate stays the manual `--deep` run below. See `tests/README.md`.
 
 ## Before calling a build done
 

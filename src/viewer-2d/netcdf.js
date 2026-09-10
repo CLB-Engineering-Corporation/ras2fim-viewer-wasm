@@ -45,8 +45,14 @@
        rioxarray into spatial_ref. Read it rather than deriving from the x/y
        coordinate vectors: those are cell CENTRES, and using them as an extent
        silently shifts the raster half a cell. */
+    if (text === null || text === undefined || text === "") return null;
     var parts = String(text).trim().split(/\s+/).map(Number);
-    if (parts.length !== 6 || parts.some(isNaN)) return null;
+    /* Number.isFinite, not isNaN: `isNaN(Infinity)` is false, so the old test
+       accepted an infinite origin. Python's geotransform_error() rejects every
+       non-finite value, and tests/netcdf-reader.test.mjs holds the two to the
+       same fixture. A non-finite transform also serialises as bare `Infinity`,
+       which is not valid JSON. */
+    if (parts.length !== 6 || !parts.every(Number.isFinite)) return null;
     return {
       originX: parts[0], pixelW: parts[1], rotX: parts[2],
       originY: parts[3], rotY: parts[4], pixelH: parts[5]
@@ -483,6 +489,10 @@
     depthAt: depthAt,
     buildRamp: buildRamp,
     mercatorToLonLat: mercatorToLonLat,
+    // Exported for tests/netcdf-reader.test.mjs, which holds it against
+    // pipeline/common/geodesy.py on a shared fixture. Nothing else calls it
+    // from outside; the reader uses it internally.
+    parseGeoTransform: parseGeoTransform,
     FILL: FILL
   };
 
