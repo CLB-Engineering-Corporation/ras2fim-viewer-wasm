@@ -342,7 +342,7 @@ def _main() -> int:
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("unit", help="ras2fim output unit directory")
-    parser.add_argument("--json", action="store_true", help="emit machine-readable summary")
+    parser.add_argument("--report", help="write a machine-readable summary to this JSON path")
     args = parser.parse_args()
 
     unit = read_unit(args.unit)
@@ -369,9 +369,8 @@ def _main() -> int:
         ],
     }
 
-    if args.json:
-        print(json.dumps(summary, indent=2))
-        return 0
+    if args.report:
+        Path(args.report).write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
     print(f"{summary['unit']}  HUC8 {summary['huc8']}  {summary['crs']}  {summary['source']}")
     print(f"  catalog: {summary['models_cataloged']} models, {len(summary['models'])} with a FIM library")

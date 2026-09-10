@@ -159,24 +159,59 @@
   }
 
   /* ==================================================================
-     Depth raster (TiTiler)
+     Depth raster
      ================================================================== */
 
-  /* The depth COG is served dynamically rather than pre-tiled. 72 profiles x
-     every zoom would be tens of thousands of PNGs to rebuild whenever the ramp
-     changes; one COG per profile plus a tile server is the same pixels with a
-     fraction of the artifacts. */
-  function depthTileUrl(model, profile) {
-    var base = String(CFG.rasterTileBase || "").replace(/\/+$/, "");
+  /* Two delivery paths, and the manifest -- not this file, and not config.js --
+     decides which one a release uses.
+
+     A profile carrying `depth_pmtiles` was baked into a static archive at build
+     time. That release needs no tile service at all, which is what lets the
+     dashboard be published to plain static hosting. The whole pilot library is
+     72 profiles and 4.8 MB, because a flood is a thin corridor inside a much
+     larger model bounding box and every transparent tile is skipped.
+
+     A profile without one is tiled on demand from its COG by TiTiler at
+     `rasterTileBase`. That stays the right answer for a deployment carrying
+     many units, where pre-rendering every profile would be the larger cost.
+
+     How depth arrives is a property of the release that was built, not of the
+     machine viewing it, which is why it is recorded in the manifest. */
+  function depthSourceSpec(model, profile) {
     var entry = model.fim.profiles[profile];
-    if (!base || !entry) return null;
+    if (!entry) return null;
+
+    if (entry.depth_pmtiles) {
+      /* The archive's own TileJSON carries bounds and zoom range, so MapLibre
+         overzooms past the base zoom instead of requesting tiles that do not
+         exist. The ramp is already baked into the pixels. */
+      return { kind: "pmtiles", url: "pmtiles://" + absoluteUrl(entry.depth_pmtiles) };
+    }
+
+    var base = String(CFG.rasterTileBase || "").replace(/\/+$/, "");
+    if (!base) return null;
     /* Rescale is the library maximum, not this profile's maximum: a per-profile
        stretch would render every profile with the same darkest blue and hide
-       the very thing the slider exists to show. */
-    return base + "/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png" +
-      "?url=" + encodeURIComponent(absoluteUrl(entry.cog)) +
-      "&rescale=0," + model.fim.depth_max_ft +
-      "&colormap_name=blues&nodata=-9999&resampling=nearest";
+       the very thing the slider exists to show. The baked archives are built
+       with the same rule, so the two paths render identical pixels. */
+    return {
+      kind: "titiler",
+      tiles: [base + "/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png" +
+        "?url=" + encodeURIComponent(absoluteUrl(entry.cog)) +
+        "&rescale=0," + model.fim.depth_max_ft +
+        "&colormap_name=blues&nodata=-9999&resampling=nearest"]
+    };
+  }
+
+  /* True when every profile of this model was baked, so no tile service is
+     needed and the startup probe has nothing to check. */
+  function modelIsSelfContained(model) {
+    var profiles = (model && model.fim && model.fim.profiles) || [];
+    if (!profiles.length) return false;
+    for (var i = 0; i < profiles.length; i += 1) {
+      if (!profiles[i].depth_pmtiles) return false;
+    }
+    return true;
   }
 
   function removeDepthLayer() {
@@ -198,13 +233,17 @@
     if (!map.isStyleLoaded()) { map.once("load", updateDepthLayer); return; }
     removeDepthLayer();
     if (!activeModel || !byId("depth-visible").checked) return;
-    var url = depthTileUrl(activeModel, activeProfile);
-    if (!url) { showRasterUnavailable(); return; }
+    var spec = depthSourceSpec(activeModel, activeProfile);
+    if (!spec) { showRasterUnavailable(); return; }
 
-    map.addSource("depth-tiles", {
-      type: "raster", tiles: [url], tileSize: 256,
-      bounds: activeModel.bbox || undefined, minzoom: 0, maxzoom: 18
-    });
+    if (spec.kind === "pmtiles") {
+      map.addSource("depth-tiles", { type: "raster", url: spec.url, tileSize: 256 });
+    } else {
+      map.addSource("depth-tiles", {
+        type: "raster", tiles: spec.tiles, tileSize: 256,
+        bounds: activeModel.bbox || undefined, minzoom: 0, maxzoom: 18
+      });
+    }
     map.addLayer({
       id: "depth-raster", type: "raster", source: "depth-tiles",
       paint: {
@@ -228,6 +267,14 @@
      a failed raster tile as a generic source error with no status, so a missing
      tile server would otherwise look identical to a dry profile. */
   function probeRasterService() {
+    /* A release whose profiles were all baked has no tile service to probe, and
+       telling the reader to configure one would be wrong as well as alarming. */
+    if (modelIsSelfContained(activeModel)) {
+      rasterProbe.checked = true;
+      rasterProbe.ok = true;
+      setNotice("");
+      return;
+    }
     var base = String(CFG.rasterTileBase || "").replace(/\/+$/, "");
     if (!base || !activeModel) { rasterProbe.checked = true; showRasterUnavailable(); return; }
     var entry = activeModel.fim.profiles[activeModel.fim.profiles.length - 1];

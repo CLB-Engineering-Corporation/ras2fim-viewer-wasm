@@ -54,6 +54,31 @@ the workstation's Python.
   rather than Louisiana, and `METADATA_PREFIX` is `FIM`. Anything else should be
   ported back and forth rather than allowed to fork.
 
+## 1D depth delivery contracts
+
+- **The manifest decides how depth arrives, not `config.js`.** A profile with
+  `depth_pmtiles` draws from a baked archive; one without falls back to
+  `rasterTileBase`. Putting this in per-deployment config instead would make a
+  release behave differently depending on who opened it.
+- **One ramp, in `pipeline/common/ramp.py`.** `serve/dev_tiles.py` applies it
+  per request and `fim1d/depth_pmtiles.py` bakes it into pixels. If they drift,
+  a preview and a publication of the same data show different depths.
+- **Rescale against the library maximum, never the profile's own.** A
+  per-profile stretch renders every profile with the same darkest blue, which
+  hides the one thing a stage slider exists to show.
+- **A depth of exactly 0.0 ft is not inundation.** RASMapper writes plenty at
+  the extent edge; painting them draws a hard collar around every flood.
+- **`fim1d/site.py` refuses to publish a release that still needs TiTiler.**
+  Static hosting cannot run one, and the failure is silent: the page loads, the
+  panel fills in, and the depth grid never appears. Pass
+  `--allow-tile-service` only when the target really does run one.
+- **A published release carries no COGs.** Without a tile service they are
+  4.3 MB no browser can read, so the manifest stops naming them. A manifest that
+  points at files a release does not carry is a broken contract.
+- **`GDAL is imported lazily in `fim1d/validate.py`.** Validating a published
+  release is exactly what you want to do on the host that will serve it, and
+  that host is unlikely to have the bindings. Only the deep COG checks need it.
+
 ## NetCDF viewer contracts
 
 - **`VIEWER_FILES` must list every file the page loads.** Nothing references
@@ -102,14 +127,14 @@ its gate stays the manual `--deep` run below. See `tests/README.md`.
 
 ```powershell
 conda activate lwi-gdal
-python -m pipeline.fim1d.validate --frontend src/viewer-1d --deep
+python -m pipeline.fim1d.validate src/viewer-1d --deep
 ```
 
 For the 2D viewer -- no GDAL, plain interpreter:
 
 ```powershell
 python -m pipeline.fim2d.site <dir-of-nc> --out site/
-python -m pipeline.fim2d.validate --site site/ --deep
+python -m pipeline.fim2d.validate site/ --deep
 ```
 
 454 checks pass on the pilot unit with one warning: reach `5789842`'s stage is

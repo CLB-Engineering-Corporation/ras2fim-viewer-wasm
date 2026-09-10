@@ -89,7 +89,7 @@ class RoundTripTest(unittest.TestCase):
     def test_deep_validation_passes(self):
         log = io.StringIO()
         with redirect_stdout(log):
-            code = validator.main(["--site", str(self.out), "--deep"])
+            code = validator.main([str(self.out), "--deep"])
         self.assertEqual(code, 0, log.getvalue())
         self.assertIn("PASS", log.getvalue())
 

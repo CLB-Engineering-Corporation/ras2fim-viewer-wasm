@@ -14,7 +14,7 @@ single-process, has no caching, and reads from the local filesystem. Point
 
 Usage::
 
-    python serve/dev_tiles.py --port 8102 --root src/viewer-1d
+    python -m serve.dev_tiles --port 8102 --root src/viewer-1d
 
 Requires ``rasterio`` and ``Pillow`` (see pipeline/requirements-frontend-dev.txt).
 """
@@ -38,6 +38,9 @@ from rasterio.enums import Resampling
 from rasterio.transform import from_bounds as transform_from_bounds
 from rasterio.vrt import WarpedVRT
 
+from pipeline.common.ramp import DEFAULT as DEFAULT_RAMP
+from pipeline.common.ramp import table as ramp_table
+
 TILE_SIZE = 256
 WEB_MERCATOR = "EPSG:3857"
 #: Half the circumference of the Web Mercator plane, in metres.
@@ -45,32 +48,10 @@ ORIGIN = 20037508.342789244
 
 TILE_RE = re.compile(r"^/cog/tiles/WebMercatorQuad/(\d+)/(\d+)/(\d+)(?:@\d+x)?\.png$")
 
-#: Colour ramps, as (position 0-1, R, G, B) control points. Named to match the
-#: TiTiler/matplotlib names the frontend asks for, so the same URL renders
-#: comparably in development and in production.
-COLORMAPS: dict[str, list[tuple[float, int, int, int]]] = {
-    "blues": [
-        (0.00, 234, 243, 251),
-        (0.25, 158, 202, 225),
-        (0.50, 66, 146, 198),
-        (0.75, 8, 81, 156),
-        (1.00, 8, 48, 107),
-    ],
-    "ylorrd": [
-        (0.00, 255, 255, 178),
-        (0.25, 254, 217, 118),
-        (0.50, 253, 141, 60),
-        (0.75, 240, 59, 32),
-        (1.00, 189, 0, 38),
-    ],
-    "ylgnbu": [
-        (0.00, 255, 255, 217),
-        (0.25, 161, 218, 180),
-        (0.50, 65, 182, 196),
-        (0.75, 34, 94, 168),
-        (1.00, 12, 44, 132),
-    ],
-}
+#: The ramp lives in pipeline/common/ramp.py because three things must agree on
+#: what a given depth looks like: this server, the baked PMTiles that
+#: pipeline/fim1d/depth_pmtiles.py writes, and the legend beside the map. Two of
+#: them are Python and share the module rather than each carrying a copy.
 
 
 class TileError(Exception):
@@ -78,18 +59,6 @@ class TileError(Exception):
         super().__init__(message)
         self.status = status
         self.message = message
-
-
-def _ramp(name: str) -> np.ndarray:
-    """Expand a colormap's control points into a 256-entry RGB lookup table."""
-    points = COLORMAPS.get(name.lower(), COLORMAPS["blues"])
-    positions = np.array([p[0] for p in points])
-    table = np.zeros((256, 3), dtype=np.uint8)
-    x = np.linspace(0.0, 1.0, 256)
-    for channel in range(3):
-        values = np.array([p[channel + 1] for p in points], dtype=float)
-        table[:, channel] = np.interp(x, positions, values).astype(np.uint8)
-    return table
 
 
 def tile_bounds(z: int, x: int, y: int) -> tuple[float, float, float, float]:
@@ -172,7 +141,7 @@ def render_tile(path: Path, z: int, x: int, y: int, params: dict) -> bytes:
 
     scaled = np.clip((data - lo) / (hi - lo), 0.0, 1.0)
     index = (scaled * 255).astype(np.uint8)
-    table = _ramp(params.get("colormap_name", ["blues"])[0])
+    table = ramp_table(params.get("colormap_name", [DEFAULT_RAMP])[0])
 
     rgba = np.zeros((TILE_SIZE, TILE_SIZE, 4), dtype=np.uint8)
     rgba[..., :3] = table[index]

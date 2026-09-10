@@ -17,5 +17,5 @@ Two products, two subpackages, because they share almost nothing:
 Run a tool as a module from the repository root::
 
     python -m pipeline.fim2d.site <dir-of-nc> --out site/
-    python -m pipeline.fim1d.validate --frontend src/viewer-1d
+    python -m pipeline.fim1d.validate src/viewer-1d
 """

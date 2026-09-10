@@ -8,7 +8,7 @@ because the whole reader is built on an integer subtract.
 
 Every check below corresponds to one of those.
 
-    python -m pipeline.fim2d.validate --site site/ --deep
+    python -m pipeline.fim2d.validate site/ --deep
 
 No GDAL: ``netCDF4`` is enough, so this runs on the plain interpreter rather
 than in the pipeline's conda environment.
@@ -212,12 +212,13 @@ def validate_data(site: Path, manifest: dict, report: Report) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--site", required=True, help="built site directory")
+    parser.add_argument("source", help="built site directory")
     parser.add_argument("--deep", action="store_true",
                         help="also reopen every NetCDF and re-derive what the manifest claims")
+    parser.add_argument("--report", help="write the findings to this JSON path")
     args = parser.parse_args(argv)
 
-    site = Path(args.site).resolve()
+    site = Path(args.source).resolve()
     if not site.is_dir():
         print(f"FAIL  not a directory: {site}")
         return 2

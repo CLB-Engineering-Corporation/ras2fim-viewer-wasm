@@ -28,7 +28,7 @@ stays manual:
 
 ```sh
 conda activate lwi-gdal
-python -m pipeline.fim1d.validate --frontend src/viewer-1d --deep
+python -m pipeline.fim1d.validate src/viewer-1d --deep
 ```
 
 ## The property that makes this cheap

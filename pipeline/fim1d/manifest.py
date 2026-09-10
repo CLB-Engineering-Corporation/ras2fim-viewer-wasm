@@ -43,6 +43,11 @@ SCHEMA_VERSION = 1
 CURVE_FIELDS = ("stage_ft", "discharge_cfs", "wse_ft")
 
 
+def cog_root_for(frontend: Path) -> Path:
+    """Where fim1d/cogs.py writes, and what a COG path is made relative to."""
+    return frontend / "cogs"
+
+
 def _cog_bounds(path: Path) -> tuple[float, float, float, float]:
     ds = gdal.Open(str(path))
     if ds is None:
@@ -183,15 +188,23 @@ def _model_entry(
         ds = None
         bbox = union_bounds(bbox, _cog_bounds(cog))
         depth_max = max(depth_max, float(hi))
-        profiles.append(
-            {
-                "index": profile.index,
-                "label": profile.label,
-                "cog": str(cog.relative_to(frontend)).replace("\\", "/"),
-                "bytes": cog.stat().st_size,
-                "depth_max_ft": round(float(hi), 3),
-            }
-        )
+        record = {
+            "index": profile.index,
+            "label": profile.label,
+            "cog": str(cog.relative_to(frontend)).replace("\\", "/"),
+            "bytes": cog.stat().st_size,
+            "depth_max_ft": round(float(hi), 3),
+        }
+        # A baked tile archive is optional. When one exists the viewer draws
+        # from it and needs no tile service at all; when it does not, the viewer
+        # falls back to rasterTileBase. Recording it here rather than in
+        # config.js is deliberate: how depth is delivered is a property of the
+        # release that was built, not of the machine viewing it.
+        baked = frontend / "pmtiles" / "depth" / cog.relative_to(cog_root_for(frontend)).with_suffix(".pmtiles")
+        if baked.is_file():
+            record["depth_pmtiles"] = baked.relative_to(frontend).as_posix()
+            record["depth_pmtiles_bytes"] = baked.stat().st_size
+        profiles.append(record)
 
     if not profiles:
         raise RuntimeError(
@@ -305,16 +318,17 @@ def build_manifest(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("unit", nargs="+", help="ras2fim output unit directory (repeatable)")
-    parser.add_argument("--frontend", required=True, help="src/viewer-1d root")
+    parser.add_argument("--out", required=True, help="the 1D viewer root to write manifest.json into")
     parser.add_argument("--title", default="ras2fim Flood Inundation Mapping")
     parser.add_argument(
         "--description",
         default="HEC-RAS model extents, geometry, and ras2fim depth-grid libraries by HUC8.",
     )
     parser.add_argument("--titiler-base", default=None, help="TiTiler base URL recorded in the manifest")
+    parser.add_argument("--report", help="write the build report to this JSON path")
     args = parser.parse_args(argv)
 
-    frontend = Path(args.frontend)
+    frontend = Path(args.out)
     units = [read_unit(u) for u in args.unit]
     manifest = build_manifest(
         units,
@@ -326,6 +340,14 @@ def main(argv: list[str] | None = None) -> int:
 
     out = frontend / "manifest.json"
     out.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+
+    if args.report:
+        Path(args.report).write_text(json.dumps({
+            "manifest": str(out),
+            "bytes": out.stat().st_size,
+            "units": len(manifest["units"]),
+            "bbox": manifest.get("bbox"),
+        }, indent=2), encoding="utf-8")
 
     total_profiles = sum(m["fim"]["profile_count"] for u in manifest["units"] for m in u["models"])
     print(f"{out}: {out.stat().st_size / 1024:.0f} KB")

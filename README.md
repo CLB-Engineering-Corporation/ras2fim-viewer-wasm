@@ -140,9 +140,46 @@ python -m pipeline.fim1d.source $unit
 
 python -m pipeline.fim1d.cogs    $unit --out src/viewer-1d/cogs
 python -m pipeline.fim1d.pmtiles $unit --out src/viewer-1d/pmtiles
-python -m pipeline.fim1d.manifest    $unit --frontend src/viewer-1d
-python -m pipeline.fim1d.validate --frontend src/viewer-1d --deep
+
+# Optional, and what makes the dashboard publishable to static hosting:
+# bake each profile's depth grid into its own PMTiles archive.
+python -m pipeline.fim1d.depth_pmtiles src/viewer-1d --depth-max 31.836
+
+python -m pipeline.fim1d.manifest    $unit --out src/viewer-1d
+python -m pipeline.fim1d.validate src/viewer-1d --deep
 ```
+
+Order matters in one place: `depth_pmtiles` reads the built COGs, and
+`manifest` records the archives it finds, so it runs last.
+
+## Two ways to deliver depth
+
+The 1D dashboard draws depth as a raster tile layer, and the **manifest**
+decides where those tiles come from. This is a property of the release that was
+built, not of the machine viewing it.
+
+| | Tiled on demand | Baked |
+|---|---|---|
+| Needs | TiTiler reading the COGs | nothing but a static file server |
+| Payload | 4.3 MB of COGs | 4.8 MB of PMTiles |
+| Right for | a deployment carrying many units | publication, demos, air-gapped review |
+| Ramp | applied per request | baked into the pixels |
+
+Both render the same pixels: the colour ramp and the library-wide rescale come
+from `pipeline/common/ramp.py`, which the tile server and the baker share.
+
+A profile carrying `depth_pmtiles` uses the archive; one without it falls back
+to `rasterTileBase`. A release where every profile is baked needs no tile
+service at all, and `pipeline.fim1d.site` refuses to publish one that is not:
+
+```powershell
+python -m pipeline.fim1d.site src/viewer-1d --out site-1d/
+python -m pipeline.fim1d.validate site-1d/ --deep    # no GDAL needed
+```
+
+The published release deliberately omits the COGs. They are the source the
+tiles were baked from; without a tile service no browser can read them, so the
+manifest stops naming them too.
 
 `fim1d/cogs.py` skips COGs that already exist; pass `--force` to rebuild.
 `--limit N` builds only the first N profiles, which is the right way to smoke
