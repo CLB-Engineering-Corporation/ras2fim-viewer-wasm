@@ -110,8 +110,14 @@
   map.addControl(new maplibregl.NavigationControl(), "top-right");
   map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
 
+  /* Style readiness is permanent for this fixed style. isStyleLoaded() also
+     becomes false while sources load; waiting for the one-shot map load event
+     then strands profile changes after startup. */
+  var styleReady = false;
+  map.on("style.load", function () { styleReady = true; });
+
   function whenMapReady(action) {
-    if (map.isStyleLoaded()) action(); else map.once("load", action);
+    if (styleReady) action(); else map.once("style.load", action);
   }
 
   /* The depth layer is a canvas source rather than tiles. The grid is already
@@ -194,6 +200,8 @@
       return;
     }
 
+    // Capture both footprints before replacing the previous-frame reference.
+    var rect = dirtyRect(layer);
     var t0 = performance.now();
     // Clear what the previous layer painted, then paint this one. Only the
     // previous layer's cells are touched, not all 2.6M -- but the order is
@@ -207,7 +215,6 @@
     var t1 = performance.now();
     // Only the rectangle that changed: the union of what was cleared and what
     // was drawn.
-    var rect = dirtyRect(layer);
     if (rect) ctx.putImageData(imageData, 0, 0, rect.x, rect.y, rect.w, rect.h);
     timings.copy = performance.now() - t1;
 
