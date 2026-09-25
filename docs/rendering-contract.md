@@ -59,3 +59,15 @@ sparse pixel buffer alone does not clear the visible canvas outside the copied
 rectangle. Receding, disjoint, and completely dry frames are covered by
 `tests/viewer-redraw.test.mjs`, which exercises the shipped render function and
 checks the canvas after each dirty-rectangle copy.
+
+The 1D viewer buffers profile changes: a transparent candidate layer loads the
+new viewport tiles while the previous complete profile remains visible. A render
+readiness check then swaps them atomically. Superseded candidates are removed,
+playback waits for each candidate, and at most two depth sources exist at once.
+The readout identifies a pending selection as loading. Opacity transitions are
+disabled so profiles are not blended into invented hydraulic states.
+
+The PMTiles protocol converts omitted raster tiles to transparent PNGs. The
+vendored MapLibre otherwise leaves null raster responses in a loading state,
+which prevents reliable completion checks. Vector responses and real failures
+pass through unchanged. This does not modify the published hydraulic archives.

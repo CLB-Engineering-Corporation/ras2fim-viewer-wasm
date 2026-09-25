@@ -16,12 +16,13 @@ function styleHarness(viewer, extra = {}) {
   const map = {
     isStyleLoaded: () => false, // A source request is still outstanding.
     on(event, action) { const list = events.get(event) || []; list.push(action); events.set(event, list); },
-    once(event, action) { map.on(event, action); },
+    once(event, action) { const once = (...args) => { map.off(event, once); action(...args); }; map.on(event, once); },
+    off(event, action) { events.set(event, (events.get(event) || []).filter(f => f !== action)); },
   };
   const ctx = vm.createContext({ map, ...extra });
   const readiness = src.match(/  var styleReady = false;\n  map.on\("style.load",[^\n]+/);
   vm.runInContext((readiness ? readiness[0] : '') + '\n' + fn(src, 'whenMapReady'), ctx);
-  return { ctx, map, src, emit(event) { for (const f of events.get(event) || []) f(); events.delete(event); } };
+  return { ctx, map, src, emit(event, data) { for (const f of [...events.get(event) || []]) f(data); } };
 }
 for (const viewer of ['viewer-1d', 'viewer-2d']) {
   test(`${viewer}: controls work after style initialization while tiles are loading`, () => {
@@ -36,11 +37,13 @@ for (const viewer of ['viewer-1d', 'viewer-2d']) {
   });
 }
 
-test('1D: rapid profile changes replace the source with the latest archive while loading', () => {
-  const sources = new Map(), layers = new Map();
+function depthHarness() {
+  const sources = new Map(), layers = new Map(), loaded = new Set();
+  const nodes = { 'depth-visible': { checked: true }, 'depth-opacity': { value: '85' }, 'depth-opacity-value': {},
+    'profile-readout': { textContent: 'Profile', setAttribute() {} } };
   const h = styleHarness('viewer-1d', {
-    activeModel: {}, activeProfile: 0,
-    byId: id => id === 'depth-visible' ? { checked: true } : { value: '85' },
+    activeModel: {}, activeProfile: 0, displayedDepth: null, pendingDepth: null, depthSequence: 0,
+    byId: id => nodes[id], setNotice() {},
     depthSourceSpec: (_model, profile) => ({ kind: 'pmtiles', url: `profile-${profile}.pmtiles` }),
     showRasterUnavailable() { assert.fail('depth should be available'); },
   });
@@ -49,18 +52,94 @@ test('1D: rapid profile changes replace the source with the latest archive while
     getSource: id => sources.get(id), removeSource: id => sources.delete(id),
     addSource: (id, spec) => sources.set(id, spec),
     addLayer: spec => layers.set(spec.id, spec),
+    setPaintProperty: (id, key, value) => { layers.get(id).paint[key] = value; },
+    isSourceLoaded: id => loaded.has(id),
     getStyle: () => ({ layers: [{ id: 'fimvec-cross-sections' }] }),
   });
-  vm.runInContext(['styleLayers', 'removeDepthLayer', 'firstVectorLayerId', 'updateDepthLayer']
+  vm.runInContext(['styleLayers', 'discardDepth', 'depthLoading', 'removeDepthLayer',
+    'firstVectorLayerId', 'updateDepthLayer', 'setDepthOpacity']
     .map(name => fn(h.src, name)).join('\n'), h.ctx);
   h.emit('style.load');
-  for (const index of [71, 0, 45, 3]) {
-    h.ctx.activeProfile = index;
-    h.ctx.updateDepthLayer();
-    assert.equal(sources.get('depth-tiles')?.url, `profile-${index}.pmtiles`);
-    assert.equal(h.ctx.firstVectorLayerId(), 'fimvec-cross-sections');
-    assert.equal(layers.size, 1);
+  return Object.assign(h, { sources, layers, loaded, nodes,
+    select(index) { h.ctx.activeProfile = index; h.ctx.updateDepthLayer(); },
+    finish() { loaded.add(h.ctx.pendingDepth.source); h.emit('render'); },
+    visible() { return [...layers.values()].filter(l => l.paint['raster-opacity'] > 0); },
+  });
+}
+
+test('1D: old profile stays visible until replacement viewport tiles are ready', () => {
+  const h = depthHarness();
+  h.select(71); h.finish();
+  const old = h.ctx.displayedDepth;
+  h.select(0);
+  const next = h.ctx.pendingDepth;
+  h.emit('render');
+  assert.equal(h.visible()[0].id, old.layer);
+  assert.equal(h.layers.get(next.layer).paint['raster-opacity'], 0);
+  assert.equal(h.layers.size, 2);
+  h.finish();
+  assert.equal(h.visible().length, 1);
+  assert.equal(h.visible()[0].id, next.layer);
+  assert.equal(h.sources.has(old.source), false);
+  assert.equal(h.layers.size, 1);
+  assert.equal(h.ctx.firstVectorLayerId(), 'fimvec-cross-sections');
+});
+
+test('1D: rapid changes discard obsolete loads without removing the displayed frame', () => {
+  const h = depthHarness();
+  h.select(71); h.finish();
+  const old = h.ctx.displayedDepth;
+  h.select(0); const stale = h.ctx.pendingDepth;
+  for (const index of [45, 3, 20]) {
+    h.select(index);
+    assert.equal(h.sources.get(h.ctx.pendingDepth.source).url, `profile-${index}.pmtiles`);
+    assert.equal(h.visible()[0].id, old.layer);
+    assert.equal(h.layers.size, 2);
   }
+  stale.ready(); // An already queued callback cannot overwrite the latest selection.
+  assert.equal(h.ctx.displayedDepth, old);
+  h.finish();
+  assert.equal(h.ctx.displayedDepth.profile, 20);
+  assert.equal(h.sources.size, 1);
+});
+
+test('1D: returning to the displayed profile cancels the pending swap', () => {
+  const h = depthHarness();
+  h.select(71); h.finish();
+  const old = h.ctx.displayedDepth;
+  h.select(0); h.select(71);
+  assert.equal(h.ctx.pendingDepth, null);
+  assert.equal(h.ctx.displayedDepth, old);
+  assert.equal(h.layers.size, 1);
+});
+
+test('1D: hidden depth cancels loading and cannot reappear from stale callbacks', () => {
+  const h = depthHarness();
+  h.select(71); h.finish(); h.select(0);
+  const stale = h.ctx.pendingDepth;
+  h.nodes['depth-visible'].checked = false;
+  h.ctx.updateDepthLayer(); stale.ready();
+  assert.equal(h.layers.size, 0);
+  assert.equal(h.sources.size, 0);
+  assert.equal(h.ctx.pendingDepth, null);
+});
+
+test('1D: failed tiles keep the previous complete profile visible', () => {
+  const h = depthHarness();
+  h.select(71); h.finish(); h.select(0);
+  h.emit('error', { sourceId: h.ctx.pendingDepth.source });
+  h.emit('render');
+  assert.equal(h.ctx.pendingDepth, null);
+  assert.equal(h.ctx.displayedDepth.profile, 71);
+  assert.equal(h.visible().length, 1);
+});
+
+test('1D: a new model never retains the previous model flood', () => {
+  const h = depthHarness();
+  h.select(71); h.finish(); h.ctx.activeModel = {}; h.select(0);
+  assert.equal(h.ctx.displayedDepth, null);
+  assert.equal(h.layers.size, 1);
+  assert.equal(h.visible().length, 0);
 });
 
 const reader = vm.createContext({});
@@ -104,3 +183,34 @@ for (const [name, frames] of [
   });
 }
 
+
+test('1D: omitted dry raster tiles resolve as transparent PNGs; vector and metadata responses pass through', async () => {
+  const src = source('viewer-1d');
+  const encoded = src.match(/Uint8Array.from\(atob\("([^"]+)"\)/)[1];
+  const png = Buffer.from(encoded, 'base64');
+  assert.equal(png.subarray(1, 4).toString(), 'PNG');
+  const { inflateSync } = await import('node:zlib');
+  assert.deepEqual(inflateSync(png.subarray(41, png.length - 16)), Buffer.alloc(5));
+  let response = { data: null };
+  const ctx = vm.createContext({ emptyRasterTile: new Uint8Array(png),
+    protocol: { tile: async () => response } });
+  vm.runInContext(fn(src, 'loadPmtilesTile'), ctx);
+  assert.deepEqual((await ctx.loadPmtilesTile({}, {})).data, new Uint8Array(png));
+  for (const data of [new Uint8Array(), new Uint8Array([1, 2]), { tiles: ['tile'] }]) {
+    response = { data };
+    assert.equal(await ctx.loadPmtilesTile({}, {}), response);
+  }
+  ctx.protocol.tile = async () => { throw new Error('network failed'); };
+  await assert.rejects(ctx.loadPmtilesTile({}, {}), /network failed/);
+});
+
+
+test('1D: opacity changes affect the displayed frame and are retained at the swap', () => {
+  const h = depthHarness();
+  h.select(71); h.finish(); h.select(0);
+  h.ctx.setDepthOpacity(40, false);
+  assert.equal(h.layers.get(h.ctx.displayedDepth.layer).paint['raster-opacity'], 0.4);
+  assert.equal(h.layers.get(h.ctx.pendingDepth.layer).paint['raster-opacity'], 0);
+  h.finish();
+  assert.equal(h.visible()[0].paint['raster-opacity'], 0.4);
+});

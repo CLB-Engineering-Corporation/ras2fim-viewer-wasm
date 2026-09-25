@@ -7,6 +7,9 @@
   var activeUnit = null;
   var activeModel = null;
   var activeProfile = 0;
+  var displayedDepth = null;
+  var pendingDepth = null;
+  var depthSequence = 0;
   var playTimer = null;
   var rasterProbe = { checked: false, ok: false };
 
@@ -96,7 +99,16 @@
   }
 
   var protocol = new pmtiles.Protocol();
-  maplibregl.addProtocol("pmtiles", protocol.tile);
+  /* Sparse raster archives omit dry tiles. PMTiles returns null for those,
+     which this MapLibre version leaves in its loading state forever. An actual
+     transparent PNG marks dry tiles complete without inventing inundation. */
+  var emptyRasterTile = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg=="), function (c) { return c.charCodeAt(0); });
+  function loadPmtilesTile(request, controller) {
+    return protocol.tile(request, controller).then(function (response) {
+      return response.data === null ? { data: emptyRasterTile.slice() } : response;
+    });
+  }
+  maplibregl.addProtocol("pmtiles", loadPmtilesTile);
 
   var map = new maplibregl.Map({
     container: "map",
@@ -220,9 +232,25 @@
     return true;
   }
 
+  function discardDepth(frame) {
+    if (!frame) return;
+    map.off("render", frame.ready);
+    map.off("error", frame.failed);
+    if (map.getLayer(frame.layer)) map.removeLayer(frame.layer);
+    if (map.getSource(frame.source)) map.removeSource(frame.source);
+  }
+
+  function depthLoading(loading) {
+    var node = byId("profile-readout");
+    node.textContent = node.textContent.replace(/ · loading…$/, "") + (loading ? " · loading…" : "");
+    node.setAttribute("aria-busy", loading ? "true" : "false");
+  }
+
   function removeDepthLayer() {
-    if (map.getLayer("depth-raster")) map.removeLayer("depth-raster");
-    if (map.getSource("depth-tiles")) map.removeSource("depth-tiles");
+    discardDepth(pendingDepth);
+    discardDepth(displayedDepth);
+    pendingDepth = displayedDepth = null;
+    depthLoading(false);
   }
 
   function firstVectorLayerId() {
@@ -237,25 +265,67 @@
 
   function updateDepthLayer() {
     if (!styleReady) { map.once("style.load", updateDepthLayer); return; }
-    removeDepthLayer();
-    if (!activeModel || !byId("depth-visible").checked) return;
+    if (!activeModel || !byId("depth-visible").checked) { removeDepthLayer(); return; }
+    if (displayedDepth && displayedDepth.model !== activeModel) removeDepthLayer();
+    if (pendingDepth && pendingDepth.model === activeModel && pendingDepth.profile === activeProfile) {
+      depthLoading(true);
+      return;
+    }
+    discardDepth(pendingDepth);
+    pendingDepth = null;
+    depthLoading(false);
+    if (displayedDepth && displayedDepth.profile === activeProfile) return;
     var spec = depthSourceSpec(activeModel, activeProfile);
     if (!spec) { showRasterUnavailable(); return; }
 
+    var id = ++depthSequence;
+    var frame = {
+      source: "depth-tiles-" + id, layer: "depth-raster-" + id,
+      model: activeModel, profile: activeProfile
+    };
+    pendingDepth = frame;
+    depthLoading(true);
+
+    /* Keep the last complete profile on screen while the next source loads.
+       Opacity zero still requests viewport tiles; visibility:none would not.
+       Check on render, after MapLibre has selected the viewport tiles, rather
+       than on the metadata event that arrives before those tiles are requested. */
+    frame.ready = function () {
+      if (pendingDepth !== frame || !map.isSourceLoaded(frame.source)) return;
+      map.off("render", frame.ready);
+      map.off("error", frame.failed);
+      map.setPaintProperty(frame.layer, "raster-opacity", Number(byId("depth-opacity").value) / 100);
+      var previous = displayedDepth;
+      displayedDepth = frame;
+      pendingDepth = null;
+      discardDepth(previous);
+      depthLoading(false);
+      setNotice("");
+    };
+    frame.failed = function (event) {
+      if (pendingDepth !== frame || event.sourceId !== frame.source) return;
+      pendingDepth = null;
+      discardDepth(frame);
+      depthLoading(false);
+      setNotice("<strong>Profile could not load.</strong> " +
+        (displayedDepth ? "The previous profile remains displayed. " : "") + "Select a profile to retry.");
+    };
+    map.on("render", frame.ready);
+    map.on("error", frame.failed);
     if (spec.kind === "pmtiles") {
-      map.addSource("depth-tiles", { type: "raster", url: spec.url, tileSize: 256 });
+      map.addSource(frame.source, { type: "raster", url: spec.url, tileSize: 256 });
     } else {
-      map.addSource("depth-tiles", {
+      map.addSource(frame.source, {
         type: "raster", tiles: spec.tiles, tileSize: 256,
         bounds: activeModel.bbox || undefined, minzoom: 0, maxzoom: 18
       });
     }
     map.addLayer({
-      id: "depth-raster", type: "raster", source: "depth-tiles",
+      id: frame.layer, type: "raster", source: frame.source,
       paint: {
-        "raster-opacity": Number(byId("depth-opacity").value) / 100,
-        /* The library is a step function in stage, so cross-fading between two
-           profiles would render depths that no profile actually produced. */
+        "raster-opacity": 0,
+        "raster-opacity-transition": { duration: 0, delay: 0 },
+        /* Swap complete profiles atomically, without blending hydraulic states. */
         "raster-fade-duration": 0
       }
     }, firstVectorLayerId());
@@ -596,7 +666,7 @@
     byId("profile-play").textContent = "❚❚";
     playTimer = window.setInterval(function () {
       var last = activeModel.fim.profiles.length - 1;
-      setProfile(activeProfile >= last ? 0 : activeProfile + 1);
+      if (!pendingDepth) setProfile(activeProfile >= last ? 0 : activeProfile + 1);
     }, PLAY_INTERVAL_MS);
   }
 
@@ -804,8 +874,8 @@
     var pct = Math.max(10, Math.min(100, Number(value)));
     byId("depth-opacity").value = String(pct);
     byId("depth-opacity-value").textContent = pct + "%";
-    if (styleReady && map.getLayer("depth-raster")) {
-      map.setPaintProperty("depth-raster", "raster-opacity", pct / 100);
+    if (styleReady && displayedDepth && map.getLayer(displayedDepth.layer)) {
+      map.setPaintProperty(displayedDepth.layer, "raster-opacity", pct / 100);
     }
     if (persist) storeValue(DEPTH_OPACITY_KEY, String(pct));
   }
