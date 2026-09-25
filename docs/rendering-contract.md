@@ -71,3 +71,21 @@ The PMTiles protocol converts omitted raster tiles to transparent PNGs. The
 vendored MapLibre otherwise leaves null raster responses in a loading state,
 which prevents reliable completion checks. Vector responses and real failures
 pass through unchanged. This does not modify the published hydraulic archives.
+
+## 2D visual transitions
+
+The 2D viewer dissolves between complete canvas images over 180 ms, paced by
+requestAnimationFrame. The intermediate image is a visual blend, not another
+computed hydraulic profile; the panel reports the selected flow. Smooth
+transitions can be disabled for exact comparisons, and reduced-motion settings
+skip the dissolve. Each transition ends with an exact copy of the target canvas,
+including transparent cells, so receding water leaves no residual inundation.
+
+Rapid input restarts from the image currently on screen. Stream changes cancel
+queued frames, and texture-upload callbacks are versioned so an older callback
+cannot pause a newer transition. The map uploads only during changes. Two extra
+RGBA canvases cost about 20.9 MB for the 1963 by 1331 pilot grid; dense hydraulic
+arrays remain in the worker. Premultiplied additive compositing avoids a flash
+or dimming where both profiles are wet. The presentation tests cover shared wet
+pixels, dry endpoints, interrupted transitions, reduced motion, and stale
+upload callbacks, in addition to the sparse-vs-dense hydraulic-image oracle.

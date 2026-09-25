@@ -169,7 +169,7 @@ for (const [name, frames] of [
         for (let row = y; row < y + h; row++) for (let col = x; col < x + w; col++)
           canvas[row * 4 + col] = pixels[row * 4 + col];
       } },
-      performance, timings: {}, ensureLayer() {}, pushCanvas() {},
+      performance, timings: {}, ensureLayer() {}, presentCanvas() {},
       fillList() {}, seg() {}, fmt: String, indexBytes: () => 0, byId: () => ({}),
     });
     const src = source('viewer-2d');
@@ -213,4 +213,100 @@ test('1D: opacity changes affect the displayed frame and are retained at the swa
   assert.equal(h.layers.get(h.ctx.pendingDepth.layer).paint['raster-opacity'], 0);
   h.finish();
   assert.equal(h.visible()[0].paint['raster-opacity'], 0.4);
+});
+
+// A tiny premultiplied-alpha canvas oracle exercises presentation independently
+// of WebGL. Endpoint pixels must remain exact, including newly dry cells.
+function transitionHarness() {
+  function canvas(values) {
+    const c = { width: 2, height: 1, pixels: Float64Array.from(values) };
+    c.ctx = { globalAlpha: 1, globalCompositeOperation: 'source-over',
+      clearRect() { c.pixels.fill(0); },
+      drawImage(src) {
+        for (let i = 0; i < 8; i += 4) {
+          const alpha = src.pixels[i + 3] * this.globalAlpha;
+          for (let k = 0; k < 4; k++) {
+            const value = src.pixels[i + k] * this.globalAlpha;
+            if (this.globalCompositeOperation === 'copy') c.pixels[i + k] = value;
+            else if (this.globalCompositeOperation === 'lighter') c.pixels[i + k] += value;
+            else c.pixels[i + k] = value + c.pixels[i + k] * (1 - alpha);
+          }
+        }
+      },
+    };
+    return c;
+  }
+  const old = [1, 0, 0, 1, 0, 0, 1, 1];
+  const next = [0, 1, 0, 1, 0, 0, 0, 0];
+  const target = canvas(next), display = canvas(old), from = canvas(new Array(8).fill(0));
+  let now = 0, serial = 0, uploads = 0, paused = false;
+  const frames = new Map(), renders = [];
+  const checkbox = { checked: true }, motion = { matches: false };
+  const source = { play() { paused = false; }, pause() { paused = true; } };
+  const ctx = vm.createContext({
+    canvas: target, displayCanvas: display, displayCtx: display.ctx,
+    fromCanvas: from, fromCtx: from.ctx, transitionFrame: 0, transitionEpoch: 0, canvasRevision: 0,
+    TRANSITION_MS: 180, performance: { now: () => now },
+    byId: () => checkbox, window: { matchMedia: () => motion },
+    requestAnimationFrame(fn) { frames.set(++serial, fn); return serial; },
+    cancelAnimationFrame(id) { frames.delete(id); },
+    map: { getSource: () => source, once: (_event, fn) => renders.push(fn), triggerRepaint() { uploads++; } },
+  });
+  const src = sourceText();
+  vm.runInContext(['pushCanvas', 'cancelTransition', 'presentCanvas'].map(n => fn(src, n)).join('\n'), ctx);
+  function sourceText() { return readFileSync(new URL('../src/viewer-2d/app.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n'); }
+  return { ctx, target, display, old, next, checkbox, motion, frames, renders,
+    paused: () => paused, uploads: () => uploads,
+    tick(time) { now = time; const queued = [...frames.values()]; frames.clear(); queued.forEach(f => f(time)); },
+  };
+}
+
+test('2D dissolve preserves shared wet pixels and ends exactly at the new wet/dry footprint', () => {
+  const h = transitionHarness();
+  h.ctx.presentCanvas(true);
+  assert.deepEqual([...h.display.pixels], h.old);
+  h.tick(90);
+  assert.deepEqual([...h.display.pixels], [0.5, 0.5, 0, 1, 0, 0, 0.5, 0.5]);
+  assert.equal(h.paused(), false);
+  h.tick(180);
+  assert.deepEqual([...h.display.pixels], h.next);
+  assert.equal(h.frames.size, 0);
+  h.renders.forEach(f => f());
+  assert.equal(h.paused(), true);
+});
+
+test('2D rapid input starts from the visible blend and cancels obsolete animation', () => {
+  const h = transitionHarness();
+  h.ctx.presentCanvas(true); h.tick(90);
+  const partial = [...h.display.pixels];
+  const stale = [...h.frames.values()][0];
+  h.target.pixels.fill(0);
+  h.ctx.presentCanvas(true);
+  assert.deepEqual([...h.display.pixels], partial);
+  stale(180);
+  assert.deepEqual([...h.display.pixels], partial);
+  h.tick(270);
+  assert.deepEqual([...h.display.pixels], new Array(8).fill(0));
+});
+
+test('2D reduced motion and smoothing-off copy exact frames without animation', () => {
+  for (const reduced of [false, true]) {
+    const h = transitionHarness();
+    h.motion.matches = reduced; h.checkbox.checked = reduced;
+    h.ctx.presentCanvas(true);
+    assert.deepEqual([...h.display.pixels], h.next);
+    assert.equal(h.frames.size, 0);
+  }
+});
+
+test('2D an obsolete upload callback cannot pause the next dissolve', () => {
+  const h = transitionHarness();
+  h.ctx.presentCanvas(false);
+  const oldPause = h.renders[0];
+  h.ctx.presentCanvas(true);
+  oldPause();
+  assert.equal(h.paused(), false);
+  h.ctx.cancelTransition();
+  assert.equal(h.frames.size, 0);
+  assert.equal(h.paused(), true);
 });

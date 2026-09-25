@@ -6,6 +6,15 @@
   var canvas = document.createElement("canvas");
   var ctx = canvas.getContext("2d", { willReadFrequently: false });
   var imageData = null;
+  // The target is painted once; presentation blends two complete canvases.
+  var displayCanvas = document.createElement("canvas");
+  var displayCtx = displayCanvas.getContext("2d");
+  var fromCanvas = document.createElement("canvas");
+  var fromCtx = fromCanvas.getContext("2d");
+  var transitionFrame = 0;
+  var transitionEpoch = 0;
+  var canvasRevision = 0;
+  var TRANSITION_MS = 180;
   /* Shared with the worker so its verification paints the same colours, and
      mirrored by the .ramp gradient in index.html. */
   var RAMP_STOPS = [
@@ -139,7 +148,7 @@
       }
       map.addSource("depth", {
         type: "canvas",
-        canvas: canvas,
+        canvas: displayCanvas,
         coordinates: stack.coordinates,
         animate: false
       });
@@ -157,16 +166,70 @@
     });
   }
 
-  /* A canvas source uploads its texture on render. With animate:false MapLibre
-     will not do that on its own, so one play/pause cycle pushes exactly one
-     frame -- far cheaper than leaving animate:true, which re-uploads 10 MB
-     every frame forever. */
-  function pushCanvas() {
+  /* Keep texture uploads active throughout a transition. An older render
+     callback must never pause a newer animation before its final upload. */
+  function pushCanvas(settle) {
+    var revision = ++canvasRevision;
     var source = map.getSource("depth");
     if (!source) return;
     source.play();
-    map.once("render", function () { source.pause(); });
+    if (settle) map.once("render", function () {
+      if (revision === canvasRevision) source.pause();
+    });
     map.triggerRepaint();
+  }
+
+  function cancelTransition() {
+    transitionEpoch += 1;
+    if (transitionFrame) cancelAnimationFrame(transitionFrame);
+    transitionFrame = 0;
+    canvasRevision += 1;
+    var source = map.getSource("depth");
+    if (source) source.pause();
+  }
+
+  /* A short visual dissolve softens discrete flow steps. A new selection
+     starts from the currently visible blend, never from an obsolete endpoint.
+     Additive premultiplied alpha preserves wet/dry transparency: source-over
+     would dim cells wet in both frames. The final frame is an exact copy. */
+  function presentCanvas(animate) {
+    cancelTransition();
+    var epoch = transitionEpoch;
+    var smooth = byId("smooth-transitions").checked &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!animate || !smooth) {
+      displayCtx.globalCompositeOperation = "copy";
+      displayCtx.drawImage(canvas, 0, 0);
+      displayCtx.globalCompositeOperation = "source-over";
+      pushCanvas(true);
+      return;
+    }
+    fromCtx.globalCompositeOperation = "copy";
+    fromCtx.drawImage(displayCanvas, 0, 0);
+    var start = performance.now();
+    function step(now) {
+      if (epoch !== transitionEpoch) return;
+      var fraction = Math.min(1, Math.max(0, (now - start) / TRANSITION_MS));
+      // Smoothstep gives the transition a gentle start and finish.
+      var blend = fraction * fraction * (3 - 2 * fraction);
+      if (fraction === 1) {
+        displayCtx.globalCompositeOperation = "copy";
+        displayCtx.drawImage(canvas, 0, 0);
+      } else {
+        displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+        displayCtx.globalCompositeOperation = "source-over";
+        displayCtx.globalAlpha = 1 - blend;
+        displayCtx.drawImage(fromCanvas, 0, 0);
+        displayCtx.globalCompositeOperation = "lighter";
+        displayCtx.globalAlpha = blend;
+        displayCtx.drawImage(canvas, 0, 0);
+      }
+      displayCtx.globalAlpha = 1;
+      displayCtx.globalCompositeOperation = "source-over";
+      transitionFrame = fraction < 1 ? requestAnimationFrame(step) : 0;
+      pushCanvas(fraction === 1);
+    }
+    step(start);
   }
 
   /** Union of what the previous layer painted and what this one will. */
@@ -200,6 +263,8 @@
       return;
     }
 
+    var changed = shown !== layer;
+    var animate = shown !== null;
     // Capture both footprints before replacing the previous-frame reference.
     var rect = dirtyRect(layer);
     var t0 = performance.now();
@@ -219,7 +284,7 @@
     timings.copy = performance.now() - t1;
 
     ensureLayer();
-    pushCanvas();
+    if (changed) presentCanvas(animate);
 
     var stats = layer.stats;
     var pct = (100 * painted) / (stack.ny * stack.nx);
@@ -319,6 +384,9 @@
     layers = new Array(meta.nFlow);
     shown = null;
 
+    cancelTransition();
+    displayCanvas.width = fromCanvas.width = meta.nx;
+    displayCanvas.height = fromCanvas.height = meta.ny;
     canvas.width = meta.nx;
     canvas.height = meta.ny;      // also zeroes the backing store
     imageData = ctx.createImageData(meta.nx, meta.ny);
@@ -375,6 +443,10 @@
   function loadStream(url) {
     setStatus("Fetching " + url.split("/").pop() + "…");
     stopPlay();
+    cancelTransition();
+    if (rafPending) cancelAnimationFrame(rafPending);
+    rafPending = 0;
+    rafTarget = null;
     stack = null;
     shown = null;
     layers = [];
@@ -424,7 +496,10 @@
      been bitten by that throttling once already; stopping explicitly is better
      than discovering it again. */
   document.addEventListener("visibilitychange", function () {
-    if (document.hidden) stopPlay();
+    if (document.hidden) {
+      stopPlay();
+      if (transitionFrame) presentCanvas(false);
+    }
   });
 
   /** Render at most once per animation frame, always the most recent request.
@@ -445,6 +520,9 @@
   byId("flow").addEventListener("input", function (event) {
     stopPlay();
     requestRender(Number(event.target.value));
+  });
+  byId("smooth-transitions").addEventListener("change", function () {
+    if (stack && shown) presentCanvas(false);
   });
   byId("opacity").addEventListener("input", function (event) {
     if (map.getLayer("depth")) {
