@@ -93,3 +93,11 @@ a basename.
 Put it in the suite matching what it needs, and name it for the failure it
 catches rather than the function it calls. Several tests here exist because a
 specific bug shipped once; the comment saying which one is the useful part.
+
+## Viewer redraw regressions
+
+`viewer-redraw.test.mjs` runs the shipped 1D/2D orchestration functions in a
+small Node VM harness. It checks profile switching while sources are loading,
+initial style readiness, and the pixels copied to the 2D canvas on receding,
+disjoint, and dry frames. It runs in the existing Node CI job. These are
+orchestration tests; visual browser checks remain necessary for WebGL delivery.

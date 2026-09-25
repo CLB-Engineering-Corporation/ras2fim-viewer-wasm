@@ -147,15 +147,21 @@
      has not rendered the map yet -- a background tab, where requestAnimationFrame
      is throttled to zero, or a machine without WebGL -- shows a panel of dead
      controls and a permanent "loading" label with no way to tell why. */
+  /* Style readiness is permanent for this fixed style. isStyleLoaded() also
+     becomes false while sources load; waiting for the one-shot map load event
+     then strands profile changes after startup. */
+  var styleReady = false;
+  map.on("style.load", function () { styleReady = true; });
+
   function whenMapReady(action) {
-    if (map.isStyleLoaded()) action();
-    else map.once("load", action);
+    if (styleReady) action();
+    else map.once("style.load", action);
   }
 
   /* map.getStyle() throws before the style exists, so every helper that walks
      the layer list checks first rather than being wrapped in try/catch. */
   function styleLayers() {
-    return map.isStyleLoaded() ? (map.getStyle().layers || []) : [];
+    return styleReady ? (map.getStyle().layers || []) : [];
   }
 
   /* ==================================================================
@@ -230,7 +236,7 @@
   }
 
   function updateDepthLayer() {
-    if (!map.isStyleLoaded()) { map.once("load", updateDepthLayer); return; }
+    if (!styleReady) { map.once("style.load", updateDepthLayer); return; }
     removeDepthLayer();
     if (!activeModel || !byId("depth-visible").checked) return;
     var spec = depthSourceSpec(activeModel, activeProfile);
@@ -386,7 +392,7 @@
   }
 
   function clearVectorLayers() {
-    if (!map.isStyleLoaded()) return;
+    if (!styleReady) return;
     styleLayers().slice().forEach(function (layer) {
       if (layer.id.indexOf("fimvec-") === 0 && map.getLayer(layer.id)) map.removeLayer(layer.id);
     });
@@ -399,8 +405,8 @@
     /* The controls are built from the unit, not from the map, so they are
        populated now even if the style is not ready to receive layers yet. */
     buildVectorControls(unit);
-    if (!map.isStyleLoaded()) {
-      map.once("load", function () { loadVectorLayers(unit); });
+    if (!styleReady) {
+      map.once("style.load", function () { loadVectorLayers(unit); });
       return;
     }
     clearVectorLayers();
@@ -600,7 +606,7 @@
 
   function fitBbox(bbox, maxZoom) {
     if (!bbox || bbox.length !== 4) return;
-    if (!map.isStyleLoaded()) { map.once("load", function () { fitBbox(bbox, maxZoom); }); return; }
+    if (!styleReady) { map.once("style.load", function () { fitBbox(bbox, maxZoom); }); return; }
     map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], {
       padding: 60, maxZoom: maxZoom || 14, duration: 600
     });
@@ -776,7 +782,7 @@
      ================================================================== */
 
   function setBasemap(name) {
-    if (!map.isStyleLoaded()) { map.once("load", function () { setBasemap(name); }); return; }
+    if (!styleReady) { map.once("style.load", function () { setBasemap(name); }); return; }
     map.setLayoutProperty("satellite", "visibility", name === "satellite" ? "visible" : "none");
     map.setLayoutProperty("streets", "visibility", name === "streets" ? "visible" : "none");
   }
@@ -784,7 +790,7 @@
   function setBasemapTransparency(value, persist) {
     var pct = Math.max(0, Math.min(90, Number(value)));
     var opacity = 1 - pct / 100;
-    if (map.isStyleLoaded()) {
+    if (styleReady) {
       ["satellite", "streets"].forEach(function (id) {
         if (map.getLayer(id)) map.setPaintProperty(id, "raster-opacity", opacity);
       });
@@ -798,7 +804,7 @@
     var pct = Math.max(10, Math.min(100, Number(value)));
     byId("depth-opacity").value = String(pct);
     byId("depth-opacity-value").textContent = pct + "%";
-    if (map.isStyleLoaded() && map.getLayer("depth-raster")) {
+    if (styleReady && map.getLayer("depth-raster")) {
       map.setPaintProperty("depth-raster", "raster-opacity", pct / 100);
     }
     if (persist) storeValue(DEPTH_OPACITY_KEY, String(pct));

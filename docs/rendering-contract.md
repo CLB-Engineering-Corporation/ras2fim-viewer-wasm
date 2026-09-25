@@ -45,3 +45,17 @@ version:
 - The colour ramp is fixed at `0 … depth_max_ft` **for the whole library**, not
   per profile. Restretching each profile would render every one with the same
   darkest blue and hide exactly what the slider exists to show.
+
+## Profile redraws
+
+Style readiness is latched on `style.load`. Tile/source requests can make
+`isStyleLoaded()` false again after startup; controls must not wait on the
+one-time map `load` event during those requests. This applies to depth profiles,
+vector ordering, opacity, and basemap controls.
+
+The 2D canvas update copies the union of the previous and next wet footprints.
+Compute that union before replacing the previous-frame reference. Clearing the
+sparse pixel buffer alone does not clear the visible canvas outside the copied
+rectangle. Receding, disjoint, and completely dry frames are covered by
+`tests/viewer-redraw.test.mjs`, which exercises the shipped render function and
+checks the canvas after each dirty-rectangle copy.
