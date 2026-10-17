@@ -68,6 +68,12 @@
    */
   function packing(ds) {
     var rawFill = attrValue(ds.attrs["_FillValue"]);
+    var rawScale = attrValue(ds.attrs["scale_factor"]);
+    var rawOffset = attrValue(ds.attrs["add_offset"]);
+    if ((rawScale != null && !Number.isFinite(Number(rawScale))) ||
+        (rawOffset != null && !Number.isFinite(Number(rawOffset)))) {
+      throw new Error("packing scale/offset must be finite");
+    }
     return {
       scale: numberOr(attrValue(ds.attrs["scale_factor"]), 1),
       offset: numberOr(attrValue(ds.attrs["add_offset"]), 0),
@@ -80,6 +86,33 @@
     if (value === null || value === undefined) return fallback;
     var n = Number(value);
     return isFinite(n) ? n : fallback;
+  }
+
+  function verticalUnit(value) {
+    var unit = String(value || "").trim().toLowerCase();
+    if (["ft", "foot", "feet"].indexOf(unit) !== -1) return "ft";
+    if (["m", "meter", "meters", "metre", "metres"].indexOf(unit) !== -1) return "m";
+    throw new Error("missing or unsupported vertical units: " + value);
+  }
+
+  function gridCRS(attrs) {
+    // Accept an explicit code or the ROOT authority of WKT1/WKT2. An EPSG
+    // authority nested inside a projected CRS describes its base/datum instead.
+    var declarations = [attrs.epsg_code, attrs.crs_wkt, attrs.spatial_ref];
+    var found = false;
+    declarations.forEach(function (entry) {
+      var value = attrValue(entry);
+      if (value == null || value === "") return;
+      var text = String(value).trim();
+      var match = /^(?:EPSG:)?(\d+)$/i.exec(text) ||
+        /(?:AUTHORITY|ID)\s*\[\s*"EPSG"\s*,\s*"?(\d+)"?\s*\]\s*\]$/i.exec(text);
+      if (!match || Number(match[1]) !== 3857) {
+        throw new Error("unsupported CRS; expected declared EPSG:3857");
+      }
+      found = true;
+    });
+    if (!found) throw new Error("missing CRS; expected declared EPSG:3857");
+    return "EPSG:3857";
   }
 
   /** Open a ras2fim-2d NetCDF from an ArrayBuffer. Returns a plain object. */
@@ -113,6 +146,9 @@
         throw new Error(varName + " is " + (shape ? shape.length : 0) + "-D; expected [flow, y, x]");
       }
       var main = packing(mainDs);
+      var sourceUnits = attrValue(mainDs.attrs["units"]);
+      var depthUnits = verticalUnit(sourceUnits);
+      if (!(main.scale > 0)) throw new Error("scale_factor must be positive");
 
       // Terrain is required for wsel and meaningless for depth. Requiring it
       // unconditionally is what made the advertised depth support unusable.
@@ -121,6 +157,10 @@
       if (isWsel && !terrainDs) throw new Error("wsel stack has no terrain coordinate");
       var terrainPack = terrainDs ? packing(terrainDs) : null;
       if (isWsel && terrainDs) {
+        if (verticalUnit(attrValue(terrainDs.attrs["units"])) !== depthUnits) {
+          throw new Error("wsel and terrain units do not match");
+        }
+        if (!(terrainPack.scale > 0)) throw new Error("terrain scale_factor must be positive");
         var tShape = terrainDs.shape;
         if (!tShape || tShape.length !== 2 || tShape[0] !== shape[1] || tShape[1] !== shape[2]) {
           throw new Error("terrain shape does not match the wsel grid");
@@ -129,22 +169,34 @@
 
       var srDs = file.get("spatial_ref");
       if (!srDs) throw new Error("no spatial_ref variable");
+      var crs = gridCRS(srDs.attrs);
       var gt = parseGeoTransform(attrValue(srDs.attrs["GeoTransform"]));
       if (!gt) throw new Error("spatial_ref has no usable GeoTransform");
       if (gt.rotX !== 0 || gt.rotY !== 0) {
         // A rotated grid cannot be placed with four corners alone.
         throw new Error("rotated grids are not supported");
       }
+      if (!(gt.pixelW > 0 && gt.pixelH < 0)) throw new Error("expected a north-up grid");
+      if (!shape.every(function (size) { return Number.isSafeInteger(size) && size > 0; })) {
+        throw new Error("grid dimensions must be positive integers");
+      }
 
       var t0 = performance.now();
       var mainValues = mainDs.value; // length flow*y*x
       var terrain = isWsel ? terrainDs.value : null;
+      if (mainValues.length !== shape[0] * shape[1] * shape[2] ||
+          (terrain && terrain.length !== shape[1] * shape[2])) {
+        throw new Error("data length does not match grid dimensions");
+      }
       var decodeMs = performance.now() - t0;
 
-      var flows = Array.from(file.get("flow").value);
+      var flowDs = file.get("flow");
+      if (!flowDs) throw new Error("no flow coordinate");
+      var flows = Array.from(flowDs.value);
       if (flows.length !== shape[0]) {
         throw new Error("flow has " + flows.length + " values for " + shape[0] + " layers");
       }
+      if (!flows.every(Number.isFinite)) throw new Error("flow values must be finite");
 
       var ny = shape[1], nx = shape[2];
       var west = gt.originX;
@@ -184,8 +236,12 @@
         fastPath: fastPath,
         wsel: mainValues,
         terrain: terrain,
-        units: attrValue(mainDs.attrs["units"]) || "feet",
-        flowUnits: attrValue(file.get("flow").attrs["units"]) || "cfs",
+        units: sourceUnits,
+        depthUnits: depthUnits,
+        flowUnits: attrValue(flowDs.attrs["units"]) || null,
+        crs: crs,
+        geoTransform: gt,
+        maskPolicy: "finite non-fill depth; wet > 0; valid dry <= 0",
         // MapLibre image/canvas sources want [NW, NE, SE, SW].
         coordinates: [nw, ne, se, sw],
         bounds: [
@@ -215,10 +271,11 @@
     var raw = stack.wsel[off + i];
     if (stack.hasFill && raw === stack.fill) return NaN;
     var value = raw * stack.scale + stack.offset;
-    if (stack.mode === "depth") return value;
+    if (stack.mode === "depth") return Number.isFinite(value) ? value : NaN;
     var t = stack.terrain[i];
     if (stack.terrainHasFill && t === stack.terrainFill) return NaN;
-    return value - (t * stack.terrainScale + stack.terrainOffset);
+    var depth = value - (t * stack.terrainScale + stack.terrainOffset);
+    return Number.isFinite(depth) ? depth : NaN;
   }
 
   /** Signed depth statistics for one flow layer, in file units.
@@ -298,7 +355,7 @@
         var t = terrain[i];
         if ((hasFill && w === fill) || (tHasFill && t === tFill)) { out[o + 3] = 0; continue; }
         var d = w - t;
-        if (d <= 0) { out[o + 3] = 0; continue; }
+        if (!(d > 0) || !Number.isFinite(d)) { out[o + 3] = 0; continue; }
         var slot = (d >= rawMax ? 255 : ((d / rawMax) * 255) | 0) * 4;
         out[o] = ramp[slot];
         out[o + 1] = ramp[slot + 1];
@@ -373,6 +430,7 @@
         var t = terrain[i];
         if (tHasFill && t === tFill) continue;
         d = (w - t) * scale;
+        if (!Number.isFinite(d)) continue;
       } else {
         d = depthAt(stack, off, i);
         if (d !== d) continue; // NaN: nodata in either input
@@ -437,6 +495,169 @@
     return offsets.length;
   }
 
+  /** Extent is the same positive-depth footprint, with a single RGBA word. */
+  function paintExtent(px, layer, colorU32) {
+    for (var i = 0; i < layer.offsets.length; i += 1) px[layer.offsets[i]] = colorU32;
+    return layer.offsets.length;
+  }
+
+  function layerCells(meta, stats) {
+    var total = meta.nx * meta.ny;
+    return { total: total, wet: stats.positive, validDry: stats.valid - stats.positive,
+      nodata: total - stats.valid };
+  }
+
+  /** Own one worker and its prepared layers; canvas and map ownership stay with
+   * the host. No browser globals are needed until workerFactory is called.
+   * See docs/native-viewer-api.md for callback and buffer ownership. */
+  function createSession(options) {
+    options = options || {};
+    if (typeof options.workerFactory !== "function") throw new Error("workerFactory is required");
+    var stops = options.rampStops || [
+      [0, 234, 243, 251], [0.25, 158, 202, 225], [0.5, 66, 146, 198],
+      [0.75, 8, 81, 156], [1, 8, 48, 107]
+    ];
+    var ramp = buildRampU32(buildRamp(stops));
+    var color = options.extentColor || [66, 146, 198];
+    if (!Array.isArray(color) || color.length !== 3 || !color.every(function (v) {
+      return Number.isInteger(v) && v >= 0 && v <= 255;
+    })) throw new Error("extentColor must be three RGB bytes");
+    var extent = buildRampU32(buildRamp([[0].concat(color), [1].concat(color)]))[0];
+    var worker = null, epoch = 0, destroyed = false;
+    var meta = null, layers = [], selected = null, displayed = null;
+    var pixels = null, shown = null, complete = false, maxDepth = 1;
+    var mode = "depth", displayedMode = null, phase = "idle", error = null;
+
+    function snapshot() {
+      return { phase: phase, epoch: epoch, mode: mode, index: selected,
+        displayedIndex: displayed, displayedMode: displayedMode,
+        flow: meta && selected !== null ? meta.flows[selected] : null,
+        flowUnits: meta ? meta.flowUnits : null, meta: meta, error: error,
+        prepared: layers.filter(Boolean).length, complete: complete };
+    }
+    function notify() {
+      if (options.onStatus) options.onStatus(snapshot());
+    }
+    function active() {
+      if (destroyed) throw new Error("session is destroyed");
+    }
+    function dispose() {
+      epoch += 1;
+      if (worker) {
+        worker.onmessage = null;
+        worker.onerror = null;
+        worker.terminate();
+      }
+      worker = null;
+      meta = null; layers = []; pixels = null; shown = null;
+      selected = null; displayed = null; displayedMode = null;
+      complete = false; maxDepth = 1; error = null;
+    }
+    function fail(message) {
+      if (worker) { worker.terminate(); worker = null; }
+      phase = "error"; error = String(message); notify();
+    }
+    function present() {
+      var layer = layers[selected];
+      if (!layer || (mode === "depth" && !complete)) {
+        phase = "preparing"; notify(); return;
+      }
+      if (shown) clearSparse(pixels, shown);
+      if (mode === "extent") paintExtent(pixels, layer, extent);
+      else paintSparse(pixels, layer, ramp, maxDepth);
+      shown = layer; displayed = selected; displayedMode = mode; phase = "ready";
+      var frame = { epoch: epoch, index: selected, flow: meta.flows[selected], mode: mode,
+        meta: meta, stats: layer.stats, cells: layerCells(meta, layer.stats),
+        maxDepth: maxDepth, data: new Uint8ClampedArray(pixels.buffer) };
+      // Notify status first. A host may synchronously cancel/change reach/mode
+      // inside it; the old frame must not escape after that state change.
+      var current = epoch, currentMode = mode, currentIndex = selected;
+      notify();
+      if (!destroyed && current === epoch && currentMode === mode && currentIndex === selected &&
+          options.onFrame) options.onFrame(frame);
+    }
+    function validIndex(index) {
+      if (!Number.isInteger(index) || index < 0 || (meta && index >= meta.nFlow)) {
+        throw new RangeError("flow index is out of range");
+      }
+    }
+    function message(data) {
+      if (data.type === "error") { fail(data.message); return; }
+      if (data.type === "meta") {
+        if (meta) return;
+        var incoming = data.meta;
+        if (!incoming || incoming.protocol !== 1) { fail("unsupported worker protocol"); return; }
+        if (![incoming.nFlow, incoming.nx, incoming.ny].every(function (v) {
+          return Number.isSafeInteger(v) && v > 0;
+        }) || !Array.isArray(incoming.flows) || incoming.flows.length !== incoming.nFlow ||
+            !incoming.flows.every(Number.isFinite)) {
+          fail("invalid worker grid/flow metadata"); return;
+        }
+        meta = incoming;
+        layers = new Array(meta.nFlow);
+        pixels = new Uint32Array(meta.nx * meta.ny);
+        if (selected === null) selected = meta.nFlow - 1;
+        if (selected >= meta.nFlow) { fail("flow index is out of range"); return; }
+        worker.postMessage({ type: "prioritize", epoch: epoch, index: selected });
+        phase = "preparing"; notify();
+      } else if (data.type === "layer" && meta && !complete) {
+        if (!Number.isInteger(data.index) || data.index < 0 || data.index >= meta.nFlow) return;
+        layers[data.index] = data;
+        maxDepth = Math.max(maxDepth, Math.ceil(data.stats.max || 1));
+        if (data.index === selected) present();
+        else notify();
+      } else if (data.type === "done" && meta && !complete) {
+        if (layers.filter(Boolean).length !== meta.nFlow) { fail("worker finished with missing layers"); return; }
+        complete = true; present();
+      }
+    }
+    return {
+      load: function (url, loadOptions) {
+        active();
+        loadOptions = loadOptions || {};
+        var index = loadOptions.index;
+        if (index !== undefined && (!Number.isInteger(index) || index < 0)) {
+          throw new RangeError("flow index is out of range");
+        }
+        dispose(); selected = index === undefined ? null : index; phase = "loading";
+        var current = epoch;
+        try {
+          var ownWorker = options.workerFactory();
+          worker = ownWorker;
+          ownWorker.onmessage = function (event) {
+            if (!destroyed && epoch === current && worker === ownWorker && event.data &&
+                event.data.epoch === current) message(event.data);
+          };
+          ownWorker.onerror = function (event) {
+            if (!destroyed && epoch === current && worker === ownWorker) fail(event.message || "worker failed");
+          };
+          ownWorker.postMessage({ type: "load", epoch: current, url: url, rampStops: stops });
+        } catch (e) { fail(e.message); return; }
+        notify();
+      },
+      select: function (index) {
+        active(); validIndex(index); selected = index;
+        if (!meta || phase === "error") { notify(); return; }
+        if (!layers[index] && worker) worker.postMessage({ type: "prioritize", epoch: epoch, index: index });
+        present();
+      },
+      setMode: function (value) {
+        active();
+        if (value !== "depth" && value !== "extent") throw new Error("unsupported display mode");
+        if (mode === value) return;
+        mode = value;
+        if (meta && phase !== "error") present();
+        else notify();
+      },
+      getStatus: snapshot,
+      cancel: function () { if (destroyed) return; dispose(); phase = "idle"; notify(); },
+      destroy: function () {
+        if (destroyed) return;
+        destroyed = true; dispose(); phase = "destroyed"; notify();
+      }
+    };
+  }
+
   /** The 256-entry ramp as packed RGBA words, matching the platform's byte order. */
   function buildRampU32(ramp) {
     var out = new Uint32Array(256);
@@ -484,6 +705,9 @@
     paintDepth: paintDepth,
     buildIndex: buildIndex,
     paintSparse: paintSparse,
+    paintExtent: paintExtent,
+    layerCells: layerCells,
+    createSession: createSession,
     clearSparse: clearSparse,
     buildRampU32: buildRampU32,
     depthAt: depthAt,

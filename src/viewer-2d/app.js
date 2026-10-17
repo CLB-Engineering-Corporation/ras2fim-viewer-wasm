@@ -294,15 +294,15 @@
     fillList("stats", [
       ["Inundated", [seg(fmt(painted)), seg(" (" + pct.toFixed(1) + "% of grid)", "muted")]],
       ["Cells with data", fmt(stats.valid)],
-      ["Max depth", fmt(stats.max, 2) + " ft"],
-      ["Mean depth", fmt(stats.mean, 2) + " ft"],
-      ["Min (signed)", [seg(fmt(stats.min, 2) + " ft", stats.min < 0 ? "warn" : null)]],
+      ["Max depth", fmt(stats.max, 2) + " " + stack.depthUnits],
+      ["Mean depth", fmt(stats.mean, 2) + " " + stack.depthUnits],
+      ["Min (signed)", [seg(fmt(stats.min, 2) + " " + stack.depthUnits, stats.min < 0 ? "warn" : null)]],
       ["Below terrain", stats.negative
         ? [seg(fmt(stats.negative) + " cells", "warn")]
         : "0 cells"]
     ]);
 
-    byId("flow-value").textContent = fmt(stack.flows[index]) + " " + stack.flowUnits;
+    byId("flow-value").textContent = fmt(stack.flows[index]) + " " + (stack.flowUnits || "(units unknown)");
     fillList("timings", [
       ["Download", [seg(fmt(timings.fetch, 0) + " ms", "metric"),
                     seg(" (" + (stack.bytes / 1e6).toFixed(2) + " MB)")]],
@@ -396,8 +396,8 @@
     var slider = byId("flow");
     slider.max = String(meta.nFlow - 1);
     slider.value = String(meta.nFlow - 1);
-    byId("flow-min").textContent = fmt(meta.flows[0]) + " cfs";
-    byId("flow-max").textContent = fmt(meta.flows[meta.nFlow - 1]) + " cfs";
+    byId("flow-min").textContent = fmt(meta.flows[0]) + " " + (meta.flowUnits || "(units unknown)");
+    byId("flow-max").textContent = fmt(meta.flows[meta.nFlow - 1]) + " " + (meta.flowUnits || "(units unknown)");
     pendingRender = meta.nFlow - 1;
 
     fillList("meta", [
@@ -407,7 +407,7 @@
       ["Layers", meta.nFlow + " flows"],
       ["Packing", "uint16 × " + meta.scale + (meta.offset ? " + " + meta.offset : "") +
         (meta.hasFill ? ", fill " + meta.fill : ", no fill value")],
-      ["Filter", meta.verticalFilter ? meta.verticalFilter + " ft" : "—"],
+      ["Filter", meta.verticalFilter ? meta.verticalFilter + " " + meta.depthUnits : "—"],
       ["CRS", [seg("EPSG:3857 "), seg("(native)", "native")]]
     ]);
 
@@ -423,7 +423,7 @@
     // The top layer arrives first and fixes the ramp for the whole library.
     if (index === stack.nFlow - 1) {
       maxDepth = Math.max(1, Math.ceil(layers[index].stats.max || 1));
-      byId("ramp-max").textContent = maxDepth + " ft";
+      byId("ramp-max").textContent = maxDepth + " " + stack.depthUnits;
     }
     if (pendingRender === index) {
       pendingRender = null;

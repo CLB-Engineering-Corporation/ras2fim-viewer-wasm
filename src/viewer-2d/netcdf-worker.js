@@ -5,6 +5,7 @@
  *
  *   main -> worker   { type: "load", epoch, url }
  *                    { type: "prioritize", epoch, index }
+ *                    { type: "cancel", epoch } (optional, cancels that epoch)
  *
  *   worker -> main   { type: "progress", epoch, phase, ms }
  *                    { type: "meta",  epoch, meta }
@@ -52,6 +53,8 @@ var state = {
   maxDepth: 1,
   reference: null
 };
+var loadGeneration = 0;
+var fetchController = null;
 
 /* A task boundary that survives background-tab throttling.
    setTimeout(fn, 0) is clamped to ~1000 ms in a throttled context; a
@@ -85,7 +88,8 @@ function metaOf(stack) {
   return meta;
 }
 
-function prepareNext() {
+function prepareNext(generation) {
+  if (generation !== loadGeneration) return;
   if (!state.stack || !state.queue.length) {
     if (state.stack) {
       // Every layer is indexed; the dense arrays have no further use. Dropping
@@ -93,6 +97,7 @@ function prepareNext() {
       // stream it has ever opened.
       state.stack.wsel = null;
       state.stack.terrain = null;
+      state.reference = null;
       post({ type: "done", epoch: state.epoch, timings: state.timings });
     }
     return;
@@ -128,7 +133,7 @@ function prepareNext() {
   // background tab has its timers clamped to roughly a second, which turns
   // fifteen layers into fifteen seconds. Message events are not clamped that
   // way, so a MessageChannel is the yield that actually yields.
-  yieldThen(prepareNext);
+  yieldThen(function () { prepareNext(generation); });
 }
 
 function verifyLayer(index, layer) {
@@ -162,10 +167,15 @@ function verifyLayer(index, layer) {
 }
 
 function load(epoch, url) {
+  var generation = ++loadGeneration;
+  if (fetchController) fetchController.abort();
+  fetchController = new AbortController();
   state.epoch = epoch;
   state.stack = null;
   state.queue = [];
   state.timings = {};
+  state.reference = null;
+  var phase = "fetch";
 
   var t0 = performance.now();
   /* h5wasm initialises asynchronously. Waiting on it alongside the fetch rather
@@ -173,7 +183,7 @@ function load(epoch, url) {
      at all leaves h5.FS null, which surfaces as a bare "cannot read properties
      of null" a long way from the cause. */
   Promise.all([
-    fetch(url).then(function (response) {
+    fetch(url, { signal: fetchController.signal }).then(function (response) {
       if (!response.ok) throw new Error("HTTP " + response.status);
       return response.arrayBuffer();
     }),
@@ -181,12 +191,13 @@ function load(epoch, url) {
   ])
     .then(function (results) {
       var buffer = results[0];
-      if (epoch !== state.epoch) return;
+      if (generation !== loadGeneration) return;
+      phase = "decode";
       state.timings.fetch = performance.now() - t0;
       post({ type: "progress", epoch: epoch, phase: "decode", ms: state.timings.fetch });
 
       var stack = R2F2D.readStack(self.h5wasm, buffer, "stream.nc");
-      if (epoch !== state.epoch) return;
+      if (generation !== loadGeneration) return;
       state.stack = stack;
       state.timings.decode = stack.decodeMs;
       state.timings.bytes = buffer.byteLength;
@@ -209,16 +220,17 @@ function load(epoch, url) {
       }
       state.queue.push(last);
       for (var i = last - 1; i >= 0; i -= 1) state.queue.push(i);
-      prepareNext();
+      phase = "prepare";
+      prepareNext(generation);
     })
     .catch(function (error) {
-      if (epoch !== state.epoch) return;
+      if (generation !== loadGeneration) return;
       // A cross-origin failure surfaces here as an opaque "Failed to fetch";
       // phase and url are what let the client say something useful about CORS.
       post({
         type: "error",
         epoch: epoch,
-        phase: state.stack ? "decode" : "fetch",
+        phase: phase,
         url: url,
         message: (error && error.message) || String(error)
       });
@@ -238,6 +250,13 @@ self.onmessage = function (event) {
       state.queue.splice(at, 1);
       state.queue.unshift(message.index);
     }
+  } else if (message.type === "cancel" && message.epoch === state.epoch) {
+    loadGeneration += 1;
+    if (fetchController) fetchController.abort();
+    fetchController = null;
+    state.stack = null;
+    state.queue = [];
+    state.reference = null;
   }
 };
 

@@ -1,5 +1,10 @@
 # Prototype — reading ras2fim-2d NetCDF in the browser
 
+For embedding in another map, use the [session API](../../docs/native-viewer-api.md)
+for depth/extent modes, stable flow selection, status and disposal. Its file
+contract requires declared EPSG:3857 and vertical units; missing metadata is
+rejected rather than guessed.
+
 **Question:** can a webmap read ras2fim-2d's native `.nc` output directly, with
 no tile server and no COG conversion step?
 

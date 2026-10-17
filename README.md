@@ -26,6 +26,10 @@ Measured in Chrome on `wb-2427466` (1963 × 1331, 15 flow layers, 2.35 MB):
 The slider does no network I/O and no per-step scanning: every layer is prepared
 once, and stepping paints only the ~12% of cells that are wet.
 
+For embedding, the DOM-free reader exposes a reusable depth/extent session
+with flow selection, status and cancellation. See the
+[native viewer API and writer contract](docs/native-viewer-api.md).
+
 **Static-tiled (`src/viewer-1d/`, `pipeline/fim1d/`)** — the 1D dashboard.
 ras2fim 1D emits dozens of separate GeoTIFFs in State Plane feet, which a
 browser cannot use as they are, so this path warps them to COGs. Those can be
