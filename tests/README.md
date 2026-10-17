@@ -19,6 +19,7 @@ split rather than papering over it.
 | Suite | Runner | Needs | Covers |
 |---|---|---|---|
 | `netcdf-reader.test.mjs` | `node --test` | nothing | the browser reader: sparse-vs-dense oracle, clearing, packing, the two "wet" populations, bbox, ramp packing |
+| `native-viewer-api.test.mjs` | `node --test` | nothing | synthetic metadata checks, depth/extent sessions, stable selection, cancellation, stale messages and the shipped worker protocol in a VM; no real WASM/data qualification |
 | `test_geodesy.py` | `unittest` | nothing | `pipeline/common/geodesy.py`, and its agreement with the JavaScript copy |
 | `test_site_safety.py` | `unittest` | `netCDF4` | the destructive-`--clean` refusals and the `VIEWER_FILES` contract |
 | `test_roundtrip.py` | `unittest` | `netCDF4`, `numpy` | build a site from synthesised NetCDF, then deep-validate it |
