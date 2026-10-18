@@ -116,13 +116,21 @@
   }
 
   /** Open a ras2fim-2d NetCDF from an ArrayBuffer. Returns a plain object. */
-  function readStack(h5, buffer, name) {
+  function readStack(h5, buffer, name, indexed) {
     // A name derived from the URL can collide across streams inside the
     // emscripten filesystem; a generated one cannot.
     var path = "/stack-" + (readStack._seq = (readStack._seq || 0) + 1) + ".nc";
     h5.FS.writeFile(path, new Uint8Array(buffer));
 
     var file = null;
+    var retained = false;
+    var closed = false;
+    function close() {
+      if (closed) return;
+      closed = true;
+      if (file) { try { file.close(); } catch (e) { /* already closing */ } }
+      try { h5.FS.unlink(path); } catch (e) { /* never written */ }
+    }
     try {
       // Inside the try: a throw from the File constructor must still unlink.
       file = new h5.File(path, "r");
@@ -167,8 +175,18 @@
         }
       }
 
-      var srDs = file.get("spatial_ref");
-      if (!srDs) throw new Error("no spatial_ref variable");
+      // Resolve the CF declaration; legacy stacks omit it and use spatial_ref.
+      // An explicit invalid declaration must never fall back to a different CRS.
+      var mapping = attrValue(mainDs.attrs["grid_mapping"]);
+      var mappingName = "spatial_ref";
+      if (mapping !== undefined && mapping !== null) {
+        if (typeof mapping !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(mapping)) {
+          throw new Error("unsupported grid_mapping declaration");
+        }
+        mappingName = mapping;
+      }
+      var srDs = file.get(mappingName);
+      if (!srDs) throw new Error("missing grid_mapping variable " + mappingName);
       var crs = gridCRS(srDs.attrs);
       var gt = parseGeoTransform(attrValue(srDs.attrs["GeoTransform"]));
       if (!gt) throw new Error("spatial_ref has no usable GeoTransform");
@@ -182,9 +200,10 @@
       }
 
       var t0 = performance.now();
-      var mainValues = mainDs.value; // length flow*y*x
+      if (indexed && typeof mainDs.slice !== "function") throw new Error("h5wasm dataset.slice is required for indexed reading");
+      var mainValues = indexed ? null : mainDs.value; // indexed reads one hyperslab per profile
       var terrain = isWsel ? terrainDs.value : null;
-      if (mainValues.length !== shape[0] * shape[1] * shape[2] ||
+      if ((!indexed && mainValues.length !== shape[0] * shape[1] * shape[2]) ||
           (terrain && terrain.length !== shape[1] * shape[2])) {
         throw new Error("data length does not match grid dimensions");
       }
@@ -198,6 +217,19 @@
       }
       if (!flows.every(Number.isFinite)) throw new Error("flow values must be finite");
 
+      var axisSemantics = attrValue(flowDs.attrs["axis_semantics"]) || null;
+      if (axisSemantics === "profile_index") {
+        if (attrValue(flowDs.attrs["units"]) !== "1" ||
+            !flows.every(function (value, index) { return value === index; })) {
+          throw new Error("profile_index flow must use units 1 and zero-based source positions");
+        }
+      }
+      var profileDs = file.get("profile");
+      var profileNames = profileDs ? Array.from(profileDs.value) : null;
+      if (profileNames && (profileNames.length !== shape[0] ||
+          !profileNames.every(function (value) { return typeof value === "string" && value.length > 0; }))) {
+        throw new Error("profile must contain one nonempty string per source position");
+      }
       var ny = shape[1], nx = shape[2];
       var west = gt.originX;
       var north = gt.originY;
@@ -226,6 +258,8 @@
         streamId: attrValue(file.attrs["00_stream_id"]),
         verticalFilter: attrValue(file.attrs["09_vertical_filter"]),
         flows: flows,
+        profileNames: profileNames,
+        axisSemantics: axisSemantics,
         nFlow: shape[0], ny: ny, nx: nx,
         scale: main.scale, offset: main.offset,
         hasFill: main.hasFill, fill: main.fill,
@@ -251,13 +285,29 @@
         decodeMs: decodeMs,
         bytes: buffer.byteLength
       };
+      if (indexed) {
+        stack.readLayer = function (index) {
+          if (closed) throw new Error("indexed stack is closed");
+          if (!Number.isSafeInteger(index) || index < 0 || index >= shape[0]) {
+            throw new Error("profile index out of range");
+          }
+          var values = mainDs.slice([[index, index + 1], [], []]);
+          if (!values || values.length !== nx * ny) throw new Error("profile data length does not match grid");
+          // A disposable one-profile dense view uses the same packing/mask oracle.
+          var layer = Object.assign({}, stack, { wsel: values, nFlow: 1, flows: [flows[index]] });
+          delete layer.readLayer;
+          delete layer.close;
+          return layer;
+        };
+        stack.close = close;
+        retained = true;
+      }
       return stack;
     } finally {
       // Every exit unlinks. A long-lived worker reading many streams would
       // otherwise leak the whole file into the emscripten heap each time, and
       // that heap does not shrink.
-      if (file) { try { file.close(); } catch (e) { /* already closing */ } }
-      try { h5.FS.unlink(path); } catch (e) { /* never written */ }
+      if (!retained) close();
     }
   }
 
@@ -397,6 +447,7 @@
    * different populations and the panel reports both.
    */
   function buildIndex(stack, index) {
+    if (stack.readLayer) return buildIndex(stack.readLayer(index), 0);
     var n = stack.ny * stack.nx;
     var off = index * n;
     var nx = stack.nx;
@@ -507,6 +558,39 @@
       nodata: total - stats.valid };
   }
 
+  /** Validate the opt-in bounded-session options; null when not requested.
+   *
+   * `displayMaxDepth` is the top of the DISPLAY colour range, supplied by the
+   * catalog producer. It is not the scientific maximum of any profile and is
+   * never inferred from loaded layers -- inferring it would require every
+   * profile, which is exactly what bounded mode exists to avoid. */
+  function boundedOptions(value) {
+    if (value === undefined || value === null || value === false) return null;
+    if (typeof value !== "object") throw new Error("bounded must be an options object");
+    var cacheSize = value.cacheSize === undefined ? 3 : value.cacheSize;
+    if (!Number.isInteger(cacheSize) || cacheSize < 1 || cacheSize > 16) {
+      throw new RangeError("bounded.cacheSize must be an integer from 1 to 16");
+    }
+    if (!(typeof value.displayMaxDepth === "number" && isFinite(value.displayMaxDepth) &&
+        value.displayMaxDepth > 0)) {
+      throw new RangeError("bounded.displayMaxDepth must be a finite positive depth");
+    }
+    if (!Number.isSafeInteger(value.maxCompressedBytes) || value.maxCompressedBytes <= 0) {
+      throw new RangeError("bounded.maxCompressedBytes must be a positive integer");
+    }
+    var maxPlaneCells = value.maxPlaneCells === undefined ? 33554432 : value.maxPlaneCells;
+    if (!Number.isSafeInteger(maxPlaneCells) || maxPlaneCells <= 0) {
+      throw new RangeError("bounded.maxPlaneCells must be a positive integer");
+    }
+    var maxCacheBytes = value.maxCacheBytes === undefined ? 134217728 : value.maxCacheBytes;
+    if (!Number.isSafeInteger(maxCacheBytes) || maxCacheBytes <= 0) {
+      throw new RangeError("bounded.maxCacheBytes must be a positive integer");
+    }
+    return { maxCacheBytes: maxCacheBytes, cacheSize: cacheSize, displayMaxDepth: value.displayMaxDepth,
+      displayRangeSource: value.displayRangeSource == null ? null : String(value.displayRangeSource),
+      maxCompressedBytes: value.maxCompressedBytes, maxPlaneCells: maxPlaneCells };
+  }
+
   /** Own one worker and its prepared layers; canvas and map ownership stay with
    * the host. No browser globals are needed until workerFactory is called.
    * See docs/native-viewer-api.md for callback and buffer ownership. */
@@ -523,17 +607,51 @@
       return Number.isInteger(v) && v >= 0 && v <= 255;
     })) throw new Error("extentColor must be three RGB bytes");
     var extent = buildRampU32(buildRamp([[0].concat(color), [1].concat(color)]))[0];
+    var bounded = boundedOptions(options.bounded);
+    // Bounded mode: an LRU of at most bounded.cacheSize layers (indices, least
+    // recent first) replaces the all-profile array, and only the outstanding
+    // request id may land.
+    var lru = [], pending = null, requestSeq = 0;
     var worker = null, epoch = 0, destroyed = false;
     var meta = null, layers = [], selected = null, displayed = null;
     var pixels = null, shown = null, complete = false, maxDepth = 1;
     var mode = "depth", displayedMode = null, phase = "idle", error = null;
 
     function snapshot() {
-      return { phase: phase, epoch: epoch, mode: mode, index: selected,
+      var status = { phase: phase, epoch: epoch, mode: mode, index: selected,
         displayedIndex: displayed, displayedMode: displayedMode,
         flow: meta && selected !== null ? meta.flows[selected] : null,
         flowUnits: meta ? meta.flowUnits : null, meta: meta, error: error,
-        prepared: layers.filter(Boolean).length, complete: complete };
+        prepared: bounded ? lru.length : layers.filter(Boolean).length, complete: complete };
+      if (bounded) {
+        status.bounded = { cacheSize: bounded.cacheSize, cached: lru.slice(),
+          maxCacheBytes: bounded.maxCacheBytes, cachedBytes: cacheBytes(),
+          displayMaxDepth: bounded.displayMaxDepth, pending: pending ? pending.index : null };
+      }
+      return status;
+    }
+    /** Mark `index` most recently used, then drop the least recent layers that
+     * are not on screen until the cache is back within bounds. */
+    function layerBytes(layer) {
+      return layer.offsets.byteLength + layer.depths.byteLength;
+    }
+    function cacheBytes() {
+      return lru.reduce(function (total, index) { return total + layerBytes(layers[index]); }, 0);
+    }
+    function touch(index) {
+      var at = lru.indexOf(index);
+      if (at !== -1) lru.splice(at, 1);
+      lru.push(index);
+      for (var i = 0; (lru.length > bounded.cacheSize || cacheBytes() > bounded.maxCacheBytes) && i < lru.length;) {
+        if (layers[lru[i]] === shown) { i += 1; continue; }
+        layers[lru[i]] = undefined; // release the transferred typed arrays
+        lru.splice(i, 1);
+      }
+    }
+    function request(index) {
+      if (layers[index] || (pending && pending.index === index) || !worker) return;
+      pending = { index: index, request: ++requestSeq };
+      worker.postMessage({ type: "request", epoch: epoch, index: index, request: pending.request });
     }
     function notify() {
       if (options.onStatus) options.onStatus(snapshot());
@@ -551,7 +669,8 @@
       worker = null;
       meta = null; layers = []; pixels = null; shown = null;
       selected = null; displayed = null; displayedMode = null;
-      complete = false; maxDepth = 1; error = null;
+      complete = false; maxDepth = bounded ? bounded.displayMaxDepth : 1; error = null;
+      lru = []; pending = null;
     }
     function fail(message) {
       if (worker) { worker.terminate(); worker = null; }
@@ -559,16 +678,22 @@
     }
     function present() {
       var layer = layers[selected];
-      if (!layer || (mode === "depth" && !complete)) {
+      // Bounded depth needs no completion: its display range is fixed up front.
+      if (!layer || (mode === "depth" && !complete && !bounded)) {
         phase = "preparing"; notify(); return;
       }
       if (shown) clearSparse(pixels, shown);
       if (mode === "extent") paintExtent(pixels, layer, extent);
       else paintSparse(pixels, layer, ramp, maxDepth);
       shown = layer; displayed = selected; displayedMode = mode; phase = "ready";
+      if (bounded) touch(selected); // after `shown` moves, so the old one may go
       var frame = { epoch: epoch, index: selected, flow: meta.flows[selected], mode: mode,
         meta: meta, stats: layer.stats, cells: layerCells(meta, layer.stats),
         maxDepth: maxDepth, data: new Uint8ClampedArray(pixels.buffer) };
+      if (bounded) {
+        frame.displayRange = { min: 0, max: bounded.displayMaxDepth, units: meta.depthUnits,
+          source: bounded.displayRangeSource };
+      }
       // Notify status first. A host may synchronously cancel/change reach/mode
       // inside it; the old frame must not escape after that state change.
       var current = epoch, currentMode = mode, currentIndex = selected;
@@ -586,7 +711,10 @@
       if (data.type === "meta") {
         if (meta) return;
         var incoming = data.meta;
-        if (!incoming || incoming.protocol !== 1) { fail("unsupported worker protocol"); return; }
+        if (bounded && (!incoming || incoming.protocol !== 2 || incoming.onDemand !== true)) {
+          fail("bounded mode requires worker protocol 2"); return;
+        }
+        if (!bounded && (!incoming || incoming.protocol !== 1)) { fail("unsupported worker protocol"); return; }
         if (![incoming.nFlow, incoming.nx, incoming.ny].every(function (v) {
           return Number.isSafeInteger(v) && v > 0;
         }) || !Array.isArray(incoming.flows) || incoming.flows.length !== incoming.nFlow ||
@@ -598,15 +726,26 @@
         pixels = new Uint32Array(meta.nx * meta.ny);
         if (selected === null) selected = meta.nFlow - 1;
         if (selected >= meta.nFlow) { fail("flow index is out of range"); return; }
-        worker.postMessage({ type: "prioritize", epoch: epoch, index: selected });
+        if (bounded) request(selected);
+        else worker.postMessage({ type: "prioritize", epoch: epoch, index: selected });
         phase = "preparing"; notify();
+      } else if (bounded && data.type === "layer" && meta) {
+        // Superseded requests are dropped, not cached: only the newest can show.
+        if (!pending || data.request !== pending.request || data.index !== pending.index) return;
+        pending = null;
+        if (layerBytes(data) > bounded.maxCacheBytes) {
+          fail("selected profile exceeds bounded.maxCacheBytes"); return;
+        }
+        layers[data.index] = data;
+        if (data.index === selected) present();
+        else { touch(data.index); notify(); }
       } else if (data.type === "layer" && meta && !complete) {
         if (!Number.isInteger(data.index) || data.index < 0 || data.index >= meta.nFlow) return;
         layers[data.index] = data;
         maxDepth = Math.max(maxDepth, Math.ceil(data.stats.max || 1));
         if (data.index === selected) present();
         else notify();
-      } else if (data.type === "done" && meta && !complete) {
+      } else if (data.type === "done" && meta && !complete && !bounded) {
         if (layers.filter(Boolean).length !== meta.nFlow) { fail("worker finished with missing layers"); return; }
         complete = true; present();
       }
@@ -631,14 +770,26 @@
           ownWorker.onerror = function (event) {
             if (!destroyed && epoch === current && worker === ownWorker) fail(event.message || "worker failed");
           };
-          ownWorker.postMessage({ type: "load", epoch: current, url: url, rampStops: stops });
+          var start = { type: "load", epoch: current, url: url, rampStops: stops };
+          if (bounded) {
+            start.protocol = 2; start.onDemand = true;
+            start.maxCompressedBytes = bounded.maxCompressedBytes;
+            start.maxPlaneCells = bounded.maxPlaneCells;
+          }
+          ownWorker.postMessage(start);
         } catch (e) { fail(e.message); return; }
         notify();
       },
       select: function (index) {
         active(); validIndex(index); selected = index;
         if (!meta || phase === "error") { notify(); return; }
-        if (!layers[index] && worker) worker.postMessage({ type: "prioritize", epoch: epoch, index: index });
+        if (bounded) {
+          // A cached selection supersedes whatever was still in flight.
+          if (layers[index]) pending = null;
+          else request(index);
+        } else if (!layers[index] && worker) {
+          worker.postMessage({ type: "prioritize", epoch: epoch, index: index });
+        }
         present();
       },
       setMode: function (value) {
@@ -697,6 +848,8 @@
 
   var api = {
     readStack: readStack,
+    // Owns an open MEMFS file until close(); downloads are still whole-file.
+    openStack: function (h5, buffer, name) { return readStack(h5, buffer, name, true); },
     depthStats: depthStats,
     // Retained as the reference implementation the sparse path is checked
     // against. It is the only cheap proof an 8x optimisation did not quietly
