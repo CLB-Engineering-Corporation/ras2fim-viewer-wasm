@@ -172,3 +172,140 @@ a new producer, independently check an actual immutable NetCDF in a real
 browser: metadata/units/CRS, exact flow order, depth and extent masks against
 source references, both modes, repeats, pending selection, reach changes and
 disposal. Preserve any unresolved hydraulic/datum/approval holds separately.
+
+
+## Indexed dense decoding (whole-file transport)
+
+`R2F2D.openStack(h5, arrayBuffer)` accepts the same validated file as
+`readStack`, but keeps its HDF5 file open. `stack.readLayer(sourceIndex)` uses
+h5wasm 0.10.3 `Dataset.slice([[index,index+1],[],[]])` to decode one profile.
+It returns a disposable one-profile dense stack; pass **0** as its index to
+`buildIndex` or `paintDense`. The source stack preserves the original metadata
+and has `wsel=null`. `buildIndex(sourceStack, sourceIndex)` also reads that one
+profile directly. Indexes are checked and never sorted or clamped.
+`stack.close()` closes/unlinks the MEMFS file idempotently; later reads fail.
+The caller owns returned arrays. Terrain for WSEL is read once and shared.
+Legacy `readStack` and its dense output remain unchanged.
+
+The worker now uses this indexed reader while preserving protocol version 1,
+existing preparation order and all-layer session behavior. Metadata excludes
+`readLayer` and `close` functions. It closes the file after preparation,
+replacement, cancellation or a decode/preparation error.
+
+Optional `profile[flow]` contains one nonempty string label per source position;
+`meta.profileNames` preserves that order. When physical discharge is unknown,
+`flow` must contain exactly zero-based source positions with `units="1"` and
+`axis_semantics="profile_index"`. `meta.axisSemantics` exposes that distinction.
+Those numbers are profile indices, never cfs. Existing physical flows/units
+remain unchanged. Consumers must bind profile identity independently from
+numeric discharge and must not label an index as a physical flow.
+
+This change provides **HDF5 hyperslab decoding, not HTTP range transport**.
+The worker still fetches the entire compressed NetCDF, copies it into MEMFS,
+and ultimately retains every sparse profile on the main thread. WASM heap
+high-water allocation, input copies, per-plane copies, terrain and all sparse
+layers contribute to memory. At 4608x4608, one float32 plane is 84,934,656 bytes;
+86 dense planes would be 7,304,380,416 bytes. Avoiding that dense cube is useful,
+but an all-wet sparse library can still be larger. Large-reach publication
+requires a separately qualified bounded cache/on-demand session and browser
+memory limits; this API alone does not establish that qualification.
+
+`tests/netcdf-h5wasm.test.mjs` checks a small real NetCDF4 fixture using the
+actual pinned IIFE runtime when `H5WASM_BUNDLE` names that file. It compares
+sliced/dense positive offsets, depths and signed statistics. Normal tests skip
+that test when the runtime is absent. These are actual WASM decode checks in
+Node, not real-browser rendering, network or large-library acceptance.
+
+## Bounded on-demand session (opt-in, worker protocol 2)
+
+Large per-reach catalogs can opt into a session that never prepares or retains
+every profile:
+
+```js
+const session = R2F2D.createSession({
+  workerFactory, onFrame, onStatus,
+  bounded: {
+    displayMaxDepth: 25,          // required, file depthUnits, > 0
+    displayRangeSource: "catalog depth_display_max", // optional provenance
+    cacheSize: 3,                 // optional, integer 1..16, default 3
+    maxCompressedBytes: 1.5e9,    // required, positive integer
+    maxPlaneCells: 33554432       // optional, default 2^25
+  }
+});
+```
+
+Without `bounded` nothing changes: v1 load message, every profile prepared,
+depth waits for `done`, ramp from the library maximum, `complete` as before.
+`readStack`, `openStack` and `readLayer` are unchanged.
+
+**Display range is not a statistic.** `displayMaxDepth` is the top of the
+fixed DISPLAY colour range, supplied by the catalog producer; it is never
+inferred from loaded profiles (that would need all of them). Bounded frames
+carry `maxDepth` (equal to the display maximum, for compatibility) and
+`displayRange {min: 0, max, units, source}`. `frame.stats` stays the selected
+profile's scientific signed statistics; `stats.max` may exceed the display
+maximum, and such cells clamp to the last ramp colour. Never present the display
+maximum as a measured depth.
+
+**Memory.** The session holds at most `cacheSize` prepared sparse layers in an
+LRU (the displayed layer is never evicted while on screen) plus one
+`nx*ny*4`-byte pixel buffer. Evicted layers are dereferenced; reselecting one
+decodes it again. Depth mode paints as soon as the selected profile arrives.
+`complete` is always false; `prepared` is the cached count;
+`status.bounded = {cacheSize, cached, displayMaxDepth, pending}` lists cached
+source indices least-recent first.
+
+**Requests.** After `meta {protocol: 2, onDemand: true}` the worker decodes
+nothing until `{type: "request", epoch, index, request}`. One hyperslab is read
+per serviced request; requests that arrive before the next task boundary are
+coalesced to the latest. The session accepts a layer only for the current epoch
+and its single outstanding request id: superseded, duplicate and late layers are
+dropped, not cached. Selecting a cached profile sends nothing and supersedes any
+request in flight; reselecting the in-flight profile sends nothing. Cancel,
+reach change and destroy terminate the worker (closing the HDF5/MEMFS file) and
+release the cache and pixels. A worker answering a bounded load with protocol 1
+is reported as `bounded mode requires worker protocol 2`.
+
+**Transport and guards.** The whole compressed file is still fetched and copied
+into MEMFS for the session's lifetime; peak is about twice the compressed size
+while it is written. Decoding one profile reduces decode memory, **not network
+bytes**. The worker refuses a declared `Content-Length` above
+`maxCompressedBytes` before buffering, cancels a streamed body as soon as it
+crosses the limit (`phase: "fetch"`), and refuses grids whose `nx*ny` exceeds
+`maxPlaneCells` before any hyperslab (`phase: "decode"`). Per request, the
+transient cost is one decoded plane (`nx*ny` x element size) plus the sparse
+layer (up to 8 bytes per positive cell). At 4608x4608 the pixel buffer and one
+float32 plane are each 84,934,656 bytes and one all-wet sparse layer is at most
+169,869,312 bytes, so three cached layers are bounded by about 510 MB worst case
+— in addition to the compressed file in MEMFS, which only `maxCompressedBytes`
+bounds.
+
+**Lazy HTTP range reading is not used.** The pinned h5wasm 0.10.3 IIFE build
+does contain Emscripten `FS.createLazyFile`, inspected in the bundle source. It
+is unsuitable here: it uses synchronous XHR (worker only, so a cancel cannot be
+serviced mid-read), caches every 1 MiB chunk it touches with no eviction, does
+not verify 206 responses or a stable ETag across chunks, silently degrades to a
+single whole-file chunk when `Accept-Ranges` is not exposed through CORS, and
+reports failures through the module's fatal `abort()`. A safe range transport
+needs a bounded chunk cache, response validation, cancellation and recoverable
+errors; it is not provided.
+
+`tests/bounded-session.test.mjs` covers the session and worker protocol on
+synthetic inputs. `tests/netcdf-h5wasm.test.mjs` runs the real worker source and
+the real session against the actual runtime and the small real NetCDF4 fixture
+when `H5WASM_BUNDLE` is set. Neither qualifies a large real reach, a browser
+heap limit or fleet data; that acceptance remains with the integrating
+dashboard.
+
+
+### MAIN bounded-reader qualification amendment
+
+CF `grid_mapping` names the CRS variable (including `crs`). Legacy files without
+that declaration use `spatial_ref`; invalid explicit declarations fail closed.
+`bounded.maxCacheBytes` is a positive integer, default 134217728 (128 MiB),
+limiting retained sparse offsets plus depths in addition to `cacheSize`.
+Status exposes `cachedBytes` and `maxCacheBytes`. A single oversized profile
+fails before display. This ceiling excludes in-flight transfer, decoded plane,
+compressed fetch/MEMFS, canvas and GPU buffers; it is not a total heap guarantee.
+Production compressed/plane/display budgets and largest-reach browser evidence
+remain required. The default is a conservative guard, not a measured optimum.

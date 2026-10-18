@@ -252,7 +252,7 @@ function workerHarness() {
     fetch(url, options) {
       return new Promise((resolve, reject) => requests.push({ url, options, resolve, reject }));
     },
-    R2F2D: { ...R, readStack(h5, buffer) {
+    R2F2D: { ...R, openStack(h5, buffer) {
       if (buffer[0] === 99) throw new Error("unsupported CRS");
       return { ...fixture().read(), wsel: Uint16Array.from([10, 0, 65535, 20, 0, 30, 0, 65535, 10, 0, 0, 65535]) };
     } },
@@ -314,4 +314,50 @@ test("private worker generations reject old fetches and preparation even when a 
   w.drain(); assert.equal(w.messages.filter((m) => m.type === "done").length, 0);
   await w.respond(2); w.drain();
   assert.equal(w.messages.filter((m) => m.type === "done").length, 1);
+});
+
+
+test("indexed reader never reads the full depth cube and closes idempotently", () => {
+  const f = fixture(); const raw = f.datasets.depth.value; const calls = [];
+  Object.defineProperty(f.datasets.depth, "value", { get() { assert.fail("full cube decoded"); } });
+  f.datasets.depth.slice = (ranges) => {
+    calls.push(plain(ranges)); return raw.slice(ranges[0][0] * 4, ranges[0][1] * 4);
+  };
+  const stack = R.openStack(f.h5, new ArrayBuffer(1));
+  assert.equal(stack.wsel, null); assert.equal(f.file.closed, undefined);
+  for (const index of [2, 0, 1]) {
+    const layer = R.buildIndex(stack, index);
+    assert.equal(layer.stats.valid, 3);
+  }
+  assert.deepEqual(calls, [[[2, 3], [], []], [[0, 1], [], []], [[1, 2], [], []]]);
+  assert.throws(() => stack.readLayer(-1), /out of range/);
+  assert.throws(() => stack.readLayer(3), /out of range/);
+  stack.close(); stack.close(); assert.ok(f.file.closed && f.h5.unlinked);
+  assert.throws(() => stack.readLayer(0), /closed/);
+});
+
+test("profile index semantics and ordered names are explicit without invented discharge", () => {
+  const f = fixture();
+  f.datasets.flow = { attrs: { units: "1", axis_semantics: "profile_index" }, value: [0, 1, 2] };
+  f.datasets.profile = { value: ["p03", "p01", "p02"] };
+  const stack = f.read();
+  assert.equal(stack.flowUnits, "1"); assert.equal(stack.axisSemantics, "profile_index");
+  assert.deepEqual(plain(stack.profileNames), ["p03", "p01", "p02"]);
+  f.datasets.flow.value = [0, 2, 1]; assert.throws(f.read, /zero-based/);
+  f.datasets.flow.value = [0, 1, 2]; f.datasets.flow.attrs.units = "cfs";
+  assert.throws(f.read, /units 1/);
+  f.datasets.flow.attrs.units = "1"; f.datasets.profile.value = ["p03"];
+  assert.throws(f.read, /profile must/);
+});
+
+
+test("CF grid_mapping uses its named variable and never falls back on invalid declarations", () => {
+  const f = fixture(); f.datasets.depth.attrs.grid_mapping = "crs";
+  f.datasets.crs = f.datasets.spatial_ref; delete f.datasets.spatial_ref;
+  assert.equal(f.read().crs, "EPSG:3857");
+  for (const mapping of ["missing", "", "crs: x y", "../spatial_ref", 17]) {
+    const bad = fixture(); bad.datasets.depth.attrs.grid_mapping = mapping;
+    assert.throws(bad.read, /grid_mapping/);
+    assert.ok(bad.file.closed && bad.h5.unlinked);
+  }
 });

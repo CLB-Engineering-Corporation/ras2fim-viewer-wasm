@@ -14,6 +14,20 @@
  *                    { type: "done",  epoch, timings }
  *                    { type: "error", epoch, phase, url, message }
  *
+ * Protocol 2 (opt-in, bounded sessions only) -- a load carrying `protocol: 2`
+ * and `onDemand: true` prepares nothing up front:
+ *
+ *   main -> worker   { type: "load", epoch, url, protocol: 2, onDemand: true,
+ *                      maxCompressedBytes, maxPlaneCells }
+ *                    { type: "request", epoch, index, request }
+ *   worker -> main   meta with { protocol: 2, onDemand: true }, then one
+ *                    { type: "layer", ..., request } per serviced request
+ *
+ * Requests are latest-wins: several arriving before the next task boundary are
+ * coalesced to the last one, because only the newest selection can be shown.
+ * The open file stays in MEMFS until cancel or the next load. A load without
+ * `protocol: 2` is v1 exactly as before.
+ *
  * `meta` always precedes any `layer`, so the client can size its canvas before
  * anything needs painting. Layers arrive one message each, with `offsets` and
  * `depths` transferred rather than copied.
@@ -35,6 +49,8 @@
 importScripts("vendor/h5wasm.js", "netcdf.js");
 
 var PROTOCOL_VERSION = 1;
+var ON_DEMAND_PROTOCOL = 2;
+var DEFAULT_MAX_PLANE_CELLS = 33554432; // 2^25; a 4608 x 4608 plane is 21.2M
 
 /* Started at load, before any message can arrive. Declared here rather than at
    the foot of the file so load() does not depend on hoisting for correctness. */
@@ -51,7 +67,10 @@ var state = {
   verify: false,
   ramp: null,
   maxDepth: 1,
-  reference: null
+  reference: null,
+  onDemand: null,      // null for v1, else { maxCompressedBytes, maxPlaneCells }
+  pending: null,       // latest unserviced protocol-2 request
+  scheduled: false
 };
 var loadGeneration = 0;
 var fetchController = null;
@@ -81,11 +100,96 @@ function metaOf(stack) {
   for (var key in stack) {
     if (!Object.prototype.hasOwnProperty.call(stack, key)) continue;
     // wsel and terrain are the two that must never be posted.
-    if (key === "wsel" || key === "terrain") continue;
+    if (key === "wsel" || key === "terrain" || key === "readLayer" || key === "close") continue;
     meta[key] = stack[key];
   }
-  meta.protocol = PROTOCOL_VERSION;
+  meta.protocol = state.onDemand ? ON_DEMAND_PROTOCOL : PROTOCOL_VERSION;
+  if (state.onDemand) meta.onDemand = true;
   return meta;
+}
+
+/* The whole compressed file still has to arrive: h5wasm reads from MEMFS. The
+   limit is enforced before the body is buffered when the server declares a
+   length, and while streaming when it does not, so an oversized reach fails
+   explicitly instead of exhausting the worker heap. */
+function tooLarge(bytes, limit) {
+  return new Error("compressed size " + bytes + " bytes exceeds maxCompressedBytes " + limit);
+}
+
+function readBody(response, limit) {
+  if (!limit) return response.arrayBuffer();
+  var declared = Number(response.headers && response.headers.get &&
+    response.headers.get("Content-Length"));
+  if (declared > limit) return Promise.reject(tooLarge(declared, limit));
+  if (!response.body || !response.body.getReader) {
+    return response.arrayBuffer().then(function (buffer) {
+      if (buffer.byteLength > limit) throw tooLarge(buffer.byteLength, limit);
+      return buffer;
+    });
+  }
+  var reader = response.body.getReader();
+  var parts = [], received = 0;
+  function pump() {
+    return reader.read().then(function (step) {
+      if (step.done) {
+        var out = new Uint8Array(received), at = 0;
+        parts.forEach(function (part) { out.set(part, at); at += part.byteLength; });
+        parts = null;
+        return out.buffer;
+      }
+      received += step.value.byteLength;
+      if (received > limit) {
+        parts = null;
+        reader.cancel();
+        throw tooLarge("at least " + received, limit);
+      }
+      parts.push(step.value);
+      return pump();
+    });
+  }
+  return pump();
+}
+
+function closeStack() {
+  if (state.stack && state.stack.close) state.stack.close();
+  state.stack = null;
+  state.pending = null;
+  state.queue = [];
+}
+
+function schedule(generation) {
+  if (state.scheduled || !state.stack || !state.pending) return;
+  state.scheduled = true;
+  yieldThen(function () { serviceRequest(generation); });
+}
+
+/** Service the newest protocol-2 request: one hyperslab, one sparse layer. */
+function serviceRequest(generation) {
+  state.scheduled = false;
+  if (generation !== loadGeneration || !state.stack || !state.pending) return;
+  var request = state.pending;
+  state.pending = null;
+  var t0 = performance.now();
+  var layer;
+  try {
+    layer = R2F2D.buildIndex(state.stack, request.index);
+  } catch (error) {
+    closeStack();
+    post({ type: "error", epoch: state.epoch, phase: "prepare", message: error.message || String(error) });
+    return;
+  }
+  state.timings.prepare = (state.timings.prepare || 0) + (performance.now() - t0);
+  post({
+    type: "layer",
+    epoch: state.epoch,
+    index: request.index,
+    request: request.request,
+    offsets: layer.offsets,
+    depths: layer.depths,
+    bbox: layer.bbox,
+    stats: layer.stats,
+    painted: layer.painted
+  }, [layer.offsets.buffer, layer.depths.buffer]);
 }
 
 function prepareNext(generation) {
@@ -95,6 +199,7 @@ function prepareNext(generation) {
       // Every layer is indexed; the dense arrays have no further use. Dropping
       // them here is what keeps a long-lived worker from holding 84 MB per
       // stream it has ever opened.
+      if (state.stack.close) state.stack.close();
       state.stack.wsel = null;
       state.stack.terrain = null;
       state.reference = null;
@@ -105,15 +210,30 @@ function prepareNext(generation) {
 
   var index = state.queue.shift();
   var t0 = performance.now();
-  var layer = R2F2D.buildIndex(state.stack, index);
+  var layer;
+  try {
+    layer = R2F2D.buildIndex(state.stack, index);
+  } catch (error) {
+    if (state.stack.close) state.stack.close();
+    state.queue = [];
+    post({ type: "error", epoch: state.epoch, phase: "prepare", message: error.message || String(error) });
+    return;
+  }
   state.timings.prepare = (state.timings.prepare || 0) + (performance.now() - t0);
 
   /* The differential oracle lives here because this is where the dense arrays
      are. It paints the layer both ways into scratch buffers and reports any
      disagreement; the client only has to surface it. */
   if (state.verify) {
-    var report = verifyLayer(index, layer);
-    if (!report.ok) post({ type: "verify", epoch: state.epoch, index: index, report: report });
+    try {
+      var report = verifyLayer(index, layer);
+      if (!report.ok) post({ type: "verify", epoch: state.epoch, index: index, report: report });
+    } catch (error) {
+      if (state.stack.close) state.stack.close();
+      state.queue = [];
+      post({ type: "error", epoch: state.epoch, phase: "prepare", message: error.message || String(error) });
+      return;
+    }
   }
 
   post({
@@ -149,7 +269,8 @@ function verifyLayer(index, layer) {
   sparseBytes.fill(0);
   var sparsePx = new Uint32Array(sparseBytes.buffer);
 
-  var densePainted = R2F2D.paintDense(state.stack, index, dense, state.ramp, state.maxDepth);
+  var denseStack = state.stack.readLayer ? state.stack.readLayer(index) : state.stack;
+  var densePainted = R2F2D.paintDense(denseStack, state.stack.readLayer ? 0 : index, dense, state.ramp, state.maxDepth);
   var sparsePainted = R2F2D.paintSparse(sparsePx, layer, state.rampU32, state.maxDepth);
 
   var differing = 0, maxDelta = 0;
@@ -166,15 +287,15 @@ function verifyLayer(index, layer) {
   };
 }
 
-function load(epoch, url) {
+function load(epoch, url, onDemand) {
   var generation = ++loadGeneration;
   if (fetchController) fetchController.abort();
   fetchController = new AbortController();
   state.epoch = epoch;
-  state.stack = null;
-  state.queue = [];
+  closeStack();
   state.timings = {};
   state.reference = null;
+  state.onDemand = onDemand;
   var phase = "fetch";
 
   var t0 = performance.now();
@@ -185,26 +306,38 @@ function load(epoch, url) {
   Promise.all([
     fetch(url, { signal: fetchController.signal }).then(function (response) {
       if (!response.ok) throw new Error("HTTP " + response.status);
-      return response.arrayBuffer();
+      return readBody(response, onDemand && onDemand.maxCompressedBytes);
     }),
     ready
   ])
     .then(function (results) {
       var buffer = results[0];
+      results = null;
       if (generation !== loadGeneration) return;
       phase = "decode";
       state.timings.fetch = performance.now() - t0;
       post({ type: "progress", epoch: epoch, phase: "decode", ms: state.timings.fetch });
 
-      var stack = R2F2D.readStack(self.h5wasm, buffer, "stream.nc");
-      if (generation !== loadGeneration) return;
+      var stack = R2F2D.openStack(self.h5wasm, buffer, "stream.nc");
+      if (generation !== loadGeneration) { if (stack.close) stack.close(); return; }
       state.stack = stack;
       state.timings.decode = stack.decodeMs;
       state.timings.bytes = buffer.byteLength;
+      buffer = null; // MEMFS now holds the only copy
+      if (onDemand && stack.nx * stack.ny > onDemand.maxPlaneCells) {
+        throw new Error("plane of " + (stack.nx * stack.ny) +
+          " cells exceeds maxPlaneCells " + onDemand.maxPlaneCells);
+      }
 
       var meta = metaOf(stack);
       meta.fetchMs = state.timings.fetch;
       post({ type: "meta", epoch: epoch, meta: meta });
+      if (onDemand) {
+        // Nothing is prepared until asked for; a request may already be waiting.
+        phase = "prepare";
+        schedule(generation);
+        return;
+      }
 
       /* Top layer first, always. It fixes maxDepth for the whole library, and
          every other layer is coloured against it -- prepare a middle layer
@@ -225,6 +358,7 @@ function load(epoch, url) {
     })
     .catch(function (error) {
       if (generation !== loadGeneration) return;
+      closeStack();
       // A cross-origin failure surfaces here as an opaque "Failed to fetch";
       // phase and url are what let the client say something useful about CORS.
       post({
@@ -240,9 +374,21 @@ function load(epoch, url) {
 self.onmessage = function (event) {
   var message = event.data || {};
   if (message.type === "load") {
-    state.verify = !!message.verify;
+    var onDemand = null;
+    if (message.protocol === ON_DEMAND_PROTOCOL && message.onDemand) {
+      onDemand = {
+        maxCompressedBytes: message.maxCompressedBytes,
+        maxPlaneCells: message.maxPlaneCells || DEFAULT_MAX_PLANE_CELLS
+      };
+    }
+    // The dense/sparse oracle needs a settled library ramp; protocol 2 has none.
+    state.verify = !onDemand && !!message.verify;
     state.rampStops = message.rampStops || null;
-    load(message.epoch, message.url);
+    load(message.epoch, message.url, onDemand);
+  } else if (message.type === "request") {
+    if (message.epoch !== state.epoch || !state.onDemand) return;
+    state.pending = { index: message.index, request: message.request };
+    schedule(loadGeneration);
   } else if (message.type === "prioritize") {
     if (message.epoch !== state.epoch) return;
     var at = state.queue.indexOf(message.index);
@@ -254,8 +400,7 @@ self.onmessage = function (event) {
     loadGeneration += 1;
     if (fetchController) fetchController.abort();
     fetchController = null;
-    state.stack = null;
-    state.queue = [];
+    closeStack();
     state.reference = null;
   }
 };
