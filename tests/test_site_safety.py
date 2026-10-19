@@ -127,7 +127,8 @@ class ViewerFilesContractTest(unittest.TestCase):
     def test_the_worker_is_listed(self):
         # Named explicitly because it is the one that was actually missed, and
         # because a regex-driven test can only fail if the regex still matches.
-        self.assertIn("netcdf-worker.js", site.VIEWER_FILES)
+        for name in ("netcdf-worker.js", "indexed-range.js", "indexed-range-worker.js"):
+            self.assertIn(name, site.VIEWER_FILES)
 
     def test_every_listed_file_exists_in_the_source_viewer(self):
         for name in site.VIEWER_FILES:

@@ -591,6 +591,28 @@
       maxCompressedBytes: value.maxCompressedBytes, maxPlaneCells: maxPlaneCells };
   }
 
+  function indexedRangeOptions(value) {
+    if (!value || typeof value !== "object") throw new Error("indexedRange options required");
+    var out = boundedOptions(Object.assign({}, value, { maxCompressedBytes: 1 }));
+    var defaults = { maxIndexBytes: 1048576, maxIndexEntries: 65536,
+      maxResponseBytes: 1048576, maxDecodedChunkBytes: 262144, concurrency: 2,
+      coalesceGapBytes: 0, maxDisplayCells: 1048576, maxDisplayWidth: 1024, maxDisplayHeight: 1024 };
+    Object.keys(defaults).forEach(function (key) {
+      var v = value[key] === undefined ? defaults[key] : value[key];
+      if (!Number.isSafeInteger(v) || v < (key === "coalesceGapBytes" ? 0 : 1) ||
+          (key === "concurrency" && v > 2) ||
+          (key === "maxIndexBytes" && v > 1048576) || (key === "maxIndexEntries" && v > 65536) ||
+          (key === "maxDisplayCells" && v > 33554432) ||
+          ((key === "maxDisplayWidth" || key === "maxDisplayHeight") && v > 32768)) {
+        throw new Error("invalid indexedRange." + key);
+      }
+      out[key] = v;
+    });
+    if (value.resampling !== "nearest") throw new Error("indexedRange.resampling must explicitly be nearest");
+    out.resampling = "nearest";
+    return out;
+  }
+
   /** Own one worker and its prepared layers; canvas and map ownership stay with
    * the host. No browser globals are needed until workerFactory is called.
    * See docs/native-viewer-api.md for callback and buffer ownership. */
@@ -607,7 +629,9 @@
       return Number.isInteger(v) && v >= 0 && v <= 255;
     })) throw new Error("extentColor must be three RGB bytes");
     var extent = buildRampU32(buildRamp([[0].concat(color), [1].concat(color)]))[0];
-    var bounded = boundedOptions(options.bounded);
+    var indexed = options.indexedRange ? indexedRangeOptions(options.indexedRange) : null;
+    if (indexed && options.bounded) throw new Error("choose indexedRange or bounded");
+    var bounded = indexed || boundedOptions(options.bounded);
     // Bounded mode: an LRU of at most bounded.cacheSize layers (indices, least
     // recent first) replaces the all-profile array, and only the outstanding
     // request id may land.
@@ -624,6 +648,7 @@
         flowUnits: meta ? meta.flowUnits : null, meta: meta, error: error,
         prepared: bounded ? lru.length : layers.filter(Boolean).length, complete: complete };
       if (bounded) {
+        if (indexed) status.indexedRange = { transport: "http206", displayGrid: meta && meta.displayGrid };
         status.bounded = { cacheSize: bounded.cacheSize, cached: lru.slice(),
           maxCacheBytes: bounded.maxCacheBytes, cachedBytes: cacheBytes(),
           displayMaxDepth: bounded.displayMaxDepth, pending: pending ? pending.index : null };
@@ -690,6 +715,7 @@
       var frame = { epoch: epoch, index: selected, flow: meta.flows[selected], mode: mode,
         meta: meta, stats: layer.stats, cells: layerCells(meta, layer.stats),
         maxDepth: maxDepth, data: new Uint8ClampedArray(pixels.buffer) };
+      if (indexed) { frame.displayGrid = meta.displayGrid; frame.displayCells = layer.displayCells; frame.transport = layer.transport; }
       if (bounded) {
         frame.displayRange = { min: 0, max: bounded.displayMaxDepth, units: meta.depthUnits,
           source: bounded.displayRangeSource };
@@ -711,19 +737,23 @@
       if (data.type === "meta") {
         if (meta) return;
         var incoming = data.meta;
-        if (bounded && (!incoming || incoming.protocol !== 2 || incoming.onDemand !== true)) {
-          fail("bounded mode requires worker protocol 2"); return;
+        if (bounded && (!incoming || incoming.protocol !== (indexed ? 3 : 2) || incoming.onDemand !== true)) {
+          fail(indexed ? "indexedRange requires worker protocol 3" : "bounded mode requires worker protocol 2"); return;
         }
         if (!bounded && (!incoming || incoming.protocol !== 1)) { fail("unsupported worker protocol"); return; }
         if (![incoming.nFlow, incoming.nx, incoming.ny].every(function (v) {
           return Number.isSafeInteger(v) && v > 0;
         }) || !Array.isArray(incoming.flows) || incoming.flows.length !== incoming.nFlow ||
-            !incoming.flows.every(Number.isFinite)) {
+            !incoming.flows.every(function (v) { return Number.isFinite(v) || (indexed && v === null); })) {
           fail("invalid worker grid/flow metadata"); return;
         }
         meta = incoming;
         layers = new Array(meta.nFlow);
-        pixels = new Uint32Array(meta.nx * meta.ny);
+        if (indexed && (!meta.displayGrid || !Number.isSafeInteger(meta.displayGrid.nx) || meta.displayGrid.nx < 1 ||
+            !Number.isSafeInteger(meta.displayGrid.ny) || meta.displayGrid.ny < 1 || meta.displayGrid.nx > indexed.maxDisplayWidth ||
+            meta.displayGrid.ny > indexed.maxDisplayHeight || meta.displayGrid.nx * meta.displayGrid.ny > indexed.maxDisplayCells ||
+            meta.nx * meta.ny > indexed.maxPlaneCells)) { fail("indexedRange grid budget exceeded"); return; }
+        pixels = new Uint32Array(indexed ? meta.displayGrid.nx * meta.displayGrid.ny : meta.nx * meta.ny);
         if (selected === null) selected = meta.nFlow - 1;
         if (selected >= meta.nFlow) { fail("flow index is out of range"); return; }
         if (bounded) request(selected);
@@ -775,6 +805,10 @@
             start.protocol = 2; start.onDemand = true;
             start.maxCompressedBytes = bounded.maxCompressedBytes;
             start.maxPlaneCells = bounded.maxPlaneCells;
+            if (indexed) {
+              if (typeof loadOptions.rangeIndexUrl !== "string" || !loadOptions.rangeIndexUrl) throw new Error("rangeIndexUrl is required");
+              start.protocol = 3; start.indexedRange = indexed; start.rangeIndexUrl = loadOptions.rangeIndexUrl;
+            }
           }
           ownWorker.postMessage(start);
         } catch (e) { fail(e.message); return; }
@@ -785,7 +819,7 @@
         if (!meta || phase === "error") { notify(); return; }
         if (bounded) {
           // A cached selection supersedes whatever was still in flight.
-          if (layers[index]) pending = null;
+          if (layers[index]) { pending = null; if (indexed && worker) worker.postMessage({ type: "cancelRequest", epoch: epoch }); }
           else request(index);
         } else if (!layers[index] && worker) {
           worker.postMessage({ type: "prioritize", epoch: epoch, index: index });
@@ -861,6 +895,7 @@
     paintExtent: paintExtent,
     layerCells: layerCells,
     createSession: createSession,
+    indexedRangeOptions: indexedRangeOptions,
     clearSparse: clearSparse,
     buildRampU32: buildRampU32,
     depthAt: depthAt,
