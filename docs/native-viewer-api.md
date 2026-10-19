@@ -309,3 +309,103 @@ fails before display. This ceiling excludes in-flight transfer, decoded plane,
 compressed fetch/MEMFS, canvas and GPU buffers; it is not a total heap guarantee.
 Production compressed/plane/display budgets and largest-reach browser evidence
 remain required. The default is a conservative guard, not a measured optimum.
+
+
+# Indexed async HTTP206 session (protocol 3)
+
+```js
+const session = R2F2D.createSession({
+  workerFactory: () => new Worker("indexed-range-worker.js"),
+  indexedRange: { displayMaxDepth: 25, resampling: "nearest",
+    maxPlaneCells: 33554432, maxCacheBytes: 134217728,
+    maxDisplayWidth: 1024, maxDisplayHeight: 1024, maxDisplayCells: 1048576 },
+  onStatus, onFrame
+});
+session.load(ncURL, { index: 0, rangeIndexUrl });
+```
+
+Vendor `netcdf.js`, `indexed-range.js`, and `indexed-range-worker.js` together.
+No h5wasm runtime is loaded by this worker. Embedding hosts must ship all three
+files and set separate source/display budgets. The standalone site builder
+includes the runtime files automatically; indexed transport is opt-in.
+
+`indexedRange` is mutually exclusive with `bounded`. The complete options and producer index contract are documented below.
+Legacy dense and whole-file bounded APIs remain.
+Status `meta.nx/ny`, CF transform and coordinates describe the original source.
+Frame `displayGrid.nx/ny` sizes the RGBA canvas. The display preserves the full
+source extent, sampling source cell centres by
+`floor((displayIndex+0.5)*sourceSize/displaySize)` independently on each axis.
+`stats` and `cells` count the SOURCE; `displayCells` counts sampled display cells.
+No geographic areas or native-grid qualification are implied.
+
+Unknown discharge stays null, including `flows`, requested `flow` and frame flow;
+profile labels/order are unchanged. A caller-supplied fixed display range is not
+a scientific maximum. NaN, dry zero and negative values remain unchanged in the
+decoded source plane; only finite positive depths paint.
+
+Index byte/entry limits, selected compressed response size, concurrent responses,
+chunk inflation size, source plane cells, display cells/dimensions and retained
+cache count/bytes are independently bounded. Default coalescing joins only exactly
+adjacent selected chunks, never broad inter-profile gaps. Optional gap bytes count
+against the response cap and metrics. Metadata requires a closed producer v1
+schema, shuffle4 + zlib, little float32, no scaling, safe bounds and no overlaps.
+The witness captures a strong ETag; every chunk fetch sends If-Match. A non-206
+response is rejected and cancelled at headers. Exact range/total, length, encoding,
+ETag and body lengths are required. Cross-origin hosts must expose those response
+headers and permit Range/If-Match; missing headers fail closed.
+
+Selections abort prior range requests; session epochs, request IDs, termination,
+and callback guards suppress stale frames. Cached selections cancel in-flight
+work. Cancel/reach change/destroy release cache and terminate the worker.
+
+These bounds are allocation guards, not a total heap/GPU guarantee: source plane,
+up to two compressed/decompressed chunks, sampled display plane, sparse build
+scratch, transferred layers, canvas and GPU textures can coexist. Largest-reach
+and host policy acceptance remains MAIN's responsibility.
+
+
+## Indexed session option reference
+
+All integer limits below are positive safe integers unless stated otherwise.
+`maxCompressedBytes` is not an indexed transport option: no whole-file fetch
+occurs. Its internal compatibility placeholder is not a transfer budget.
+
+| Option | Required / default | Unit and constraint |
+|---|---|---|
+| `displayMaxDepth` | Required | Finite positive depth in the stack depth unit; fixed display colour maximum |
+| `resampling` | Required, `nearest` | View-only sampling; stored source pixels remain unchanged |
+| `displayRangeSource` | Optional, null | Human-readable description of the display range |
+| `maxPlaneCells` | 33554432 | Source cells per selected decoded float32 plane |
+| `maxCacheBytes` | 134217728 | Retained sparse offsets plus depths, excluding transient/plane/canvas/GPU memory |
+| `cacheSize` | 3 | Retained profiles, integer 1–16, also subject to byte cap |
+| `maxIndexBytes` | 1048576 | UTF-8 JSON bytes, maximum 1048576 |
+| `maxIndexEntries` | 65536 | Chunk entries, maximum 65536 |
+| `maxResponseBytes` | 1048576 | Bytes in each selected compressed range response, including coalesced gaps |
+| `maxDecodedChunkBytes` | 262144 | Decoded bytes per inflated chunk |
+| `concurrency` | 2 | Concurrent range responses, integer 1–2 |
+| `coalesceGapBytes` | 0 | Nonnegative maximum gap allowed between selected chunks in one bounded response |
+| `maxDisplayCells` | 1048576 | Display cells, maximum 33554432 |
+| `maxDisplayWidth` | 1024 | Display columns, maximum 32768 |
+| `maxDisplayHeight` | 1024 | Display rows, maximum 32768 |
+
+The closed companion schema is `ras2cng-depth-stack-ranges/v1`. Its public
+producer reference is the [versioned ras2cng range-index contract](https://github.com/gpt-cmdr/ras2cng/blob/a0d82aaaadf83f113630534b0d8fd51354d6db97/docs/depth-stack-ranges.md).
+The shipped `tests/fixtures/indexed-range/tiny-depth-stack.ranges.json` is a
+complete executable example paired with an actual NetCDF object and raw-byte
+manifest. Root fields are exactly `schema`, `object`, `variable`, `filters`,
+`grid`, `profiles`, `chunks`; unknown nested fields are rejected too.
+
+`object` declares UUID4, total bytes and the 36-byte ASCII witness offset.
+`variable` declares depth/flow-y-x, little-endian float32, NaN fill and ft/m
+units. `filters` declares shuffle(4) followed by zlib deflate. `grid` binds the
+source EPSG:3857 dimensions, six-coefficient GDAL geotransform and first cell
+centres. `profiles` preserves ordered labels and either null flows/units for
+profile indices or monotonic finite cfs/cms discharges. `chunks` carries
+profile-row-column grid, C order, decoded size, maximum stored size, zero
+filter mask and parallel absolute byte offset/length arrays. Semantic entry
+order is `(profile * chunkRows + row) * chunkColumns + column`; physical
+fetch sorting/coalescing does not reorder profiles or pixels.
+
+Public labels and provenance are qualified by the publisher. The index UUID,
+strong ETag and exact response checks bind reads to one immutable asset; they
+do not constitute a hydraulic approval or a privacy scrubber.
