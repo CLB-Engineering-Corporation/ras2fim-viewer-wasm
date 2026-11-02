@@ -351,6 +351,7 @@
       timings.fetch = message.meta.fetchMs;
       adoptMeta(message.meta);
     } else if (message.type === "layer") {
+      if (stack && stack.transport === "http206") layers.fill(null);
       layers[message.index] = {
         offsets: message.offsets,
         depths: message.depths,
@@ -440,6 +441,7 @@
       : catalogSummary;
   }
 
+  var rangeIndexes = {};
   function loadStream(url) {
     setStatus("Fetching " + url.split("/").pop() + "…");
     stopPlay();
@@ -454,7 +456,7 @@
     generation += 1;
     timings = { init: timings.init };
     respawnWorker().postMessage({
-      type: "load", epoch: generation, url: url,
+      type: "load", epoch: generation, url: url, rangeIndexUrl: rangeIndexes[url],
       verify: verify, rampStops: RAMP_STOPS
     });
   }
@@ -550,6 +552,7 @@
         (manifest.streams || []).forEach(function (entry) {
           var option = document.createElement("option");
           option.value = entry.file;
+          if (entry.range_index) rangeIndexes[entry.file] = entry.range_index;
           option.textContent = entry.id + " — " + entry.grid.nx + " × " + entry.grid.ny +
             ", " + entry.flow_count + " flows";
           select.appendChild(option);

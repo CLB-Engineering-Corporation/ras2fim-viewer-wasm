@@ -166,7 +166,7 @@ function verifyLayer(index, layer) {
   };
 }
 
-function load(epoch, url) {
+function load(epoch, url, indexUrl) {
   var generation = ++loadGeneration;
   if (fetchController) fetchController.abort();
   fetchController = new AbortController();
@@ -182,6 +182,13 @@ function load(epoch, url) {
      than before it means the two overlap -- and reading the file without waiting
      at all leaves h5.FS null, which surfaces as a bare "cannot read properties
      of null" a long way from the cause. */
+  rangeReader = null;
+  if (indexUrl) {
+    loadPacked(epoch,url,generation,indexUrl).catch(function(e) {
+      if(generation===loadGeneration) post({type:"error",epoch:epoch,phase:"range-open",message:e.message});
+    });
+    return;
+  }
   Promise.all([
     fetch(url, { signal: fetchController.signal }).then(function (response) {
       if (!response.ok) throw new Error("HTTP " + response.status);
@@ -190,6 +197,7 @@ function load(epoch, url) {
     ready
   ])
     .then(function (results) {
+      if (!results) return;
       var buffer = results[0];
       if (generation !== loadGeneration) return;
       phase = "decode";
@@ -237,14 +245,52 @@ function load(epoch, url) {
     });
 }
 
+// Indexed packed-depth delivery bypasses the wasm32 file system entirely.
+var rangeReader = null;
+var rangeSelection = 0;
+async function loadPacked(epoch, url, generation, indexUrl) {
+  var response = await fetch(indexUrl || url + ".ranges.json", {signal: fetchController.signal});
+  if (response.status === 404 && !indexUrl) return false;
+  if (!response.ok) throw new Error("range index HTTP " + response.status);
+  var api = await import("./packed-stack.mjs");
+  var index = api.validatePackedIndex(await response.json());
+  if (!Array.isArray(index.flows_cfs) || index.flows_cfs.length !== index.shape[0]
+      || !index.flows_cfs.every(function(v,i,a){return Number.isFinite(v) && (i===0 || v>a[i-1]);})
+      || !["feet","ft","foot"].includes(index.depth_units)
+      || !/3857/.test(index.crs)) throw new Error("unsupported packed CRS, units or flows");
+  if (generation !== loadGeneration) return true;
+  var gt = R2F2D.parseGeoTransform(index.geotransform);
+  if (!gt || gt.rotX || gt.rotY || gt.pixelW <= 0 || gt.pixelH >= 0) throw new Error("unsupported packed grid");
+  var ny = index.shape[1], nx = index.shape[2];
+  function ll(x,y) { return [x / 20037508.342789244 * 180, (Math.atan(Math.exp(y / 20037508.342789244 * Math.PI))*360)/Math.PI-90]; }
+  var nw=ll(gt.originX,gt.originY), ne=ll(gt.originX+nx*gt.pixelW,gt.originY);
+  var sw=ll(gt.originX,gt.originY+ny*gt.pixelH), se=ll(gt.originX+nx*gt.pixelW,gt.originY+ny*gt.pixelH);
+  rangeReader={api:api,index:index,url:new URL(url,self.location.href),generation:generation};
+  post({type:"meta",epoch:epoch,meta:{protocol:1,transport:"http206",mode:"depth",streamId:index.stream_id || url.split("/").pop(),nFlow:index.shape[0],ny:ny,nx:nx,flows:index.flows_cfs,flowUnits:"cfs",units:"ft",depthUnits:"ft",geoTransform:gt,crs:index.crs,coordinates:[nw,ne,se,sw],bounds:[sw[0],sw[1],ne[0],ne[1]],fetchMs:0}});
+  await selectPacked(index.shape[0]-1);
+  return true;
+}
+async function selectPacked(index) {
+  var own=rangeReader, selection=++rangeSelection;
+  if (!own) return;
+  try {
+    var url=own.url, key=decodeURIComponent(url.pathname.split("/").pop());
+    var plane=await own.api.readPackedRung(new URL(".",url).href,key,own.index,index,{signal:fetchController.signal});
+    if (own.generation !== loadGeneration || selection !== rangeSelection) return;
+    var layer=R2F2D.buildIndex({mode:"depth",nx:own.index.shape[2],ny:own.index.shape[1],scale:1,offset:0,hasFill:false,wsel:plane.depths},0);
+    post({type:"layer",epoch:state.epoch,index:index,remaining:0,offsets:layer.offsets,depths:layer.depths,bbox:layer.bbox,stats:layer.stats,painted:layer.painted},[layer.offsets.buffer,layer.depths.buffer]);
+  } catch(e) { if(own.generation===loadGeneration && selection===rangeSelection) post({type:"error",epoch:state.epoch,phase:"range",message:e.message}); }
+}
+
 self.onmessage = function (event) {
   var message = event.data || {};
   if (message.type === "load") {
     state.verify = !!message.verify;
     state.rampStops = message.rampStops || null;
-    load(message.epoch, message.url);
+    load(message.epoch, message.url, message.rangeIndexUrl);
   } else if (message.type === "prioritize") {
     if (message.epoch !== state.epoch) return;
+    if (rangeReader) { selectPacked(message.index); return; }
     var at = state.queue.indexOf(message.index);
     if (at > 0) {
       state.queue.splice(at, 1);

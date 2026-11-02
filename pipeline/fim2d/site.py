@@ -52,7 +52,7 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
-VIEWER_FILES = ("index.html", "app.js", "netcdf.js", "netcdf-worker.js")
+VIEWER_FILES = ("index.html", "app.js", "netcdf.js", "netcdf-worker.js", "packed-stack.mjs")
 VENDOR_FILES = ("h5wasm.js", "maplibre-gl.js", "maplibre-gl.css")
 
 
