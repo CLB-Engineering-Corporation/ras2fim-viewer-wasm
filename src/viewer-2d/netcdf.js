@@ -559,7 +559,7 @@
     }
     function present() {
       var layer = layers[selected];
-      if (!layer || (mode === "depth" && !complete)) {
+      if (!layer || (mode === "depth" && !complete && meta.transport !== "http206")) {
         phase = "preparing"; notify(); return;
       }
       if (shown) clearSparse(pixels, shown);
@@ -602,6 +602,7 @@
         phase = "preparing"; notify();
       } else if (data.type === "layer" && meta && !complete) {
         if (!Number.isInteger(data.index) || data.index < 0 || data.index >= meta.nFlow) return;
+        if (meta.transport === "http206") layers.fill(null);
         layers[data.index] = data;
         maxDepth = Math.max(maxDepth, Math.ceil(data.stats.max || 1));
         if (data.index === selected) present();
@@ -631,7 +632,7 @@
           ownWorker.onerror = function (event) {
             if (!destroyed && epoch === current && worker === ownWorker) fail(event.message || "worker failed");
           };
-          ownWorker.postMessage({ type: "load", epoch: current, url: url, rampStops: stops });
+          ownWorker.postMessage({ type: "load", epoch: current, url: url, rangeIndexUrl: loadOptions.rangeIndexUrl, rampStops: stops });
         } catch (e) { fail(e.message); return; }
         notify();
       },
