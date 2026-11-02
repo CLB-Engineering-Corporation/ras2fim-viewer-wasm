@@ -45,6 +45,11 @@ gdal.UseExceptions()
 PUBLISH_CRS = "EPSG:4326"
 
 
+def _exact_depth_range(band) -> tuple[float, float]:
+    """Overviews contain wet means and cannot supply the library ramp maximum."""
+    return band.ComputeRasterMinMax(False)
+
+
 def _stage_dir(out_root: Path) -> Path:
     staging = out_root / ".staging"
     staging.mkdir(parents=True, exist_ok=True)
@@ -139,7 +144,7 @@ def build_model(
                 print(f"    {name}: exists, skipping (use --force to rebuild)")
             ds = gdal.Open(str(target))
             band = ds.GetRasterBand(1)
-            lo, hi = band.ComputeRasterMinMax(True)
+            lo, hi = _exact_depth_range(band)
             built.append(
                 {
                     "index": profile.index,
