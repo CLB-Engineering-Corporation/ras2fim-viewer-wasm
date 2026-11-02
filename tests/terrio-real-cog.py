@@ -30,13 +30,21 @@ for backend in ["gdal", "terrio"]:
     assert a.GetNoDataValue() == b.GetNoDataValue()
     assert a.GetOverviewCount() == b.GetOverviewCount()
     errors = []
+    tolerances = []
     for i in range(-1, a.GetOverviewCount()):
         x = a.ReadAsArray() if i < 0 else a.GetOverview(i).ReadAsArray()
         y = b.ReadAsArray() if i < 0 else b.GetOverview(i).ReadAsArray()
         valid = x != a.GetNoDataValue()
         assert np.array_equal(valid, y != b.GetNoDataValue())
         error = float(np.max(np.abs(x[valid] - y[valid]))) if valid.any() else 0
-        assert error <= 0.010001
+        magnitude = (
+            max(float(np.max(np.abs(x[valid]))), float(np.max(np.abs(y[valid]))))
+            if valid.any()
+            else 0
+        )
+        tolerance = 0.01 + abs(float(np.spacing(np.float32(magnitude))))
+        assert error <= tolerance
+        tolerances.append(tolerance)
         errors.append(error)
     overview_report = report["overviews"]
     for level in overview_report["levels"]:
@@ -48,6 +56,7 @@ for backend in ["gdal", "terrio"]:
             "validation": report["validation"],
             "overview_report": overview_report,
             "per_level_max_error": errors,
+            "per_level_tolerance_including_one_float32_ulp": tolerances,
         }
     )
 assert results[0]["overview_report"] == results[1]["overview_report"]

@@ -64,9 +64,11 @@ def verify_package(package: Path) -> list[str]:
         if not isinstance(evidence, dict) or not isinstance(evidence.get("sha256"), dict):
             return ["invalid Terrio provenance schema"]
         hashes = evidence["sha256"]
-        actual = {
-            p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file() and p != manifest
-        }
+        entries = list(root.rglob("*"))
+        for path in entries:
+            if not path.resolve().is_relative_to(root):
+                errors.append(f"Terrio entry escapes package: {path.relative_to(root)}")
+        actual = {p.relative_to(root).as_posix() for p in entries if p.is_file() and p != manifest}
         if not set(FILES).issubset(actual) or set(hashes) != actual:
             errors.append("Terrio inventory must cover every packaged asset, including snippets")
         for name, expected in hashes.items():

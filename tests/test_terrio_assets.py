@@ -7,6 +7,20 @@ from pipeline.common.terrio_assets import FILES, copy_package, verify_package
 
 
 class TerrioAssets(unittest.TestCase):
+    def test_external_snippet_directory_link_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, output, outside = (Path(tmp) / name for name in ("input", "output", "outside"))
+            source.mkdir()
+            outside.mkdir()
+            for name in FILES:
+                (source / name).write_text("{}" if name == "package.json" else name)
+            copy_package(source, output)
+            try:
+                (output / "snippets").symlink_to(outside, target_is_directory=True)
+            except OSError:
+                self.skipTest("directory symlinks are unavailable on this host")
+            self.assertTrue(any("escapes package" in e for e in verify_package(output)))
+
     def test_existing_destination_is_preserved(self):
         with tempfile.TemporaryDirectory() as tmp:
             destination = Path(tmp) / "output"
@@ -15,6 +29,7 @@ class TerrioAssets(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must be empty"):
                 copy_package(Path(tmp) / "missing-input", destination)
             self.assertEqual((destination / "keep.txt").read_text(), "prior artifact")
+
     def test_missing_asset_fails_before_packaging(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "input"
