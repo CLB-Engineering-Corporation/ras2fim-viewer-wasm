@@ -3,12 +3,11 @@
 // No whole-file fallback. Callers keep one selected reach and release each plane.
 export function validatePackedIndex(index) {
   const integer = (x) => Number.isSafeInteger(x) && x > 0;
-  if (index?.schema !== "fim-packed-stack-ranges/v1" || index.dtype !== "uint16"
+  if (!(["fim-packed-stack-ranges/v1", "fim-packed-stack-ranges/v2"].includes(index?.schema)) || index.dtype !== "uint16"
       || index.byteorder !== "little" || index.packing_arithmetic !== "float32_multiply_then_float32_add"
       || !/^[a-f0-9]{64}$/.test(index.sha256) || !integer(index.bytes)
       || !Array.isArray(index.shape) || index.shape.length !== 3 || !index.shape.every(integer)
-      || index.shape[1] * index.shape[2] > 33554432
-      || !Array.isArray(index.chunks) || index.chunks.length !== index.shape[0]
+      || !Array.isArray(index.chunks) || (index.schema.endsWith("/v1") && index.chunks.length !== index.shape[0])
       || !Number.isFinite(index.scale_factor) || index.scale_factor <= 0
       || !Number.isFinite(index.add_offset) || !Number.isInteger(index.fill_value)
       || index.fill_value < 0 || index.fill_value > 65535
@@ -20,7 +19,23 @@ export function validatePackedIndex(index) {
   for (const chunk of index.chunks) {
     if (!Number.isSafeInteger(chunk.offset) || chunk.offset < 0 || !integer(chunk.length)
         || !/^[a-f0-9]{64}$/.test(chunk.sha256)
-        || chunk.length > 134217728 || chunk.offset + chunk.length > index.bytes) throw new Error("invalid packed chunk range");
+        || chunk.offset + chunk.length > index.bytes) throw new Error("invalid packed chunk range");
+  }
+  if (index.schema.endsWith("/v2")) {
+    if (!Array.isArray(index.tile_shape) || index.tile_shape.length !== 2
+        || !index.tile_shape.every(integer)) throw new Error("invalid tile shape");
+    const [ty, tx] = index.tile_shape;
+    const nr = Math.ceil(index.shape[1] / ty), nc = Math.ceil(index.shape[2] / tx);
+    if (index.chunks.length !== index.shape[0] * nr * nc) throw new Error("incomplete tile coverage");
+    const keys = new Set();
+    for (const c of index.chunks) {
+      if (![c.rung, c.row, c.col].every(Number.isSafeInteger)
+          || c.rung < 0 || c.rung >= index.shape[0] || c.row < 0 || c.row >= index.shape[1]
+          || c.col < 0 || c.col >= index.shape[2] || c.row % ty || c.col % tx)
+        throw new Error("invalid tile coordinates");
+      keys.add(`${c.rung}:${c.row}:${c.col}`);
+    }
+    if (keys.size !== index.chunks.length) throw new Error("duplicate tile");
   }
   return index;
 }
@@ -80,6 +95,25 @@ export async function readPackedRung(artifactBase, key, index, rung, { signal, f
   if (!Number.isInteger(rung) || rung < 0 || rung >= index.shape[0]) throw new Error("invalid rung");
   if (typeof key !== "string" || !key || key.startsWith("/") || key.includes("\\")
       || key.split("/").some((p) => !/^[a-zA-Z0-9_.-]+$/.test(p) || p === "." || p === "..")) throw new Error("invalid artifact key");
+  if (index.schema.endsWith("/v2")) {
+    const [ty, tx] = index.tile_shape;
+    const cells = index.shape[1] * index.shape[2];
+    const depths = new Float32Array(cells), dry = new Uint8Array(cells);
+    let transferBytes = 0;
+    for (const chunk of index.chunks.filter(c => c.rung === rung)) {
+      const tileIndex = { ...index, schema: "fim-packed-stack-ranges/v1",
+        shape: [1, ty, tx], chunks: [chunk] };
+      const tile = await readPackedRung(artifactBase, key, tileIndex, 0, {signal, fetcher});
+      transferBytes += tile.transferBytes;
+      const width = Math.min(tx, index.shape[2] - chunk.col);
+      for (let r = 0; r < Math.min(ty, index.shape[1] - chunk.row); r++) {
+        const dest = (chunk.row + r) * index.shape[2] + chunk.col;
+        depths.set(tile.depths.subarray(r * tx, r * tx + width), dest);
+        dry.set(tile.dry.subarray(r * tx, r * tx + width), dest);
+      }
+    }
+    return {depths, dry, rung, transferBytes};
+  }
   const url = new URL(key, artifactBase);
   // Each compressed range is independently SHA-256 checked below.
   const chunk = index.chunks[rung];
