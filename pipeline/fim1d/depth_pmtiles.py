@@ -45,6 +45,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import os
 import shutil
 import subprocess
 import sys
@@ -70,6 +72,43 @@ OVERVIEW_FACTORS = (2, 4, 8, 16, 32)
 
 class DepthTileError(RuntimeError):
     """A profile could not be tiled."""
+
+
+def _to_terrio_pmtiles(rgba: Path, destination: Path, name: str) -> dict:
+    """Trial the generic lazy tile writer; preserve the RGBA input and ramp."""
+    import terrio
+    source = gdal.Open(str(rgba))
+    projected = gdal.AutoCreateWarpedVRT(source, None, "EPSG:3857", gdal.GRA_Bilinear)
+    resolution = abs(projected.GetGeoTransform()[1])
+    maximum = max(0, min(30, int(math.floor(math.log2(156543.03392804097 / resolution) + 0.5))))
+    base_resolution = 156543.03392804097 / (2 ** maximum)
+    width = projected.RasterXSize * resolution / base_resolution
+    height = projected.RasterYSize * abs(projected.GetGeoTransform()[5]) / base_resolution
+    minimum = _minimum_tile_zoom(width, height, maximum)
+    options = {"TILE_FORMAT": "PNG", "MINZOOM": str(minimum), "MAXZOOM": str(maximum),
+               "ZOOM_LEVEL_STRATEGY": "AUTO", "RESAMPLING": "BILINEAR",
+               "OVERVIEW_RESAMPLING": "AVERAGE", "NAME": name}
+    terrio.open_raster(str(rgba), lazy=True).write(
+        str(destination), driver="PMTiles", options=options)
+    return {"backend": "terrio", "version": getattr(terrio, "__version__", "unknown"),
+            "options": options, "experimental": True,
+            "limitation": "experimental; pixel/alpha/coverage comparison required before adoption"}
+
+
+def _minimum_tile_zoom(width: float, height: float, maximum: int) -> int:
+    """Match reopened GDAL MBTiles' available overview levels, capped by our factors.
+
+    GDAL 3.13 MBTiles Open/InitRaster includes the first level whose rounded
+    width and height are both below 256, then silently ignores deeper requests.
+    See OSGeo/gdal v3.13.0 frmts/mbtiles/mbtilesdataset.cpp.
+    """
+    minimum = maximum
+    for step in range(1, min(maximum, len(OVERVIEW_FACTORS)) + 1):
+        minimum = maximum - step
+        if (math.floor(0.5 + width / (2 ** step)) < 256 and
+                math.floor(0.5 + height / (2 ** step)) < 256):
+            break
+    return minimum
 
 
 def _require_pmtiles_cli() -> str:
@@ -159,27 +198,60 @@ def _to_pmtiles(mbtiles_path: Path, out_path: Path, cli: str) -> None:
 
 
 def build_profile(cog: Path, out_path: Path, depth_max_ft: float, *,
-                  colormap: str = DEFAULT_RAMP, cli: str | None = None) -> dict:
+                  colormap: str = DEFAULT_RAMP, cli: str | None = None,
+                  backend: str = "gdal") -> dict:
     """Tile one profile. Returns a record for the manifest."""
-    cli = cli or _require_pmtiles_cli()
+    if backend not in ("gdal", "terrio"):
+        raise DepthTileError(f"unknown tile backend: {backend}")
+    try:
+        from pmtiles.reader import Reader
+        from pmtiles.tile import TileType
+    except ImportError as error:
+        raise DepthTileError(
+            "install the fim1d Python dependencies (pmtiles>=3.4,<4) before tiling") from error
+    cli = (cli or _require_pmtiles_cli()) if backend == "gdal" else None
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    partial = out_path.with_name(f".{out_path.stem}.partial-{os.getpid()}.pmtiles")
     with tempfile.TemporaryDirectory(prefix="fim-depth-tiles-") as tmp:
         scratch = Path(tmp)
         rgba = scratch / "rgba.tif"
         mbtiles = scratch / "tiles.mbtiles"
         wet_cells = colourise(cog, rgba, depth_max_ft, colormap)
-        _to_mbtiles(rgba, mbtiles, out_path.stem)
-        _to_pmtiles(mbtiles, out_path, cli)
+        try:
+            if wet_cells == 0:
+                raise DepthTileError(
+                    "all-dry profile: empty archive publication is not supported; "
+                    "previous artifact preserved")
+            if backend == "gdal":
+                _to_mbtiles(rgba, mbtiles, out_path.stem)
+                _to_pmtiles(mbtiles, partial, cli)
+                provenance = {"backend": "gdal", "version": gdal.VersionInfo(),
+                              "base_resampling": "BILINEAR", "overview_resampling": "AVERAGE"}
+            else:
+                provenance = _to_terrio_pmtiles(rgba, partial, out_path.stem)
+            # Read/validate the archive before replacing any existing good artifact.
+            with partial.open("rb") as handle:
+                import mmap
+                with mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ) as mapping:
+                    header = Reader(lambda offset, length: mapping[offset:offset + length]).header()
+                    if header["tile_type"] != TileType.PNG:
+                        raise DepthTileError("expected PNG raster PMTiles")
+            os.replace(partial, out_path)
+        finally:
+            partial.unlink(missing_ok=True)
     return {
         "pmtiles": out_path,
         "bytes": out_path.stat().st_size,
         "wet_cells": wet_cells,
+        "provenance": provenance,
     }
 
 
 def build_library(frontend: Path, out_root: Path, depth_max_ft: float, *,
-                  colormap: str = DEFAULT_RAMP, verbose: bool = True) -> dict:
+                  colormap: str = DEFAULT_RAMP, verbose: bool = True,
+                  backend: str = "gdal") -> dict:
     """Tile every COG under ``frontend/cogs`` into ``out_root/pmtiles/depth``."""
-    cli = _require_pmtiles_cli()
+    cli = _require_pmtiles_cli() if backend == "gdal" else None
     cog_root = frontend / "cogs"
     if not cog_root.is_dir():
         raise DepthTileError(f"no cogs/ under {frontend}. Run pipeline.fim1d.cogs first.")
@@ -193,13 +265,15 @@ def build_library(frontend: Path, out_root: Path, depth_max_ft: float, *,
     for position, cog in enumerate(cogs, start=1):
         relative = cog.relative_to(cog_root).with_suffix(".pmtiles")
         out_path = out_root / "pmtiles" / "depth" / relative
-        record = build_profile(cog, out_path, depth_max_ft, colormap=colormap, cli=cli)
+        record = build_profile(
+            cog, out_path, depth_max_ft, colormap=colormap, cli=cli, backend=backend)
         total_bytes += record["bytes"]
         built.append({
             "cog": cog.relative_to(frontend).as_posix(),
             "pmtiles": out_path.relative_to(out_root).as_posix(),
             "bytes": record["bytes"],
             "wet_cells": record["wet_cells"],
+            "provenance": record["provenance"],
         })
         if verbose:
             print(f"  [{position:>3}/{len(cogs)}] {relative.as_posix()}  "
@@ -236,6 +310,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--colormap", default=DEFAULT_RAMP,
                         help=f"ramp name from pipeline/common/ramp.py (default: {DEFAULT_RAMP})")
     parser.add_argument("--report", help="write a JSON build report here")
+    parser.add_argument("--backend", choices=("gdal", "terrio"), default="gdal",
+                        help="experimental Terrio requires pixel/alpha acceptance before adoption")
     args = parser.parse_args(argv)
 
     frontend = Path(args.source).resolve()
@@ -250,7 +326,8 @@ def main(argv: list[str] | None = None) -> int:
             "be the library maximum, so this cannot be guessed per profile.")
 
     try:
-        report = build_library(frontend, out_root, depth_max, colormap=args.colormap)
+        report = build_library(
+            frontend, out_root, depth_max, colormap=args.colormap, backend=args.backend)
     except DepthTileError as error:
         print(f"FAIL  {error}", file=sys.stderr)
         return 2

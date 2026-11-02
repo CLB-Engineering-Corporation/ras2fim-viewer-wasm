@@ -53,6 +53,7 @@ fim2d = [
 fim1d = [
   "GDAL>=3.8",
   "numpy>=1.26,<3.0",
+  "pmtiles>=3.4,<4",
 ]
 
 # serve/dev_tiles.py, the local TiTiler stand-in. It only reads COGs and encodes

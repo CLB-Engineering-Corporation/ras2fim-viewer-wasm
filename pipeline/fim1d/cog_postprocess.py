@@ -755,6 +755,7 @@ def finish_cog(
     extra_metadata: dict[str, str] | None = None,
     label: str = "COG",
     verbose: bool = True,
+    writer_backend: str = "gdal",
 ) -> dict:
     """Convert a staged GTiff to a published COG, atomically and correctly.
 
@@ -780,6 +781,10 @@ def finish_cog(
 
     if overview_method not in OVERVIEW_METHODS:
         raise ValueError(f"overview_method must be one of {OVERVIEW_METHODS}")
+    if writer_backend not in ("gdal", "terrio"):
+        raise ValueError("writer_backend must be gdal or terrio")
+    if writer_backend == "terrio" and overview_method not in ("area_matched", "mode"):
+        raise ValueError("Terrio trial requires supplied existing overview arrays")
     if categorical and overview_method == "area_matched":
         overview_method = "mode"
     if categorical and compress.startswith("LERC"):
@@ -856,7 +861,11 @@ def finish_cog(
 
     partial = dst_path.with_name(f".{dst_path.name}.partial-{os.getpid()}")
     try:
-        gdal.Translate(str(partial), str(src_path), format="COG", creationOptions=creation)
+        if writer_backend == "gdal":
+            gdal.Translate(str(partial), str(src_path), format="COG", creationOptions=creation)
+        else:
+            from .terrio_cog import write_existing_overviews
+            report["writer"] = write_existing_overviews(src_path, partial, creation)
 
         if check_bounds:
             assert_wgs84_bounds(partial, envelope=envelope)
