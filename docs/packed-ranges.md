@@ -24,3 +24,19 @@ still limits each rung to 33,554,432 cells and compressed chunks to 128 MiB;
 tiled larger rungs, automatic publication, deep site validation, browser memory
 and timing measurements, cancellation/reselection qualification and actual >2 GiB
 file testing remain required. This draft does not complete the PE direction.
+
+## Local transport evidence, 2026-11-02
+
+Node decoder over a local range-capable HTTP server, one final rung per file:
+
+| Fixture | File bytes | Range bytes | Decode/load seconds | Peak process RSS bytes |
+|---|---:|---:|---:|---:|
+| Largest UPGU1 NetCDF by compressed bytes | 46,874,510 | 860,677 | 3.34 | 143,151,104 |
+| Synthetic NetCDF4, 1025 x 1024 x 1024 uint16 | 2,149,658,448 | 2,097,152 | 0.20 | 114,429,952 |
+
+The synthetic file is physically larger than 2 GiB; its final chunk starts beyond
+2 GiB. It was written with NetCDF4 directly and indexed using fim-commander's
+existing index API. This proves the transport/index offset path, not the
+production packer's admission or streaming behavior. RSS includes the Node
+process and local server; JavaScript heap excludes external typed-array buffers.
+Browser, GPU, cold-network and repeated-selection measurements remain outstanding.
