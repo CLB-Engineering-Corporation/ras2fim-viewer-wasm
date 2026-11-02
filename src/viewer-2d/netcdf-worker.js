@@ -32,16 +32,46 @@
  */
 "use strict";
 
-importScripts("vendor/h5wasm.js", "netcdf.js");
+importScripts("netcdf.js", "terrio-adapter.js");
+var terrioReady = null;
+function decoder(backend) {
+  if (backend === "h5wasm") {
+    if (!ready) {
+      importScripts("vendor/h5wasm.js");
+      ready = self.h5wasm.ready.then(function (module) {
+        post({ type: "progress", epoch: -1, phase: "ready", ms: performance.now() - readyStart });
+        return module;
+      });
+    }
+    return ready;
+  }
+  if (backend !== "terrio" && backend !== "terrio-slices") return Promise.reject(new Error("unknown decoder backend"));
+  if (!terrioReady) terrioReady = import("./vendor/terrio/terrio.js").then(async function (t) {
+    await t.default({ module_or_path: new URL("vendor/terrio/terrio_bg.wasm", self.location.href) });
+    post({ type: "progress", epoch: -1, phase: "ready", ms: performance.now() - readyStart });
+    return t;
+  });
+  return terrioReady;
+}
+function disposeStack() {
+  if (state.stack && state.stack.dispose) state.stack.dispose();
+  state.stack = null;
+}
+function layerStack(stack, index) {
+  if (!stack.readLayer) return { stack: stack, index: index };
+  return { stack: Object.assign({}, stack, { wsel: stack.readLayer(index), nFlow: 1 }), index: 0 };
+}
+function heapCapacityFor(backend, module) {
+  if (backend === "h5wasm") return function () { return module && module.HEAPU8 ? module.HEAPU8.buffer.byteLength : null; };
+  return function () { return module.features().memory; };
+}
 
 var PROTOCOL_VERSION = 1;
 
 /* Started at load, before any message can arrive. Declared here rather than at
    the foot of the file so load() does not depend on hoisting for correctness. */
 var readyStart = performance.now();
-var ready = self.h5wasm.ready.then(function () {
-  post({ type: "progress", epoch: -1, phase: "ready", ms: performance.now() - readyStart });
-});
+var ready = null;
 
 var state = {
   epoch: -1,
@@ -81,7 +111,7 @@ function metaOf(stack) {
   for (var key in stack) {
     if (!Object.prototype.hasOwnProperty.call(stack, key)) continue;
     // wsel and terrain are the two that must never be posted.
-    if (key === "wsel" || key === "terrain") continue;
+    if (key === "wsel" || key === "terrain" || key === "readLayer" || key === "dispose") continue;
     meta[key] = stack[key];
   }
   meta.protocol = PROTOCOL_VERSION;
@@ -97,6 +127,7 @@ function prepareNext(generation) {
       // stream it has ever opened.
       state.stack.wsel = null;
       state.stack.terrain = null;
+      if (state.stack.dispose) state.stack.dispose();
       state.reference = null;
       post({ type: "done", epoch: state.epoch, timings: state.timings });
     }
@@ -105,14 +136,20 @@ function prepareNext(generation) {
 
   var index = state.queue.shift();
   var t0 = performance.now();
-  var layer = R2F2D.buildIndex(state.stack, index);
+  var selected = layerStack(state.stack, index);
+  state.timings.peakDecodedBytes = Math.max(state.timings.peakDecodedBytes || 0,
+    selected.stack.wsel.byteLength + (selected.stack.terrain ? selected.stack.terrain.byteLength : 0));
+  var heap = state.heapCapacity && state.heapCapacity();
+  if (typeof heap === "number") state.timings.wasmCapacityBytes = Math.max(state.timings.wasmCapacityBytes || 0, heap);
+  var layer = R2F2D.buildIndex(selected.stack, selected.index);
+  if (state.timings.firstPreparedMs === undefined) state.timings.firstPreparedMs = performance.now() - state.started;
   state.timings.prepare = (state.timings.prepare || 0) + (performance.now() - t0);
 
   /* The differential oracle lives here because this is where the dense arrays
      are. It paints the layer both ways into scratch buffers and reports any
      disagreement; the client only has to surface it. */
   if (state.verify) {
-    var report = verifyLayer(index, layer);
+    var report = verifyLayer(selected.index, layer, selected.stack);
     if (!report.ok) post({ type: "verify", epoch: state.epoch, index: index, report: report });
   }
 
@@ -133,11 +170,18 @@ function prepareNext(generation) {
   // background tab has its timers clamped to roughly a second, which turns
   // fifteen layers into fifteen seconds. Message events are not clamped that
   // way, so a MessageChannel is the yield that actually yields.
-  yieldThen(function () { prepareNext(generation); });
+  yieldThen(function () {
+    try { prepareNext(generation); } catch (e) {
+      if (generation !== loadGeneration) return;
+      disposeStack();
+      state.queue = [];
+      post({ type: "error", epoch: state.epoch, phase: "prepare", message: String(e) });
+    }
+  });
 }
 
-function verifyLayer(index, layer) {
-  var n = state.stack.ny * state.stack.nx;
+function verifyLayer(index, layer, stack) {
+  var n = stack.ny * stack.nx;
   if (!state.reference || state.reference.dense.data.length !== n * 4) {
     state.reference = {
       dense: { data: new Uint8ClampedArray(n * 4) },
@@ -145,11 +189,12 @@ function verifyLayer(index, layer) {
     };
   }
   var dense = state.reference.dense;
+  dense.data.fill(0);
   var sparseBytes = state.reference.sparse;
   sparseBytes.fill(0);
   var sparsePx = new Uint32Array(sparseBytes.buffer);
 
-  var densePainted = R2F2D.paintDense(state.stack, index, dense, state.ramp, state.maxDepth);
+  var densePainted = R2F2D.paintDense(stack, index, dense, state.ramp, state.maxDepth);
   var sparsePainted = R2F2D.paintSparse(sparsePx, layer, state.rampU32, state.maxDepth);
 
   var differing = 0, maxDelta = 0;
@@ -166,18 +211,20 @@ function verifyLayer(index, layer) {
   };
 }
 
-function load(epoch, url) {
+function load(epoch, url, backend) {
   var generation = ++loadGeneration;
   if (fetchController) fetchController.abort();
   fetchController = new AbortController();
   state.epoch = epoch;
-  state.stack = null;
+  disposeStack();
   state.queue = [];
   state.timings = {};
+  var timings = state.timings;
   state.reference = null;
   var phase = "fetch";
 
   var t0 = performance.now();
+  state.started = t0;
   /* h5wasm initialises asynchronously. Waiting on it alongside the fetch rather
      than before it means the two overlap -- and reading the file without waiting
      at all leaves h5.FS null, which surfaces as a bare "cannot read properties
@@ -185,18 +232,24 @@ function load(epoch, url) {
   Promise.all([
     fetch(url, { signal: fetchController.signal }).then(function (response) {
       if (!response.ok) throw new Error("HTTP " + response.status);
-      return response.arrayBuffer();
+      return response.arrayBuffer().then(function (bytes) {
+        timings.fetch = performance.now() - t0;
+        return bytes;
+      });
     }),
-    ready
+    Promise.resolve().then(function () { return decoder(backend); })
+      .then(function (value) { timings.init = performance.now() - t0; return value; })
+      .catch(function (e) { if (generation === loadGeneration) phase = "init"; throw e; })
   ])
     .then(function (results) {
       var buffer = results[0];
       if (generation !== loadGeneration) return;
+      state.heapCapacity = heapCapacityFor(backend, results[1]);
       phase = "decode";
-      state.timings.fetch = performance.now() - t0;
       post({ type: "progress", epoch: epoch, phase: "decode", ms: state.timings.fetch });
 
-      var stack = R2F2D.readStack(self.h5wasm, buffer, "stream.nc");
+      var stack = backend === "h5wasm" ? R2F2D.readStack(self.h5wasm, buffer, "stream.nc") :
+        R2FTerrio.readStack(results[1], buffer, backend === "terrio-slices");
       if (generation !== loadGeneration) return;
       state.stack = stack;
       state.timings.decode = stack.decodeMs;
@@ -204,6 +257,7 @@ function load(epoch, url) {
 
       var meta = metaOf(stack);
       meta.fetchMs = state.timings.fetch;
+      meta.initMs = state.timings.init;
       post({ type: "meta", epoch: epoch, meta: meta });
 
       /* Top layer first, always. It fixes maxDepth for the whole library, and
@@ -213,7 +267,8 @@ function load(epoch, url) {
       if (state.verify) {
         // The ramp must be settled before any layer is checked, and it comes
         // from the top layer, so that one is prepared up front.
-        var top = R2F2D.buildIndex(stack, last);
+        var topSelected = layerStack(stack, last);
+        var top = R2F2D.buildIndex(topSelected.stack, topSelected.index);
         state.maxDepth = Math.max(1, Math.ceil(top.stats.max || 1));
         state.ramp = R2F2D.buildRamp(state.rampStops);
         state.rampU32 = R2F2D.buildRampU32(state.ramp);
@@ -225,6 +280,7 @@ function load(epoch, url) {
     })
     .catch(function (error) {
       if (generation !== loadGeneration) return;
+      disposeStack();
       // A cross-origin failure surfaces here as an opaque "Failed to fetch";
       // phase and url are what let the client say something useful about CORS.
       post({
@@ -242,7 +298,7 @@ self.onmessage = function (event) {
   if (message.type === "load") {
     state.verify = !!message.verify;
     state.rampStops = message.rampStops || null;
-    load(message.epoch, message.url);
+    load(message.epoch, message.url, message.backend || "h5wasm");
   } else if (message.type === "prioritize") {
     if (message.epoch !== state.epoch) return;
     var at = state.queue.indexOf(message.index);
@@ -254,7 +310,7 @@ self.onmessage = function (event) {
     loadGeneration += 1;
     if (fetchController) fetchController.abort();
     fetchController = null;
-    state.stack = null;
+    disposeStack();
     state.queue = [];
     state.reference = null;
   }

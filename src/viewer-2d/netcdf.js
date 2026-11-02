@@ -116,7 +116,7 @@
   }
 
   /** Open a ras2fim-2d NetCDF from an ArrayBuffer. Returns a plain object. */
-  function readStack(h5, buffer, name) {
+  function readStack(h5, buffer, name, options) {
     // A name derived from the URL can collide across streams inside the
     // emscripten filesystem; a generated one cannot.
     var path = "/stack-" + (readStack._seq = (readStack._seq || 0) + 1) + ".nc";
@@ -182,9 +182,9 @@
       }
 
       var t0 = performance.now();
-      var mainValues = mainDs.value; // length flow*y*x
+      var mainValues = options && options.metadataOnly ? null : mainDs.value;
       var terrain = isWsel ? terrainDs.value : null;
-      if (mainValues.length !== shape[0] * shape[1] * shape[2] ||
+      if ((mainValues && mainValues.length !== shape[0] * shape[1] * shape[2]) ||
           (terrain && terrain.length !== shape[1] * shape[2])) {
         throw new Error("data length does not match grid dimensions");
       }
@@ -338,17 +338,14 @@
        Anything else -- a depth stack, or mismatched packing -- takes the general
        path, which is correct rather than fast.
 
-       The two paths agree on the wet mask and on physical depth exactly. They
-       can disagree by one 1/255 ramp bin on a cell sitting on a bin boundary,
-       because d/rawMax and (d*scale)/maxDepth round differently in floating
-       point. Measured on the mismatched-packing fixture: 2.1% of painted cells,
-       at most 2/255 per channel, zero difference in alpha or in depth. That is
-       below the resolution of the colour ramp and is not worth an extra
-       multiply per cell in the hot loop. */
+       Display depth is Float32, the public sparse-layer representation. The
+       dense oracle independently reads native inputs, then rounds once to that
+       display precision before normalization. Signed statistics retain their
+       original precision. Raw-domain ramp arithmetic used to disagree at bin
+       boundaries with the actual published sparse display. */
     if (stack.mode === "wsel" && stack.fastPath) {
       var fill = stack.fill, tFill = stack.terrainFill;
       var hasFill = stack.hasFill, tHasFill = stack.terrainHasFill;
-      var rawMax = Math.max(1, maxDepth / stack.scale);
       for (var i = 0; i < n; i += 1) {
         var o = i * 4;
         var w = wsel[off + i];
@@ -356,7 +353,8 @@
         if ((hasFill && w === fill) || (tHasFill && t === tFill)) { out[o + 3] = 0; continue; }
         var d = w - t;
         if (!(d > 0) || !Number.isFinite(d)) { out[o + 3] = 0; continue; }
-        var slot = (d >= rawMax ? 255 : ((d / rawMax) * 255) | 0) * 4;
+        var normalized = Math.fround(d * stack.scale) * invMax;
+        var slot = (normalized >= 1 ? 255 : (normalized * 255) | 0) * 4;
         out[o] = ramp[slot];
         out[o + 1] = ramp[slot + 1];
         out[o + 2] = ramp[slot + 2];
@@ -370,7 +368,8 @@
       var oj = j * 4;
       var dv = depthAt(stack, off, j);
       if (!(dv > 0)) { out[oj + 3] = 0; continue; } // also rejects NaN
-      var s = (dv >= maxDepth ? 255 : ((dv * invMax) * 255) | 0) * 4;
+      var normalizedDepth = Math.fround(dv) * invMax;
+      var s = (normalizedDepth >= 1 ? 255 : (normalizedDepth * 255) | 0) * 4;
       out[oj] = ramp[s];
       out[oj + 1] = ramp[s + 1];
       out[oj + 2] = ramp[s + 2];

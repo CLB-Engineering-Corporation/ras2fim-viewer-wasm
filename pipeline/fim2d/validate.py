@@ -61,6 +61,11 @@ def validate_site_files(site: Path, report: Report) -> None:
     if not report.check(index.is_file(), "no index.html in the site"):
         return
     report.check((site / "manifest.json").is_file(), "no manifest.json in the site")
+    terrio = site / "vendor" / "terrio"
+    if terrio.exists():
+        from ..common.terrio_assets import verify_package
+        errors = verify_package(terrio)
+        report.check(not errors, "; ".join(errors))
     report.warn((site / ".nojekyll").is_file(),
                 "no .nojekyll -- GitHub Pages will run Jekyll over the site")
 

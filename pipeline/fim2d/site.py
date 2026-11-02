@@ -43,6 +43,7 @@ from urllib.parse import quote
 
 from . import manifest as manifest_builder
 
+
 # Every file the page loads. Miss one -- the worker especially, which nothing
 # else references -- and the build succeeds while the deployed site 404s at
 # runtime with no error from any tool. fim2d/validate.py checks this by
@@ -52,7 +53,7 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
-VIEWER_FILES = ("index.html", "app.js", "netcdf.js", "netcdf-worker.js")
+VIEWER_FILES = ("index.html", "app.js", "netcdf.js", "netcdf-worker.js", "terrio-adapter.js")
 VENDOR_FILES = ("h5wasm.js", "maplibre-gl.js", "maplibre-gl.css")
 
 
@@ -167,6 +168,7 @@ def build(
     attribution: str | None,
     data_base_url: str | None,
     clean: bool = False,  # noqa: ARG001 - accepted and ignored; see main()
+    terrio_package: str | None = None,
 ) -> int:
     viewer = _viewer_root(viewer_root)
     vendor = _ensure_vendor(viewer)
@@ -193,6 +195,9 @@ def build(
             shutil.copy2(viewer / name, staging / name)
         for name in VENDOR_FILES:
             shutil.copy2(vendor / name, staging / "vendor" / name)
+        if terrio_package:
+            from ..common.terrio_assets import copy_package
+            copy_package(Path(terrio_package), staging / "vendor" / "terrio")
         # Jekyll would otherwise process the site and can mangle or drop assets.
         (staging / ".nojekyll").write_text("", encoding="utf-8")
         print(f"  viewer: {len(VIEWER_FILES)} files, vendor: {len(VENDOR_FILES)} files")
@@ -256,6 +261,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("source", help="directory containing ras2fim-2d .nc output")
     parser.add_argument("--out", required=True, help="site output directory")
     parser.add_argument("--viewer", help="viewer source dir (default: src/viewer-2d)")
+    parser.add_argument(
+        "--terrio-package", help="experimental Terrio web package; h5wasm remains the default")
     parser.add_argument("--title", default="ras2fim-2d flood inundation")
     parser.add_argument("--attribution", help="credit for whoever produced the model output")
     parser.add_argument("--report", help="write the build report to this JSON path")
@@ -285,6 +292,7 @@ def main(argv: list[str] | None = None) -> int:
         attribution=args.attribution,
         data_base_url=args.data_base_url,
         clean=args.clean,
+        terrio_package=args.terrio_package,
     )
     if code == 0 and args.report:
         files = [p for p in out.rglob("*") if p.is_file()]

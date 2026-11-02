@@ -306,8 +306,8 @@
     fillList("timings", [
       ["Download", [seg(fmt(timings.fetch, 0) + " ms", "metric"),
                     seg(" (" + (stack.bytes / 1e6).toFixed(2) + " MB)")]],
-      ["h5wasm init", fmt(timings.init, 0) + " ms"],
-      ["Decode all", [seg(fmt(stack.decodeMs, 0) + " ms", "metric"),
+      ["Decoder init", fmt(timings.init, 0) + " ms"],
+      [stack.decoderMode === "terrio-slices" ? "Open + terrain" : "Decode all", [seg(fmt(stack.decodeMs, 0) + " ms", "metric"),
                       seg(" (" + stack.nFlow + " layers)")]],
       ["Prepare all", [seg(fmt(timings.prepare, 0) + " ms", "metric"),
                        seg(" (" + stack.nFlow + " layers, once)")]],
@@ -349,6 +349,7 @@
     }
     if (message.type === "meta") {
       timings.fetch = message.meta.fetchMs;
+      if (message.meta.initMs !== undefined) timings.init = message.meta.initMs;
       adoptMeta(message.meta);
     } else if (message.type === "layer") {
       layers[message.index] = {
@@ -455,7 +456,8 @@
     timings = { init: timings.init };
     respawnWorker().postMessage({
       type: "load", epoch: generation, url: url,
-      verify: verify, rampStops: RAMP_STOPS
+      verify: verify, rampStops: RAMP_STOPS,
+      backend: new URLSearchParams(location.search).get("decoder") || "h5wasm"
     });
   }
 

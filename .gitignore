@@ -24,6 +24,7 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
+.terrio-validation/
 
 # Editors and OS
 .vscode/
