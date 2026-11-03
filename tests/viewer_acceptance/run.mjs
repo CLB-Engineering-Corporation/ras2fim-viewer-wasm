@@ -10,8 +10,9 @@ import {streams} from './contracts.mjs';
 const require=createRequire(import.meta.url);
 const pw=require(process.env.PLAYWRIGHT_MODULE || 'C:/Users/billk_clb/.t3/worktrees/terrio-wasm-viewer-20261102/feat-wasm-viewer-contributions/target/validation-tools/node_modules/playwright');
 const root=resolve(process.env.VIEWER_ROOT || 'D:/CLB-Dev/wt/ras2fim-viewer-terrio-20261102');
-const site=resolve(root,'.terrio-validation/pilot-site');
+const site=resolve(process.env.ACCEPTANCE_SITE || resolve(root,'.terrio-validation/pilot-site'));
 const out=resolve(process.env.ACCEPTANCE_OUT || 'target/viewer-acceptance');mkdirSync(out,{recursive:true});
+const postCloseDelayMs=Number(process.env.POST_CLOSE_MS || 0);assert.ok(Number.isInteger(postCloseDelayMs)&&postCloseDelayMs>=0&&postCloseDelayMs<=5000);
 const trials=Number(process.env.TRIALS || 3),cycles=Number(process.env.CYCLES || 30), dwell=Number(process.env.DWELL_MS || 500);
 for(const n of [trials,cycles,dwell])assert.ok(Number.isInteger(n)&&n>0);
 export function summary(values){const a=values.toSorted((a,b)=>a-b);return {count:a.length,median:a.length?(a[Math.floor((a.length-1)/2)]+a[Math.ceil((a.length-1)/2)])/2:null,p95:a.length?a[Math.ceil(a.length*.95)-1]:null};}
@@ -39,11 +40,11 @@ function rss(pid){try{return JSON.parse(execFileSync('powershell',['-NoProfile',
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const base=`http://127.0.0.1:${server.address().port}`;
 const sourcePins=Object.fromEntries(['app.js','netcdf.js','netcdf-worker.js','terrio-adapter.js','vendor/terrio/terrio_bg.wasm'].map(name=>[name,createHash('sha256').update(readFileSync(resolve(site,name))).digest('hex')]));
-const report={completed:false,sourcePins,cacheRouting:false,basemap:'same-origin-transparent',started:new Date().toISOString(),root,trials,cycles,dwell,head:execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),engines:[]};
+const report={completed:false,postCloseDelayMs,sourcePins,cacheRouting:false,basemap:'same-origin-transparent',started:new Date().toISOString(),root,trials,cycles,dwell,head:execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),engines:[]};
 async function settleMap(page){await page.waitForFunction(()=>{const m=window.__acceptance.map;return m.loaded()&&!m.isMoving()&&m.areTilesLoaded();},null,{timeout:60000});}
 async function waitRender(page,start,generation,index){await page.waitForFunction(({start,generation,index})=>window.__acceptance?.events.some(e=>e.at>=start&&e.generation===generation&&(index===null||e.index===index)&&e.layer&&e.sourceLoaded),{start,generation,index},{timeout:60000});return page.evaluate(({start,generation,index})=>window.__acceptance.events.find(e=>e.at>=start&&e.generation===generation&&(index===null||e.index===index)&&e.layer&&e.sourceLoaded),{start,generation,index});}
 try{for(const engine of (process.env.ENGINES || 'chromium,firefox,webkit').split(',')){
- const result={engine,samples:[],rss:[],errors:[]};report.engines.push(result);let bs,browser;
+ const result={engine,samples:[],rss:[],contextClosed:[],errors:[]};report.engines.push(result);let bs,browser;
  try{bs=await pw[engine].launchServer({headless:true});browser=await pw[engine].connect(bs.wsEndpoint());result.version=browser.version();
  for(const decoder of ['h5wasm','terrio-slices']){
  for(let trial=0;trial<trials;trial++){
@@ -80,6 +81,8 @@ try{for(const engine of (process.env.ENGINES || 'chromium,firefox,webkit').split
  assert.ok(!state.status.startsWith('verify:'));writeFileSync(resolve(out,'raw.json'),JSON.stringify(report,null,2));
  }
  stopObserving();await context.close();
+ if(postCloseDelayMs)await new Promise(r=>setTimeout(r,postCloseDelayMs));
+ result.contextClosed.push({decoder,trial,at:new Date().toISOString(),processes:rss(bs.process().pid)});
  }
  }
  }catch(e){result.errors.push(e.stack);}

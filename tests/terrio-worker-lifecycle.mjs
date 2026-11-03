@@ -27,7 +27,9 @@ self.postMessage=(message,transfer)=>{if(message.type==='error'||message.type===
 const server=createServer((req,res)=>{
  const pathname=new URL(req.url,'http://localhost').pathname;
  if(pathname==='/'){res.end('<!doctype html><title>Worker lifecycle</title>');return;}
- const path=resolve(root,'.'+decodeURIComponent(pathname));
+ const path=process.env.TERRIO_SITE && pathname.startsWith('/src/viewer-2d/')
+  ? resolve(process.env.TERRIO_SITE,decodeURIComponent(pathname.slice('/src/viewer-2d/'.length)))
+  : resolve(root,'.'+decodeURIComponent(pathname));
  if(relative(root,path).startsWith('..')){res.writeHead(403);res.end();return;}
  try{
   res.setHeader('Content-Type',({'.js':'text/javascript','.wasm':'application/wasm'})[extname(path)]??'application/octet-stream');

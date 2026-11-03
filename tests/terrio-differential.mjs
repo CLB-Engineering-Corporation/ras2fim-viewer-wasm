@@ -12,7 +12,10 @@ const fixtures=process.env.TERRIO_FIXTURES ?? '.terrio-validation/fixtures';
 const repeats=Number(process.env.TERRIO_WORKER_REPEATS ?? 2);
 assert.ok(Number.isInteger(repeats)&&repeats>=1&&repeats<=20);
 const server=createServer((req,res)=>{
- const path=resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));
+ const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
+ const path=process.env.TERRIO_SITE && pathname.startsWith('/src/viewer-2d/')
+  ? resolve(process.env.TERRIO_SITE,pathname.slice('/src/viewer-2d/'.length))
+  : resolve(root,'.'+pathname);
  if(relative(root,path).startsWith('..')){res.writeHead(403);res.end();return;}
  if(req.url==='/'){res.end('<!doctype html><title>Decoder differential</title>');return;}
  try{res.setHeader('Content-Type',({'.js':'text/javascript','.wasm':'application/wasm'})[extname(path)]??'application/octet-stream');res.end(readFileSync(path));}

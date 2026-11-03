@@ -95,3 +95,18 @@ an acceptance result; run the separate audit after all engines complete.
 Checkpoints always carry `completed: false`. Only successful browser/context and
 server cleanup writes `completed: true` with a finish timestamp. The audit
 rejects an otherwise complete checkpoint without that final success marker.
+
+Set `ACCEPTANCE_SITE` to a different packaged pilot site when validating a newly
+pinned decoder package; the original site is retained by default. The raw source
+pins distinguish these runs. `TERRIO_SITE` similarly directs the differential and
+worker-lifecycle jobs to a packaged site's reader/module/worker assets while
+preserving their existing virtual URLs and fixtures.
+
+The runner also samples process working sets after each context closes, outside
+all latency intervals. POST_CLOSE_MS optionally adds a declared 0–5000 ms delay
+before that diagnostic sample (default 0). Context-close observations describe a
+lifecycle boundary; they do not identify individual allocations or prove GC.
+For a separate bounded single-engine stress run, ENGINES=webkit, TRIALS=1,
+CYCLES=80 and POST_CLOSE_MS=1000 retain the same exact render/error checks. Such
+a report is not the full three-engine audit result and must be labelled as a
+single-engine stress experiment.
