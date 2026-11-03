@@ -26,7 +26,7 @@ import {readFileSync} from 'node:fs';
 function full(){
  const report=fixture();report.trials=3;
  report.cacheRouting=false;report.basemap='same-origin-transparent';
- report.sourcePins=Object.fromEntries(['app.js','netcdf.js','netcdf-worker.js','terrio-adapter.js','vendor/terrio/terrio_bg.wasm'].map(k=>[k,'c'.repeat(64)]));
+ report.sourcePins=Object.fromEntries(['app.js','netcdf.js','netcdf-worker.js','terrio-adapter.js','vendor/terrio/terrio_bg.wasm','vendor/terrio/terrio.js','vendor/h5wasm.js'].map(k=>[k,'c'.repeat(64)]));
  const files=['data/filter_depth_wb-2427467.nc','data/filter_wsel_wb-2427466.nc','data/filter_wsel_wb-2427467.nc','/fixtures/receding.nc'];
  report.adoption={schema:1,stress:[],inputPins:Object.fromEntries(files.map(f=>[f,'d'.repeat(64)]))};
  report.adoption.preflight=['chromium','firefox','webkit'].map(engine=>({engine,completed:true,sourcePins:report.sourcePins,inputPins:report.adoption.inputPins,rows:files.map(file=>({file,sha256:'d'.repeat(64),...verification}))}));

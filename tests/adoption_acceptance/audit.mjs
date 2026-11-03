@@ -34,7 +34,8 @@ export function recovery(rows,expectedCount){
 }
 export function adoptionAudit(report,baseline,expectedPins){
   assert.equal(report.adoption?.schema,1,'new adoption evidence required');
-  assert.ok(expectedPins && Object.keys(expectedPins).length>=5,'independently freeze candidate pins');
+  assert.ok(expectedPins && Object.keys(expectedPins).length>=7,'independently freeze candidate pins');
+  for(const key of ['vendor/terrio/terrio.js','vendor/h5wasm.js'])assert.ok(expectedPins[key],'missing executable decoder dependency');
   for(const value of Object.values(expectedPins))assert.match(value,/^[a-f0-9]{64}$/,'invalid SHA256 pin');
   assert.deepEqual(report.sourcePins,expectedPins,'candidate artifact mismatch');
   assert.notDeepEqual(report.sourcePins,baseline.baselineSourcePins,'old baseline is not adoption');

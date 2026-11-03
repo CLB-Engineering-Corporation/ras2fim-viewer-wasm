@@ -57,3 +57,13 @@ test('explicit h5wasm initializes once, retries rejected init, and remains reusa
 });
 
  test("verification query uses a word boundary, not a control character",()=>{const app=readFileSync(new URL("../src/viewer-2d/app.js",import.meta.url),"utf8");assert.ok(app.includes("verify=1\\b"));assert.ok(!app.includes("\b"));});
+
+test('failed middle request preserves predecessor decode barrier',async()=>{
+ const h=harness(),d=deferred();h.setDecode(d);h.load(1);await tick();
+ h.setFetch({promise:Promise.reject(Error('fetch failed'))});h.load(2);await tick();
+ h.setFetch(null);h.setDecode(null);h.load(3);await tick();
+ assert.equal(h.stacks.length,0);assert.ok(!h.messages.some(m=>m.type==='done'));
+ const old=h.stack();d.resolve(old);await h.drain();
+ assert.equal(old.disposed,1);assert.equal(h.stacks.length,2);
+ assert.ok(h.messages.filter(m=>m.type!=='progress').every(m=>m.epoch===3));
+});

@@ -47,3 +47,10 @@ class RuntimePinTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "--writer-backend gdal") as caught:
                 require_terrio()
             self.assertIsInstance(caught.exception.__cause__, ImportError)
+
+    def test_actual_loaded_origin_is_checked(self):
+        module = types.SimpleNamespace(__file__=str(Path.cwd() / "__init__.py"))
+        native = types.SimpleNamespace(__file__=str(Path.cwd() / "_terrio.cp313-win_amd64.pyd"))
+        with patch.dict("sys.modules", {"terrio": module, "terrio._terrio": native}):
+            with self.assertRaisesRegex(RuntimeError, "loaded native binary"):
+                require_terrio()

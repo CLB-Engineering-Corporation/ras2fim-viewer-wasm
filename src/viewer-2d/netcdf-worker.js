@@ -265,9 +265,8 @@ function load(epoch, url, backend, verify, rampStops) {
       .catch(function (e) { if (generation === loadGeneration) phase = "init"; throw e; })
   ])]);
   request.catch(function () {});
-  loadTail = Promise.all([loadTail, request])
-    .then(async function (joined) {
-      var results = joined[1];
+  loadTail = loadTail.then(function () { return request; })
+    .then(async function (results) {
       if (!results || generation !== loadGeneration) return;
       var buffer = requestBytes;
       requestBytes = null;
