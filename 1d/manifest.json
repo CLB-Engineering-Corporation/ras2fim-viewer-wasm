@@ -75,504 +75,576 @@
         "label": "flow0_ft",
         "depth_max_ft": 11.338,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_000.pmtiles",
-        "depth_pmtiles_bytes": 17146
+        "depth_pmtiles_bytes": 22071,
+        "depth_empty": false
        },
        {
         "index": 1,
         "label": "flow1_ft",
         "depth_max_ft": 11.574,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_001.pmtiles",
-        "depth_pmtiles_bytes": 18977
+        "depth_pmtiles_bytes": 23926,
+        "depth_empty": false
        },
        {
         "index": 2,
         "label": "flow2_ft",
         "depth_max_ft": 11.716,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_002.pmtiles",
-        "depth_pmtiles_bytes": 19992
+        "depth_pmtiles_bytes": 24840,
+        "depth_empty": false
        },
        {
         "index": 3,
         "label": "flow3_ft",
         "depth_max_ft": 11.82,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_003.pmtiles",
-        "depth_pmtiles_bytes": 22094
+        "depth_pmtiles_bytes": 27895,
+        "depth_empty": false
        },
        {
         "index": 4,
         "label": "flow4_ft",
         "depth_max_ft": 11.9,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_004.pmtiles",
-        "depth_pmtiles_bytes": 22970
+        "depth_pmtiles_bytes": 28825,
+        "depth_empty": false
        },
        {
         "index": 5,
         "label": "flow5_ft",
         "depth_max_ft": 11.98,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_005.pmtiles",
-        "depth_pmtiles_bytes": 23565
+        "depth_pmtiles_bytes": 29333,
+        "depth_empty": false
        },
        {
         "index": 6,
         "label": "flow6_ft",
         "depth_max_ft": 12.04,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_006.pmtiles",
-        "depth_pmtiles_bytes": 24309
+        "depth_pmtiles_bytes": 30113,
+        "depth_empty": false
        },
        {
         "index": 7,
         "label": "flow7_ft",
         "depth_max_ft": 12.1,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_007.pmtiles",
-        "depth_pmtiles_bytes": 24875
+        "depth_pmtiles_bytes": 30682,
+        "depth_empty": false
        },
        {
         "index": 8,
         "label": "flow8_ft",
         "depth_max_ft": 12.14,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_008.pmtiles",
-        "depth_pmtiles_bytes": 25618
+        "depth_pmtiles_bytes": 31363,
+        "depth_empty": false
        },
        {
         "index": 9,
         "label": "flow9_ft",
         "depth_max_ft": 12.18,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_009.pmtiles",
-        "depth_pmtiles_bytes": 26171
+        "depth_pmtiles_bytes": 31925,
+        "depth_empty": false
        },
        {
         "index": 10,
         "label": "flow10_ft",
         "depth_max_ft": 12.26,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_010.pmtiles",
-        "depth_pmtiles_bytes": 26881
+        "depth_pmtiles_bytes": 32537,
+        "depth_empty": false
        },
        {
         "index": 11,
         "label": "flow11_ft",
         "depth_max_ft": 12.38,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_011.pmtiles",
-        "depth_pmtiles_bytes": 27526
+        "depth_pmtiles_bytes": 33194,
+        "depth_empty": false
        },
        {
         "index": 12,
         "label": "flow12_ft",
         "depth_max_ft": 12.56,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_012.pmtiles",
-        "depth_pmtiles_bytes": 28744
+        "depth_pmtiles_bytes": 34309,
+        "depth_empty": false
        },
        {
         "index": 13,
         "label": "flow13_ft",
         "depth_max_ft": 12.72,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_013.pmtiles",
-        "depth_pmtiles_bytes": 29757
+        "depth_pmtiles_bytes": 35197,
+        "depth_empty": false
        },
        {
         "index": 14,
         "label": "flow14_ft",
         "depth_max_ft": 12.86,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_014.pmtiles",
-        "depth_pmtiles_bytes": 31046
+        "depth_pmtiles_bytes": 36931,
+        "depth_empty": false
        },
        {
         "index": 15,
         "label": "flow15_ft",
         "depth_max_ft": 12.999,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_015.pmtiles",
-        "depth_pmtiles_bytes": 32544
+        "depth_pmtiles_bytes": 38301,
+        "depth_empty": false
        },
        {
         "index": 16,
         "label": "flow16_ft",
         "depth_max_ft": 13.12,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_016.pmtiles",
-        "depth_pmtiles_bytes": 33639
+        "depth_pmtiles_bytes": 39264,
+        "depth_empty": false
        },
        {
         "index": 17,
         "label": "flow17_ft",
         "depth_max_ft": 13.28,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_017.pmtiles",
-        "depth_pmtiles_bytes": 35273
+        "depth_pmtiles_bytes": 40676,
+        "depth_empty": false
        },
        {
         "index": 18,
         "label": "flow18_ft",
         "depth_max_ft": 13.52,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_018.pmtiles",
-        "depth_pmtiles_bytes": 37027
+        "depth_pmtiles_bytes": 42359,
+        "depth_empty": false
        },
        {
         "index": 19,
         "label": "flow19_ft",
         "depth_max_ft": 13.64,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_019.pmtiles",
-        "depth_pmtiles_bytes": 38532
+        "depth_pmtiles_bytes": 43848,
+        "depth_empty": false
        },
        {
         "index": 20,
         "label": "flow20_ft",
         "depth_max_ft": 13.74,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_020.pmtiles",
-        "depth_pmtiles_bytes": 39282
+        "depth_pmtiles_bytes": 44668,
+        "depth_empty": false
        },
        {
         "index": 21,
         "label": "flow21_ft",
         "depth_max_ft": 13.878,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_021.pmtiles",
-        "depth_pmtiles_bytes": 40595
+        "depth_pmtiles_bytes": 45802,
+        "depth_empty": false
        },
        {
         "index": 22,
         "label": "flow22_ft",
         "depth_max_ft": 14.018,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_022.pmtiles",
-        "depth_pmtiles_bytes": 42512
+        "depth_pmtiles_bytes": 47690,
+        "depth_empty": false
        },
        {
         "index": 23,
         "label": "flow23_ft",
         "depth_max_ft": 14.14,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_023.pmtiles",
-        "depth_pmtiles_bytes": 44089
+        "depth_pmtiles_bytes": 49362,
+        "depth_empty": false
        },
        {
         "index": 24,
         "label": "flow24_ft",
         "depth_max_ft": 14.32,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_024.pmtiles",
-        "depth_pmtiles_bytes": 45886
+        "depth_pmtiles_bytes": 51079,
+        "depth_empty": false
        },
        {
         "index": 25,
         "label": "flow25_ft",
         "depth_max_ft": 14.455,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_025.pmtiles",
-        "depth_pmtiles_bytes": 47854
+        "depth_pmtiles_bytes": 52976,
+        "depth_empty": false
        },
        {
         "index": 26,
         "label": "flow26_ft",
         "depth_max_ft": 14.593,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_026.pmtiles",
-        "depth_pmtiles_bytes": 49805
+        "depth_pmtiles_bytes": 54933,
+        "depth_empty": false
        },
        {
         "index": 27,
         "label": "flow27_ft",
         "depth_max_ft": 14.731,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_027.pmtiles",
-        "depth_pmtiles_bytes": 51645
+        "depth_pmtiles_bytes": 56777,
+        "depth_empty": false
        },
        {
         "index": 28,
         "label": "flow28_ft",
         "depth_max_ft": 14.88,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_028.pmtiles",
-        "depth_pmtiles_bytes": 53465
+        "depth_pmtiles_bytes": 58429,
+        "depth_empty": false
        },
        {
         "index": 29,
         "label": "flow29_ft",
         "depth_max_ft": 15.08,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_029.pmtiles",
-        "depth_pmtiles_bytes": 56089
+        "depth_pmtiles_bytes": 61007,
+        "depth_empty": false
        },
        {
         "index": 30,
         "label": "flow30_ft",
         "depth_max_ft": 15.24,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_030.pmtiles",
-        "depth_pmtiles_bytes": 57696
+        "depth_pmtiles_bytes": 62671,
+        "depth_empty": false
        },
        {
         "index": 31,
         "label": "flow31_ft",
         "depth_max_ft": 15.416,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_031.pmtiles",
-        "depth_pmtiles_bytes": 59809
+        "depth_pmtiles_bytes": 64892,
+        "depth_empty": false
        },
        {
         "index": 32,
         "label": "flow32_ft",
         "depth_max_ft": 15.577,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_032.pmtiles",
-        "depth_pmtiles_bytes": 60838
+        "depth_pmtiles_bytes": 65820,
+        "depth_empty": false
        },
        {
         "index": 33,
         "label": "flow33_ft",
         "depth_max_ft": 15.733,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_033.pmtiles",
-        "depth_pmtiles_bytes": 62695
+        "depth_pmtiles_bytes": 67547,
+        "depth_empty": false
        },
        {
         "index": 34,
         "label": "flow34_ft",
         "depth_max_ft": 15.897,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_034.pmtiles",
-        "depth_pmtiles_bytes": 64354
+        "depth_pmtiles_bytes": 69364,
+        "depth_empty": false
        },
        {
         "index": 35,
         "label": "flow35_ft",
         "depth_max_ft": 16.06,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_035.pmtiles",
-        "depth_pmtiles_bytes": 65941
+        "depth_pmtiles_bytes": 70871,
+        "depth_empty": false
        },
        {
         "index": 36,
         "label": "flow36_ft",
         "depth_max_ft": 16.23,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_036.pmtiles",
-        "depth_pmtiles_bytes": 67550
+        "depth_pmtiles_bytes": 72599,
+        "depth_empty": false
        },
        {
         "index": 37,
         "label": "flow37_ft",
         "depth_max_ft": 16.399,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_037.pmtiles",
-        "depth_pmtiles_bytes": 69239
+        "depth_pmtiles_bytes": 74161,
+        "depth_empty": false
        },
        {
         "index": 38,
         "label": "flow38_ft",
         "depth_max_ft": 16.56,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_038.pmtiles",
-        "depth_pmtiles_bytes": 70880
+        "depth_pmtiles_bytes": 75749,
+        "depth_empty": false
        },
        {
         "index": 39,
         "label": "flow39_ft",
         "depth_max_ft": 16.74,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_039.pmtiles",
-        "depth_pmtiles_bytes": 72696
+        "depth_pmtiles_bytes": 77739,
+        "depth_empty": false
        },
        {
         "index": 40,
         "label": "flow40_ft",
         "depth_max_ft": 16.92,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_040.pmtiles",
-        "depth_pmtiles_bytes": 74142
+        "depth_pmtiles_bytes": 79023,
+        "depth_empty": false
        },
        {
         "index": 41,
         "label": "flow41_ft",
         "depth_max_ft": 17.11,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_041.pmtiles",
-        "depth_pmtiles_bytes": 75640
+        "depth_pmtiles_bytes": 80456,
+        "depth_empty": false
        },
        {
         "index": 42,
         "label": "flow42_ft",
         "depth_max_ft": 17.296,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_042.pmtiles",
-        "depth_pmtiles_bytes": 77135
+        "depth_pmtiles_bytes": 81954,
+        "depth_empty": false
        },
        {
         "index": 43,
         "label": "flow43_ft",
         "depth_max_ft": 17.8,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_043.pmtiles",
-        "depth_pmtiles_bytes": 78605
+        "depth_pmtiles_bytes": 83398,
+        "depth_empty": false
        },
        {
         "index": 44,
         "label": "flow44_ft",
         "depth_max_ft": 18.3,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_044.pmtiles",
-        "depth_pmtiles_bytes": 80800
+        "depth_pmtiles_bytes": 85620,
+        "depth_empty": false
        },
        {
         "index": 45,
         "label": "flow45_ft",
         "depth_max_ft": 18.815,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_045.pmtiles",
-        "depth_pmtiles_bytes": 82232
+        "depth_pmtiles_bytes": 87222,
+        "depth_empty": false
        },
        {
         "index": 46,
         "label": "flow46_ft",
         "depth_max_ft": 19.313,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_046.pmtiles",
-        "depth_pmtiles_bytes": 84131
+        "depth_pmtiles_bytes": 89018,
+        "depth_empty": false
        },
        {
         "index": 47,
         "label": "flow47_ft",
         "depth_max_ft": 19.84,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_047.pmtiles",
-        "depth_pmtiles_bytes": 86214
+        "depth_pmtiles_bytes": 91043,
+        "depth_empty": false
        },
        {
         "index": 48,
         "label": "flow48_ft",
         "depth_max_ft": 20.32,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_048.pmtiles",
-        "depth_pmtiles_bytes": 87569
+        "depth_pmtiles_bytes": 92380,
+        "depth_empty": false
        },
        {
         "index": 49,
         "label": "flow49_ft",
         "depth_max_ft": 20.832,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_049.pmtiles",
-        "depth_pmtiles_bytes": 90032
+        "depth_pmtiles_bytes": 94817,
+        "depth_empty": false
        },
        {
         "index": 50,
         "label": "flow50_ft",
         "depth_max_ft": 21.34,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_050.pmtiles",
-        "depth_pmtiles_bytes": 92568
+        "depth_pmtiles_bytes": 97167,
+        "depth_empty": false
        },
        {
         "index": 51,
         "label": "flow51_ft",
         "depth_max_ft": 21.86,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_051.pmtiles",
-        "depth_pmtiles_bytes": 94661
+        "depth_pmtiles_bytes": 99197,
+        "depth_empty": false
        },
        {
         "index": 52,
         "label": "flow52_ft",
         "depth_max_ft": 22.38,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_052.pmtiles",
-        "depth_pmtiles_bytes": 96412
+        "depth_pmtiles_bytes": 100923,
+        "depth_empty": false
        },
        {
         "index": 53,
         "label": "flow53_ft",
         "depth_max_ft": 22.88,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_053.pmtiles",
-        "depth_pmtiles_bytes": 98286
+        "depth_pmtiles_bytes": 102832,
+        "depth_empty": false
        },
        {
         "index": 54,
         "label": "flow54_ft",
         "depth_max_ft": 23.4,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_054.pmtiles",
-        "depth_pmtiles_bytes": 101099
+        "depth_pmtiles_bytes": 105412,
+        "depth_empty": false
        },
        {
         "index": 55,
         "label": "flow55_ft",
         "depth_max_ft": 23.914,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_055.pmtiles",
-        "depth_pmtiles_bytes": 102845
+        "depth_pmtiles_bytes": 107424,
+        "depth_empty": false
        },
        {
         "index": 56,
         "label": "flow56_ft",
         "depth_max_ft": 24.42,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_056.pmtiles",
-        "depth_pmtiles_bytes": 104782
+        "depth_pmtiles_bytes": 109353,
+        "depth_empty": false
        },
        {
         "index": 57,
         "label": "flow57_ft",
         "depth_max_ft": 24.931,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_057.pmtiles",
-        "depth_pmtiles_bytes": 107048
+        "depth_pmtiles_bytes": 111446,
+        "depth_empty": false
        },
        {
         "index": 58,
         "label": "flow58_ft",
         "depth_max_ft": 25.435,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_058.pmtiles",
-        "depth_pmtiles_bytes": 108558
+        "depth_pmtiles_bytes": 113106,
+        "depth_empty": false
        },
        {
         "index": 59,
         "label": "flow59_ft",
         "depth_max_ft": 25.94,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_059.pmtiles",
-        "depth_pmtiles_bytes": 111471
+        "depth_pmtiles_bytes": 115957,
+        "depth_empty": false
        },
        {
         "index": 60,
         "label": "flow60_ft",
         "depth_max_ft": 26.458,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_060.pmtiles",
-        "depth_pmtiles_bytes": 114010
+        "depth_pmtiles_bytes": 118608,
+        "depth_empty": false
        },
        {
         "index": 61,
         "label": "flow61_ft",
         "depth_max_ft": 26.96,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_061.pmtiles",
-        "depth_pmtiles_bytes": 116104
+        "depth_pmtiles_bytes": 120662,
+        "depth_empty": false
        },
        {
         "index": 62,
         "label": "flow62_ft",
         "depth_max_ft": 27.48,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_062.pmtiles",
-        "depth_pmtiles_bytes": 118169
+        "depth_pmtiles_bytes": 122891,
+        "depth_empty": false
        },
        {
         "index": 63,
         "label": "flow63_ft",
         "depth_max_ft": 28.139,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_063.pmtiles",
-        "depth_pmtiles_bytes": 120365
+        "depth_pmtiles_bytes": 124698,
+        "depth_empty": false
        },
        {
         "index": 64,
         "label": "flow64_ft",
         "depth_max_ft": 28.496,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_064.pmtiles",
-        "depth_pmtiles_bytes": 121746
+        "depth_pmtiles_bytes": 126175,
+        "depth_empty": false
        },
        {
         "index": 65,
         "label": "flow65_ft",
         "depth_max_ft": 29.0,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_065.pmtiles",
-        "depth_pmtiles_bytes": 123500
+        "depth_pmtiles_bytes": 127793,
+        "depth_empty": false
        },
        {
         "index": 66,
         "label": "flow66_ft",
         "depth_max_ft": 29.54,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_066.pmtiles",
-        "depth_pmtiles_bytes": 125284
+        "depth_pmtiles_bytes": 129671,
+        "depth_empty": false
        },
        {
         "index": 67,
         "label": "flow67_ft",
         "depth_max_ft": 30.148,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_067.pmtiles",
-        "depth_pmtiles_bytes": 126838
+        "depth_pmtiles_bytes": 130967,
+        "depth_empty": false
        },
        {
         "index": 68,
         "label": "flow68_ft",
         "depth_max_ft": 30.504,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_068.pmtiles",
-        "depth_pmtiles_bytes": 127876
+        "depth_pmtiles_bytes": 132131,
+        "depth_empty": false
        },
        {
         "index": 69,
         "label": "flow69_ft",
         "depth_max_ft": 31.173,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_069.pmtiles",
-        "depth_pmtiles_bytes": 129341
+        "depth_pmtiles_bytes": 133718,
+        "depth_empty": false
        },
        {
         "index": 70,
         "label": "flow70_ft",
         "depth_max_ft": 31.46,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_070.pmtiles",
-        "depth_pmtiles_bytes": 129800
+        "depth_pmtiles_bytes": 134229,
+        "depth_empty": false
        },
        {
         "index": 71,
         "label": "flow71_ft",
         "depth_max_ft": 31.836,
         "depth_pmtiles": "pmtiles/depth/12090301_2277_ble_260901/50009_ALUM_026/depth_071.pmtiles",
-        "depth_pmtiles_bytes": 130221
+        "depth_pmtiles_bytes": 134548,
+        "depth_empty": false
        }
       ],
       "reaches": [
@@ -1214,5 +1286,5 @@
   }
  ],
  "depth_delivery": "pmtiles",
- "published_utc": "2026-09-10T17:34:52Z"
+ "published_utc": "2026-11-03T14:21:48Z"
 }

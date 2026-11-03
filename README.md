@@ -11,13 +11,15 @@ each deploy.
 
 Neither page has a tile server behind it.
 
-The 2D viewer opens the `.nc` files under `data/` with h5wasm in a Web Worker.
+The 2D viewer opens the `.nc` files under `data/` with the pinned Terrio WASM
+decoder (CLB Terrio `9c644f4`) in a Web Worker; `?decoder=h5wasm` switches to
+the retained h5wasm reference reader.
 They are byte-for-byte as ras2fim-2d wrote them, with no conversion step.
 `?verify=1` runs the retained dense renderer alongside the sparse one and
 asserts they agree byte for byte.
 
 The 1D dashboard draws its depth grids from per-profile PMTiles archives baked
-from the published COGs — 72 profiles in 4.8 MB, because a flood is a thin
+from the published COGs by the pinned Terrio writer — 72 profiles in 5.1 MB, because a flood is a thin
 corridor inside a much larger model bounding box and every transparent tile is
 skipped. The stage slider steps the raster and the rating-curve readouts
 together.

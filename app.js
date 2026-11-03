@@ -30,7 +30,7 @@
   var px = null;               // Uint32Array view over imageData, one word per pixel
   var layers = [];             // prepared layers, by flow index
   var shown = null;            // the layer currently on the canvas
-  var verify = /[?&]verify=1/.test(location.search);
+  var verify = /[?&]verify=1\b/.test(location.search);
   var playTimer = null;
   var rafPending = 0;         // requestAnimationFrame handle for coalesced input
   var rafTarget = null;       // the layer the most recent input asked for
@@ -49,6 +49,7 @@
   var worker = null;
   var pendingRender = null;   // layer index waiting on its prepared data
   var catalogSummary = "";
+  var readerBackend = "terrio-slices";
 
   function byId(id) { return document.getElementById(id); }
   function fmt(v, d) {
@@ -294,20 +295,20 @@
     fillList("stats", [
       ["Inundated", [seg(fmt(painted)), seg(" (" + pct.toFixed(1) + "% of grid)", "muted")]],
       ["Cells with data", fmt(stats.valid)],
-      ["Max depth", fmt(stats.max, 2) + " ft"],
-      ["Mean depth", fmt(stats.mean, 2) + " ft"],
-      ["Min (signed)", [seg(fmt(stats.min, 2) + " ft", stats.min < 0 ? "warn" : null)]],
+      ["Max depth", fmt(stats.max, 2) + " " + stack.depthUnits],
+      ["Mean depth", fmt(stats.mean, 2) + " " + stack.depthUnits],
+      ["Min (signed)", [seg(fmt(stats.min, 2) + " " + stack.depthUnits, stats.min < 0 ? "warn" : null)]],
       ["Below terrain", stats.negative
         ? [seg(fmt(stats.negative) + " cells", "warn")]
         : "0 cells"]
     ]);
 
-    byId("flow-value").textContent = fmt(stack.flows[index]) + " " + stack.flowUnits;
+    byId("flow-value").textContent = fmt(stack.flows[index]) + " " + (stack.flowUnits || "(units unknown)");
     fillList("timings", [
       ["Download", [seg(fmt(timings.fetch, 0) + " ms", "metric"),
                     seg(" (" + (stack.bytes / 1e6).toFixed(2) + " MB)")]],
-      ["h5wasm init", fmt(timings.init, 0) + " ms"],
-      ["Decode all", [seg(fmt(stack.decodeMs, 0) + " ms", "metric"),
+      ["Decoder init", fmt(timings.init, 0) + " ms"],
+      [stack.decoderMode === "terrio-slices" ? "Open + terrain" : "Decode all", [seg(fmt(stack.decodeMs, 0) + " ms", "metric"),
                       seg(" (" + stack.nFlow + " layers)")]],
       ["Prepare all", [seg(fmt(timings.prepare, 0) + " ms", "metric"),
                        seg(" (" + stack.nFlow + " layers, once)")]],
@@ -319,29 +320,41 @@
     ]);
   }
 
-  /** Terminate and respawn rather than trying to cancel.
-   *
-   * AbortController cannot interrupt a synchronous wasm decode already running,
-   * and messages already dispatched still run their handlers. Terminating kills
-   * the decode outright and guarantees the 84 MB is freed rather than relying on
-   * a dropped reference and GC timing. The replacement is spawned immediately so
-   * its h5wasm init overlaps the next fetch.
-   */
+  /* Reuse one module per session; replace a crashed worker on the next load. */
   function respawnWorker() {
-    if (worker) worker.terminate();
-    worker = new Worker("netcdf-worker.js");
-    worker.onmessage = onWorkerMessage;
-    worker.onerror = function (event) {
-      setStatus("worker failed: " + (event.message || "unknown"), "error");
+    if (worker) return worker;
+    var instance = new Worker("netcdf-worker.js");
+    worker = instance;
+    instance.onmessage = function (event) {
+      if (worker === instance) onWorkerMessage(event);
     };
-    return worker;
+    function failed(event) {
+      if (worker !== instance) return;
+      instance.terminate();
+      worker = null;
+      generation += 1;
+      stopPlay();
+      cancelTransition();
+      if (rafPending) cancelAnimationFrame(rafPending);
+      rafPending = 0;
+      rafTarget = null;
+      layers = [];
+      stack = null;
+      pendingRender = null;
+      setStatus("worker failed: " + (event.message || "message decoding failed") +
+        " — select a stream to retry", "error");
+    }
+    instance.onerror = failed;
+    instance.onmessageerror = failed;
+    return instance;
   }
 
   function onWorkerMessage(event) {
     var message = event.data || {};
     // Belt and braces: terminate() does not un-dispatch messages already queued
     // on this thread, so the epoch is checked here too.
-    if (message.epoch !== generation && message.type !== "progress") return;
+    if (message.epoch !== generation &&
+        !(message.type === "progress" && message.phase === "ready" && message.epoch === -1)) return;
 
     if (message.type === "progress" && message.phase === "ready") {
       timings.init = message.ms;
@@ -349,6 +362,7 @@
     }
     if (message.type === "meta") {
       timings.fetch = message.meta.fetchMs;
+      if (message.meta.initMs !== undefined) timings.init = message.meta.initMs;
       adoptMeta(message.meta);
     } else if (message.type === "layer") {
       layers[message.index] = {
@@ -396,8 +410,8 @@
     var slider = byId("flow");
     slider.max = String(meta.nFlow - 1);
     slider.value = String(meta.nFlow - 1);
-    byId("flow-min").textContent = fmt(meta.flows[0]) + " cfs";
-    byId("flow-max").textContent = fmt(meta.flows[meta.nFlow - 1]) + " cfs";
+    byId("flow-min").textContent = fmt(meta.flows[0]) + " " + (meta.flowUnits || "(units unknown)");
+    byId("flow-max").textContent = fmt(meta.flows[meta.nFlow - 1]) + " " + (meta.flowUnits || "(units unknown)");
     pendingRender = meta.nFlow - 1;
 
     fillList("meta", [
@@ -407,7 +421,7 @@
       ["Layers", meta.nFlow + " flows"],
       ["Packing", "uint16 × " + meta.scale + (meta.offset ? " + " + meta.offset : "") +
         (meta.hasFill ? ", fill " + meta.fill : ", no fill value")],
-      ["Filter", meta.verticalFilter ? meta.verticalFilter + " ft" : "—"],
+      ["Filter", meta.verticalFilter ? meta.verticalFilter + " " + meta.depthUnits : "—"],
       ["CRS", [seg("EPSG:3857 "), seg("(native)", "native")]]
     ]);
 
@@ -423,7 +437,7 @@
     // The top layer arrives first and fixes the ramp for the whole library.
     if (index === stack.nFlow - 1) {
       maxDepth = Math.max(1, Math.ceil(layers[index].stats.max || 1));
-      byId("ramp-max").textContent = maxDepth + " ft";
+      byId("ramp-max").textContent = maxDepth + " " + stack.depthUnits;
     }
     if (pendingRender === index) {
       pendingRender = null;
@@ -455,7 +469,8 @@
     timings = { init: timings.init };
     respawnWorker().postMessage({
       type: "load", epoch: generation, url: url,
-      verify: verify, rampStops: RAMP_STOPS
+      verify: verify, rampStops: RAMP_STOPS,
+      backend: new URLSearchParams(location.search).get("decoder") || readerBackend
     });
   }
 
@@ -545,6 +560,7 @@
         return response.json();
       })
       .then(function (manifest) {
+        readerBackend = manifest.reader_backend === "h5wasm" ? "h5wasm" : "terrio-slices";
         var select = byId("stream");
         select.textContent = "";
         (manifest.streams || []).forEach(function (entry) {

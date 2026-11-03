@@ -1,0 +1,48 @@
+{
+  "package": {
+    "name": "terrio-js",
+    "type": "module",
+    "description": "WebAssembly bindings for terrio",
+    "version": "0.6.1",
+    "license": "(MIT AND MPL-2.0)",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/opengeos/terrio"
+    },
+    "files": [
+      "terrio_bg.wasm",
+      "terrio.js",
+      "terrio.d.ts",
+      "terrio_bg.wasm.d.ts",
+      "LICENSE",
+      "NOTICE",
+      "LICENSE-THIRD-PARTY.md"
+    ],
+    "main": "terrio.js",
+    "types": "terrio.d.ts",
+    "sideEffects": [
+      "./snippets/*"
+    ],
+    "exports": {
+      ".": {
+        "types": "./terrio.d.ts",
+        "default": "./terrio.js"
+      },
+      "./package.json": "./package.json",
+      "./*": "./*"
+    }
+  },
+  "sha256": {
+    "LICENSE": "ce3200ce9d34ccfbdfaabf4e52f8863df8f2246551495b3b31f28189eb9077b7",
+    "LICENSE-THIRD-PARTY.md": "207c9ca0df96ac7d5885dab005946db0a8ac8527d682dd94eaaa85760be537e0",
+    "NOTICE": "edf69f580e01c31095220be4c243bad07f8acef07ac073b361d8972cff3332d3",
+    "package.json": "a4538c23c714b42764444b6c4dc6a7d00f4a2b476c8bccc3b1356a2ad77dce91",
+    "terrio.d.ts": "1a3e6a1eeceeccf0a5078859d73a192a42bed958304c39e949ef1c94c055b4ed",
+    "terrio.js": "e02046a1fd817971e6e633a913edd813fe801e2f5165803086a2c2d6953d5305",
+    "terrio_bg.wasm": "e9f0a57ce955b71a74779cac9da73e176926f31a6ba442d569923b228316ebd5",
+    "terrio_bg.wasm.d.ts": "a4bdd3ef6f995c12c545a6d11b435d0539a83d0998765f6f12dcad7b0cdbcba3"
+  },
+  "asset_policy": "locked",
+  "source_commit": "9c644f4a1729e253f9714813912f54d32e306c38",
+  "ownership": "whole-file input copy; JS-owned typed output copies"
+}

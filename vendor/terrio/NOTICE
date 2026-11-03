@@ -1,0 +1,1610 @@
+terrio
+Licensed under the MIT License (see LICENSE).
+
+terrio adapts code and data from the projects below. The copyright in that code and data remains
+with its authors, whose notices follow. The licenses of the Rust crates terrio's packages and
+binaries are built with are in LICENSE-THIRD-PARTY.md.
+
+terrio follows the REUSE specification (https://reuse.software). Each source file derived from
+another project's source files starts with SPDX headers: the copyright lines of those source
+files, copied verbatim, the licenses that apply, and the files it was translated or adapted from.
+Files written to match another program's behavior, without translating its code, say so in a
+comment. The REUSE.toml of the terrio repository (https://github.com/opengeos/terrio) records the
+copyright and license of the other files, and its LICENSES/ directory holds the license texts.
+The sections below gather, project by project, the derived files, the copyright
+notices of their sources and the license terms.
+
+-------------------------------------------------------------------------------
+GDAL (https://github.com/OSGeo/gdal)
+-------------------------------------------------------------------------------
+
+Terrio files derived from GDAL source files (each file's header names them):
+  crates/terrio-crs/src/lib.rs
+  crates/terrio/src/cog_validate.rs
+  crates/terrio/src/dataset.rs
+  crates/terrio/src/drivers/gdal_overview.rs
+  crates/terrio/src/drivers/grib.rs
+  crates/terrio/src/drivers/grib/grib1.rs
+  crates/terrio/src/drivers/grib/names.rs
+  crates/terrio/src/drivers/grib/tables.rs
+  crates/terrio/src/drivers/grib/write.rs
+  crates/terrio/src/drivers/gtiff_write.rs
+  crates/terrio/src/drivers/hdfeos.rs
+  crates/terrio/src/drivers/hfa.rs
+  crates/terrio/src/drivers/hgt.rs
+  crates/terrio/src/drivers/jp2.rs
+  crates/terrio/src/drivers/netcdf.rs
+  crates/terrio/src/drivers/vector/mapinfo.rs
+  crates/terrio/src/drivers/vector/osm.rs
+  crates/terrio/src/drivers/vector/tab.rs
+  crates/terrio/src/gpkg_validation/content.rs
+  crates/terrio/src/gpkg_validation/extensions.rs
+  crates/terrio/src/gpkg_validation/features.rs
+  crates/terrio/src/gpkg_validation/geometry.rs
+  crates/terrio/src/gpkg_validation/gridded.rs
+  crates/terrio/src/gpkg_validation/metadata.rs
+  crates/terrio/src/gpkg_validation/mod.rs
+  crates/terrio/src/gpkg_validation/relations.rs
+  crates/terrio/src/gpkg_validation/rtree.rs
+  crates/terrio/src/gpkg_validation/schema_extension.rs
+  crates/terrio/src/gpkg_validation/tiles.rs
+  crates/terrio/src/gpkg_validation/views.rs
+  crates/terrio/src/histogram.rs
+  crates/terrio/src/ops/blend.rs
+  crates/terrio/src/ops/calc/mod.rs
+  crates/terrio/src/ops/compare.rs
+  crates/terrio/src/ops/contour.rs
+  crates/terrio/src/ops/dem.rs
+  crates/terrio/src/ops/edit.rs
+  crates/terrio/src/ops/enhance.rs
+  crates/terrio/src/ops/fill_nodata.rs
+  crates/terrio/src/ops/gcp.rs
+  crates/terrio/src/ops/lineref.rs
+  crates/terrio/src/ops/mosaic.rs
+  crates/terrio/src/ops/nearblack.rs
+  crates/terrio/src/ops/neighbors.rs
+  crates/terrio/src/ops/overview.rs
+  crates/terrio/src/ops/overview_kernel.rs
+  crates/terrio/src/ops/palette.rs
+  crates/terrio/src/ops/pansharpen.rs
+  crates/terrio/src/ops/pansharpen/blocks.rs
+  crates/terrio/src/ops/partition.rs
+  crates/terrio/src/ops/pixel.rs
+  crates/terrio/src/ops/pixel_info.rs
+  crates/terrio/src/ops/proximity.rs
+  crates/terrio/src/ops/rasterize.rs
+  crates/terrio/src/ops/rpc.rs
+  crates/terrio/src/ops/sieve.rs
+  crates/terrio/src/ops/simplify.rs
+  crates/terrio/src/ops/translate.rs
+  crates/terrio/src/ops/vector_edit.rs
+  crates/terrio/src/ops/vector_geom.rs
+  crates/terrio/src/ops/vector_grid.rs
+  crates/terrio/src/ops/viewshed.rs
+  crates/terrio/src/ops/vrt.rs
+  crates/terrio/src/ops/warp.rs
+  crates/terrio/src/ops/xyz.rs
+  crates/terrio/src/pointcloud/filters/overlay.rs
+  crates/terrio/src/pointcloud/grid.rs
+  crates/terrio/src/stac.rs
+  crates/terrio/src/stacta.rs
+  crates/terrio/src/tiles/pyramid.rs
+  crates/terrio/src/tiles/raster.rs
+  crates/terrio/src/tiles/vector.rs
+  python/python/terrio/pyogrio/_read.py
+  python/python/terrio/pyogrio/_write.py
+  python/python/terrio/rio/_boundless.py
+  python/python/terrio/rio/_jpeg_quality.py
+  python/python/terrio/rio/_resample.py
+  python/python/terrio/rio/io.py
+  python/python/terrio/rio/rpc.py
+  python/python/terrio/rio/transform.py
+  python/python/terrio/rio/vrt.py
+  scripts/compare_vector_dataset_with_gdal.py
+  scripts/compare_vector_geom_with_gdal.py
+
+Additional RPF metadata/index source-layout references:
+  crates/terrio/src/ops/rpftoc.rs
+  crates/terrio/src/ops/rpftoc/frame.rs
+  crates/terrio/src/ops/rpftoc/grid.rs
+  crates/terrio/src/ops/rpftoc/encode.rs
+  crates/terrio/src/ops/rpftoc/series.rs
+
+The copyright notices of those source files:
+  Copyright (c) 2026, T-Kartor
+  Copyright (c) 2017, Even Rouault
+  Copyright (c) 2007, ITC
+  Copyright (c) 2008-2017, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 2000, Frank Warmerdam
+  Copyright (c) 2007-2010, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 1998, Frank Warmerdam
+  Copyright (c) 2007-2014, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2004, Andrey Kiselev <dron@ak4719.spb.edu>
+  Copyright (c) 2008-2009, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2023, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 1999, Intergraph Corporation
+  Copyright (c) 2007-2012, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2005, Frank Warmerdam <warmerdam@pobox.com>
+  Copyright (c) 2007-2011, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2010-2015, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 2015, European Union Satellite Centre
+  Copyright (c) 2004, Frank Warmerdam
+  Copyright (c) 2007-2016, Even Rouault <even.rouault at spatialys.com>
+  Copyright (c) 2010, Kyle Shannon <kyle at pobox dot com>
+  Copyright (c) 2021, CLS
+  Copyright 1999-2003, Daniel Morissette
+  Copyright (c) 1999-2001, Frank Warmerdam
+  Copyright (c) 1999-2002, Daniel Morissette
+  Copyright (c) 2014, Even Rouault <even.rouault at spatialys.com>
+  Copyright (c) 1999-2001, Daniel Morissette
+  Copyright (c) 2017, Even Rouault <even.rouault at spatialys.com>
+  Copyright (c) 2014, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 2007-2016, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 2025, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2009, Frank Warmerdam
+  Copyright (c) 2010, Chris Yesson <chris.yesson@ioz.ac.uk>
+  Copyright (c) 2010-2011, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2016, Piers Titus van der Torren <pierstitus@gmail.com>
+  Copyright (c) 2020, Idan Miara <idan@miara.com>
+  Copyright (c) 1999, Frank Warmerdam
+  Copyright (c) 2007-2013, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2018, Oslandia <infos at oslandia dot com>
+  Copyright (c) 2006, 2009 Matthew Perry
+  Copyright (c) 2009-2013, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2012, Frank Warmerdam
+  Copyright (c) 2021, Idan Miara <idan@miara.com>
+  Copyright (c) 2007, Frank Warmerdam <warmerdam@pobox.com>
+  Copyright (c) 2008, Frank Warmerdam
+  Copyright (c) 2015, Sean Gillies <sean@mapbox.com>
+  Copyright (c) 1992, Michigan State University
+  Copyright (c) 2008-2013, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2004, VIZRT Inc.
+  Copyright (c) 2008-2014, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2004, Frank Warmerdam <warmerdam@pobox.com>
+  Copyright (c) 2011-2013, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2025, Nathan Olson <nathanmolson at gmail dot com>
+  Copyright (c) 2023, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (C) 2014 NextGIS
+  Copyright (c) 2006, MapShots Inc (www.mapshots.com)
+  Copyright (c) 2003, Frank Warmerdam <warmerdam@pobox.com>
+  Copyright (c) 2000, 2007, Frank Warmerdam
+  Copyright (c) 2001, Frank Warmerdam
+  Copyright (c) 2007, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2015, Even Rouault <even.rouault at spatialys.com>
+  Copyright (c) 2015, Airbus DS Geo SA (weighted Brovey algorithm)
+  Copyright (c) 2025, ISciences LLC
+  Copyright (c) 2001, Frank Warmerdam <warmerdam@pobox.com>
+  Copyright (c) 2008-2012, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2024, Javier Jimenez Shaw
+  Copyright (c) 2002, i3 - information integration and imaging Fort Collin, CO
+  Copyright (c) 2009-2010, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2000, Frank Warmerdam <warmerdam@pobox.com>
+  Copyright (c) 2011, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2008-2015, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) HER MAJESTY THE QUEEN IN RIGHT OF CANADA (2008) as represented by the Canadian Nuclear Safety Commission
+  Copyright (c) 2014-2015, NextGIS info@nextgis.ru
+  Copyright (c) 1998, 2002, Frank Warmerdam <warmerdam@pobox.com>
+  Copyright (c) 2007-2015, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 2009-2011, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 1998, 2002, Frank Warmerdam
+  Copyright (c) 2007-2015, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2015, Faza Mahamood
+  Copyright (c) 2011, Andrey Kiselev <dron@ak4719.spb.edu>
+  Copyright (c) 2011-2014, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2008-2014, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 2018-2020, Björn Harrtell <bjorn at wololo dot org>
+  Copyright (c) 2025-2026, ISciences LLC
+  Copyright (c) 2007, Andrey Kiselev <dron@ak4719.spb.edu>
+  Copyright (c) 2015, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 1999-2008, Frank Warmerdam
+  (c) 2024 info@hobu.co
+  Copyright (c) 2002, i3 - information integration and imaging Fort Collins, CO
+  Copyright (c) 2002, Frank Warmerdam <warmerdam@pobox.com>
+  Copyright (c) 2020-2021, Idan Miara <idan@miara.com>
+  Copyright (c) 2021, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2020, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2012-2016, Even Rouault <even.rouault at spatialys.com>
+  Copyright (c) 2018, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 2003, Frank Warmerdam
+  Copyright (c) 2007-2008, Even Rouault <even dot rouault at spatialys.com>
+  Copyright (c) 2019, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 2007, Frank Warmerdam
+  Copyright (c) 2017, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 1998, 2003, Frank Warmerdam
+  Copyright 2007, Mateusz Loskot
+  Copyright 2008-2024, Even Rouault <even.rouault at spatialys.com>
+  Copyright (c) 2007, Mateusz Loskot
+
+In general GDAL/OGR is licensed under an MIT style license with the
+following terms:
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+The GRIB driver in crates/terrio/src/drivers/grib.rs and crates/terrio/src/drivers/grib/ ports
+the rules of GDAL's frmts/grib/gribdataset.cpp, of its copy of NOAA MDL's degrib (naming, levels,
+units, grids) and of NCEP's g2clib (the GRIB2 unpacking and template tables).
+Its GRIB2 writer, crates/terrio/src/drivers/grib/write.rs, ports GDAL's
+frmts/grib/gribcreatecopy.cpp and g2clib's simple packing.
+
+The degrib and g2clib code GDAL bundles (frmts/grib/degrib), from which the GRIB driver's
+rules are ported, is in the public domain. GDAL's LICENSE.TXT says:
+
+The degrib and g2clib source code are modified versions of code produced
+by NOAA NWS and are in the public domain subject to the following
+restrictions:
+
+http://www.weather.gov/im/softa.htm
+
+DISCLAIMER The United States Government makes no warranty, expressed or
+implied, as to the usefulness of the software and documentation for any
+purpose. The U.S. Government, its instrumentalities, officers, employees,
+and agents assumes no responsibility (1) for the use of the software and
+documentation listed below, or (2) to provide technical support to users.
+
+http://www.weather.gov/disclaimer.php
+
+ The information on government servers are in the public domain, unless
+specifically annotated otherwise, and may be used freely by the public so
+long as you do not 1) claim it is your own (e.g. by claiming copyright for
+NWS information -- see below), 2) use it in a manner that implies an
+endorsement or affiliation with NOAA/NWS, or 3) modify it in content and
+then present it as official government material. You also cannot present
+information of your own in a way that makes it appear to be official
+government information..
+
+port/cpl_recode.cpp, from which crates/terrio/src/ops/vector_edit.rs copies the
+CPLUTF8ForceToASCII table, is licensed under these terms instead:
+
+Permission to use, copy, modify, and distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+The retile and publication modules (crates/terrio/src/ops/raster_retile.rs,
+crates/terrio/src/ops/raster_retile/pyramid.rs and
+crates/terrio/src/ops/raster_publication.rs) independently implement behavior
+checked against GDAL's gdal_retile.py and unified raster tile command. Their
+code is not translated from GDAL source. Resampling uses Terrio's shared warp
+kernels, whose source attribution is recorded separately in their headers.
+
+-------------------------------------------------------------------------------
+PROJ (https://github.com/OSGeo/PROJ)
+-------------------------------------------------------------------------------
+
+Terrio files derived from PROJ source files (each file's header names them):
+  crates/terrio-crs/src/datum.rs
+  crates/terrio-crs/src/def.rs
+  crates/terrio-crs/src/grid.rs
+  crates/terrio-crs/src/math.rs
+  crates/terrio-crs/src/projections.rs
+  crates/terrio-crs/src/projections/perspective.rs
+  crates/terrio-crs/src/rotation.rs
+  crates/terrio-crs/src/route.rs
+  crates/terrio/src/drivers/grib.rs
+  scripts/gen_epsg_table.py
+
+The two-point form of the Hotine oblique Mercator follows src/projections/omerc.cpp in PROJ 9.8.1.
+
+The copyright notices of those source files:
+  Copyright (c) 2016, Thomas Knudsen / SDFE
+  Copyright (c) 2017, Kristian Evers
+  Copyright (c) 2019, Even Rouault, <even.rouault at spatialys.com>
+  Copyright (c) 2022, Even Rouault <even.rouault at spatialys.com>
+  Copyright (c) 2018-2024, Even Rouault, <even.rouault at spatialys.com>
+  Copyright (c) 2016, 2017 Thomas Knudsen/SDFE
+  Copyright (c) 2000, Frank Warmerdam
+  Copyright (c) 2018, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 2023, Even Rouault <even dot rouault at spatialys dot com>
+  Copyright (c) 2000, Frank Warmerdam <warmerdam@pobox.com>
+  Copyright (c) 2022, Even Rouault, <even.rouault at spatialys.com>
+  Copyright (c) 2025 Javier Jimenez Shaw
+  Copyright (c) 1995, Gerald Evenden
+  Copyright (c) 2003   Gerald I. Evenden
+  Changes to handle +over are: Copyright 2011-2014 Morelli Informatik
+  Copyright (c) 2003, 2006   Gerald I. Evenden
+  Copyright (c) 2001, Thomas Flemming, tf@ttqv.com
+  Copyright (c) 2004   Gerald I. Evenden
+  Copyright (c) 2012   Martin Raspaud
+  Copyright (c) 2011, 2012  Martin Lambers <marlam@marlam.de>
+  Copyright (c) 2017-2019 Heidelberg University
+
+All source, data files and other contents of the PROJ package are
+available under the following terms.  Note that the PROJ 4.3 and earlier
+was "public domain" as is common with US government work, but apparently
+this is not a well defined legal term in many countries. Frank Warmerdam placed
+everything under the following MIT style license because he believed it is
+effectively the same as public domain, allowing anyone to use the code as
+they wish, including making proprietary derivatives.
+
+Initial PROJ 4.3 public domain code was put as Frank Warmerdam as copyright
+holder, but he didn't mean to imply he did the work. Essentially all work was
+done by Gerald Evenden.
+
+Copyright information can be found in source files.
+
+ --------------
+
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included
+ in all copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ DEALINGS IN THE SOFTWARE.
+
+-------------------------------------------------------------------------------
+JTS Topology Suite (https://github.com/locationtech/jts)
+-------------------------------------------------------------------------------
+
+Terrio files derived from JTS source files (each file's header names them):
+  crates/terrio/src/ops/coverage.rs
+  crates/terrio/src/ops/coverage_simplify.rs
+  crates/terrio/src/ops/coverage_clean.rs
+  crates/terrio/src/ops/hull.rs
+  crates/terrio/src/ops/jts_cdt.rs
+  crates/terrio/src/ops/jts_delaunay.rs
+  crates/terrio/src/ops/simplify.rs
+  crates/terrio/src/ops/strtree.rs
+  crates/terrio/src/tiles/overlay_envelope.rs
+  crates/terrio/src/tiles/validity.rs
+
+The copyright notices of those source files:
+  Copyright (c) 2016 Vivid Solutions.
+  Copyright (c) 2021 Martin Davis.
+  Copyright (c) 2022 Martin Davis.
+  Copyright (c) 2016 Martin Davis.
+  Copyright (c) 2023 Martin Davis.
+  Copyright (c) 2025 Martin Davis.
+  Copyright (c) 2016 Vivid Solutions, and others.
+  Copyright (c) 2020 Martin Davis.
+  Copyright (c) 2019 Martin Davis.
+
+JTS is dual-licensed under the Eclipse Public License 2.0 and the Eclipse Distribution
+License 1.0; Terrio uses it under the Eclipse Distribution License 1.0:
+
+Eclipse Distribution License - v 1.0
+
+Copyright (c) 2007, Eclipse Foundation, Inc. and its licensors.
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+  Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+  Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+  Neither the name of the Eclipse Foundation, Inc. nor the names of its
+  contributors may be used to endorse or promote products derived from this
+  software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-------------------------------------------------------------------------------
+PDAL (https://github.com/PDAL/PDAL)
+-------------------------------------------------------------------------------
+
+Terrio files derived from PDAL source files (each file's header names them):
+  crates/terrio/src/pointcloud/filters.rs
+  crates/terrio/src/pointcloud/filters/csf.rs
+  crates/terrio/src/pointcloud/filters/features.rs
+  crates/terrio/src/pointcloud/filters/ground.rs
+  crates/terrio/src/pointcloud/filters/hexbin.rs
+  crates/terrio/src/pointcloud/filters/neighbourhood.rs
+  crates/terrio/src/pointcloud/filters/tiles.rs
+  crates/terrio/src/pointcloud/grid.rs
+
+The copyright notices of those source files:
+  Copyright (c) 2016-2017, 2020 Bradley J Chambers (brad.chambers@gmail.com)
+  Copyright (c) 2016, Bradley J Chambers (brad.chambers@gmail.com)
+  Copyright (c) 2016-2017, Bradley J Chambers (brad.chambers@gmail.com)
+  Copyright (c) 2017, Bradley J Chambers (brad.chambers@gmail.com)
+  Copyright (c) 2019, Helix.re
+  Copyright 2017 State Key Laboratory of Remote Sensing Science, Institute of Remote Sensing Science and Engineering, Beijing Normal University
+  Copyright (c) 2019, Helix Re Inc. nicolas@helix.re
+  Copyright (c) 2016, 2017, 2019, 2020 Bradley J Chambers (brad.chambers@gmail.com)
+  Copyright (c) 2016-2017, Bradley J. Chambers (brad.chambers@gmail.com)
+  Copyright (c) 2020, Hobu Inc.
+  Copyright (c) 2015-2017, 2020 Bradley J Chambers (brad.chambers@gmail.com)
+  Copyright (c) 2019, Bradley J Chambers (brad.chambers@gmail.com)
+  Copyright (c) 2025, Hobu, Inc. (howard@hobu.co)
+  Copyright (c) 2013, Andrew Bell (andrew.bell.ia@gmail.com)
+  Copyright (c) 2020, University Nevada, Reno
+  Copyright (c) 2010, Andrew Bell
+  Copyright (c) 2016, Hobu Inc. (info@hobu.co)
+
+Unless otherwise indicated, all files in the PDAL distribution are
+
+  Copyright (c) 2025, Hobu, Inc. (howard@hobu.co)
+
+and are released under the terms of the BSD open source license.
+
+This file contains the license terms of all files within PDAL.
+
+Overall PDAL license (BSD)
+===========================
+
+ Copyright (c) 2025, Hobu, Inc. (howard@hobu.co)
+
+ All rights reserved.
+
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following
+ conditions are met:
+
+     * Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+     * Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in
+       the documentation and/or other materials provided
+       with the distribution.
+     * Neither the name of Hobu, Inc. or Flaxen Consulting LLC nor the
+       names of its contributors may be used to endorse or promote
+       products derived from this software without specific prior
+       written permission.
+
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
+ OF SUCH DAMAGE.
+
+The cloth simulation filter (CSF) code PDAL vendors (filters/private/csf) is Licensed under the Apache License, Version 2.0, reproduced at the end of this file.
+
+-------------------------------------------------------------------------------
+nanoflann (as vendored by PDAL) (https://github.com/jlblancoc/nanoflann)
+-------------------------------------------------------------------------------
+
+Terrio files derived from nanoflann source files (each file's header names them):
+  crates/terrio/src/pointcloud/kdtree.rs
+
+The copyright notices of those source files:
+  Copyright 2008-2009  Marius Muja (mariusm@cs.ubc.ca). All rights reserved.
+  Copyright 2008-2009  David G. Lowe (lowe@cs.ubc.ca). All rights reserved.
+  Copyright 2011-2016  Jose Luis Blanco (joseluisblancoc@gmail.com). All rights reserved.
+
+Software License Agreement (BSD License)
+
+Copyright 2008-2009  Marius Muja (mariusm@cs.ubc.ca). All rights reserved.
+Copyright 2008-2009  David G. Lowe (lowe@cs.ubc.ca). All rights reserved.
+Copyright 2011-2016  Jose Luis Blanco (joseluisblancoc@gmail.com).
+  All rights reserved.
+
+THE BSD LICENSE
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-------------------------------------------------------------------------------
+Eigen (https://gitlab.com/libeigen/eigen)
+-------------------------------------------------------------------------------
+
+Terrio files derived from Eigen source files (each file's header names them):
+  crates/terrio/src/pointcloud/filters/selfadjoint.rs
+
+The copyright notices of those source files:
+  Copyright (C) 2008-2010 Gael Guennebaud <gael.guennebaud@inria.fr>
+  Copyright (C) 2010 Jitse Niesen <jitse@maths.leeds.ac.uk>
+  Copyright (C) 2008 Gael Guennebaud <gael.guennebaud@inria.fr>
+  Copyright (C) 2009 Benoit Jacob <jacob.benoit.1@gmail.com>
+  Copyright (C) 2009 Gael Guennebaud <gael.guennebaud@inria.fr>
+
+Licensed under the Mozilla Public License, Version 2.0 (MPL-2.0). The source of the
+Terrio file derived from Eigen is available under the MPL-2.0 at
+https://github.com/opengeos/terrio; the MPL-2.0 text is at
+https://www.mozilla.org/MPL/2.0/.
+
+-------------------------------------------------------------------------------
+rasterio (https://github.com/rasterio/rasterio)
+-------------------------------------------------------------------------------
+
+Terrio files derived from rasterio source files (each file's header names them):
+  python/python/terrio/rio/__init__.py
+  python/python/terrio/rio/_boundless.py
+  python/python/terrio/rio/cli.py
+  python/python/terrio/rio/control.py
+  python/python/terrio/rio/dtypes.py
+  python/python/terrio/rio/enums.py
+  python/python/terrio/rio/features.py
+  python/python/terrio/rio/io.py
+  python/python/terrio/rio/mask.py
+  python/python/terrio/rio/merge.py
+  python/python/terrio/rio/plot.py
+  python/python/terrio/rio/profiles.py
+  python/python/terrio/rio/rio/helpers.py
+  python/python/terrio/rio/rio/overview.py
+  python/python/terrio/rio/rpc.py
+  python/python/terrio/rio/sample.py
+  python/python/terrio/rio/session.py
+  python/python/terrio/rio/stack.py
+  python/python/terrio/rio/transform.py
+  python/python/terrio/rio/vrt.py
+  python/python/terrio/rio/warp.py
+  python/python/terrio/rio/windows.py
+  scripts/rio_examples/mask_by_polygon.py
+  scripts/rio_examples/merge_tiles.py
+  scripts/rio_examples/read_dem.py
+  scripts/rio_examples/reproject.py
+  scripts/rio_examples/windowed_rw.py
+
+The copyright notices of those source files:
+  Copyright (c) 2013-2021, Mapbox
+  Copyright 2022 Planet Labs PBC
+  Copyright (c) 2014 Mapbox
+
+Copyright (c) 2013-2021, Mapbox
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of Mapbox nor the names of its contributors may
+  be used to endorse or promote products derived from this software without
+  specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-------------------------------------------------------------------------------
+python-geojson (through rasterio) (https://github.com/jazzband/geojson)
+-------------------------------------------------------------------------------
+
+Terrio files derived from python-geojson source files (each file's header names them):
+  python/python/terrio/rio/rio/helpers.py
+
+The copyright notices of those source files:
+  Copyright © 2014, contributors of python-geojson
+
+rasterio's coords() comes from python-geojson's geojson/coords.py (commit
+e82d2827110c9fccc5eb51d57076fd707c9a35be), whose LICENSE.rst reads:
+
+Copyright © 2014, contributors of python-geojson
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+-  Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+-  Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+-  Neither the name of the python-geojson nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE CONTRIBUTORS OF PYTHON-GEOJSON BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-------------------------------------------------------------------------------
+rioxarray (https://github.com/corteva/rioxarray)
+-------------------------------------------------------------------------------
+
+Terrio files derived from rioxarray source files (each file's header names them):
+  python/python/terrio/xarray/_accessor.py
+  python/python/terrio/xarray/_backend.py
+  python/python/terrio/xarray/_io.py
+  python/python/terrio/xarray/_merge.py
+  python/python/terrio/xarray/_spatial.py
+  python/python/terrio/xarray/_writer.py
+
+The copyright notices of those source files:
+  Copyright (c) 2019-2025, Corteva Agriscience™
+  Copyright (c) 2019-2026, Vylor™ (rioxarray 0.24.0 and later)
+
+Licensed under the Apache License, Version 2.0, reproduced at the end of this file.
+
+-------------------------------------------------------------------------------
+xarray (through rioxarray) (https://github.com/pydata/xarray)
+-------------------------------------------------------------------------------
+
+Terrio files derived from xarray source files (each file's header names them):
+  python/python/terrio/xarray/_io.py
+
+The copyright notices of those source files:
+  Copyright 2014-2019, xarray Developers
+
+Licensed under the Apache License, Version 2.0, reproduced at the end of this file.
+
+-------------------------------------------------------------------------------
+dask-rasterio (through rioxarray) (https://github.com/dymaxionlabs/dask-rasterio)
+-------------------------------------------------------------------------------
+
+Terrio files derived from dask-rasterio source files (each file's header names them):
+  python/python/terrio/xarray/_writer.py
+
+The copyright notices of those source files:
+  Copyright (c) 2018, Dymaxion Labs
+
+BSD 2-Clause License
+
+Copyright (c) 2018, Dymaxion Labs
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of AP-Latam nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-------------------------------------------------------------------------------
+pyproj (https://github.com/pyproj4/pyproj)
+-------------------------------------------------------------------------------
+
+Terrio files derived from pyproj source files (each file's header names them):
+  python/python/terrio/xarray/_crs.py
+
+The copyright notices of those source files:
+  Copyright (c) 2006-2018, Jeffrey Whitaker.
+  Copyright (c) 2019-2024, Open source contributors.
+
+Copyright (c) 2006-2018, Jeffrey Whitaker.
+Copyright (c) 2019-2024, Open source contributors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+-------------------------------------------------------------------------------
+pyogrio (https://github.com/geopandas/pyogrio)
+-------------------------------------------------------------------------------
+
+Terrio files derived from pyogrio source files (each file's header names them):
+  python/python/terrio/pyogrio/__init__.py
+  python/python/terrio/pyogrio/_read.py
+  python/python/terrio/pyogrio/errors.py
+
+The copyright notices of those source files:
+  Copyright (c) 2020-2024 Brendan C. Ward and pyogrio contributors
+
+MIT License
+
+Copyright (c) 2020-2024 Brendan C. Ward and pyogrio contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+rio-cogeo (https://github.com/cogeotiff/rio-cogeo)
+-------------------------------------------------------------------------------
+
+Terrio files derived from rio-cogeo source files (each file's header names them):
+  crates/terrio/src/cog_validate.rs
+
+The copyright notices of those source files:
+  Copyright (c) 2021, cogeotiff
+
+BSD 3-Clause License
+
+Copyright (c) 2021, cogeotiff
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-------------------------------------------------------------------------------
+libjpeg-turbo (https://github.com/libjpeg-turbo/libjpeg-turbo)
+-------------------------------------------------------------------------------
+
+Terrio files derived from libjpeg-turbo source files (each file's header names them):
+  crates/terrio/src/jpeg.rs
+
+The copyright notices of those source files:
+  Copyright (C) 1991-1998, Thomas G. Lane.
+  Copyright (C) 2015, 2020, 2022, 2026, D. R. Commander.
+  Copyright (C) 1991-1996, Thomas G. Lane.
+  Copyright 2009 Pierre Ossman <ossman@cendio.se> for Cendio AB
+  Copyright (C) 2010, 2015-2016, 2022, 2024-2026, D. R. Commander.
+  Copyright (C) 2015, Google, Inc.
+  Copyright (C) 2019-2020, Arm Limited.
+  Copyright (C) 1991-1997, Thomas G. Lane.
+  Copyright (C) 2009, 2011-2012, 2014-2015, 2022, 2024-2025, D. R. Commander.
+  Copyright (C) 2013, Linaro Limited.
+  Copyright (C) 1994-1998, Thomas G. Lane.
+  Copyright (C) 1999, Ken Murchison.
+  Copyright (C) 2016, 2022, 2024-2026, D. R. Commander.
+
+libjpeg-turbo Licenses
+======================
+
+libjpeg-turbo is covered by two compatible BSD-style open source licenses:
+
+- The IJG (Independent JPEG Group) License, which is listed in
+  [README.ijg](README.ijg)
+
+  This license applies to the libjpeg API library and associated programs,
+  including any code inherited from libjpeg and any modifications to that
+  code.
+
+- The Modified (3-clause) BSD License, which is listed below
+
+  This license applies to the TurboJPEG API library and associated programs,
+  [libspng](https://libspng.org) (which is used by cjpeg and djpeg), and the
+  build/test system.
+
+  * The TurboJPEG API library wraps the libjpeg API library, so in the context
+    of the overall TurboJPEG API library, both the terms of the IJG License and
+    the terms of the Modified (3-clause) BSD License apply.
+  * cjpeg and djpeg use libspng, so in the context of those programs, both the
+    terms of the IJG License and the terms of the Modified (3-clause) BSD
+    License apply.
+
+Component Licenses
+==================
+
+Some of libjpeg-turbo's modules and internal dependencies are covered by less
+restrictive licenses, but in the context of libjpeg-turbo as a whole, the terms
+of the less restrictive licenses are subsumed by either the IJG License or the
+Modified BSD License.  (In other words, the terms of the less restrictive
+licenses are satisfied if the terms of the IJG and Modified BSD Licenses are
+satisfied.)
+
+- The libjpeg-turbo SIMD source code and zlib are covered by the
+  [zlib License](https://spdx.org/licenses/Zlib.html), which is subsumed by the
+  IJG License in the context of the cjpeg and djpeg programs and the libjpeg
+  API library.
+
+- Some of the libspng source code is covered by the
+  [PNG Reference Library License v2](https://spdx.org/licenses/libpng-2.0.html),
+  which is subsumed by the IJG License in the context of the cjpeg and djpeg
+  programs and the TurboJPEG API library.
+
+- Most of the libspng source code is covered by the
+  [Simplified (2-clause) BSD License](https://spdx.org/licenses/BSD-2-Clause.html),
+  which is subsumed by the Modified BSD License in the context of the cjpeg and
+  djpeg programs and the TurboJPEG API library.
+
+Complying with the libjpeg-turbo Licenses
+=========================================
+
+This section provides a roll-up of the libjpeg-turbo licensing terms, to the
+best of our understanding.  This is not a license in and of itself.  It is
+intended solely for clarification.
+
+1.  If you are distributing a modified version of the libjpeg-turbo source,
+    then:
+
+    1.  You cannot alter or remove any existing copyright or license notices
+        from the source.
+
+        **Origin**
+        - Clause 1 of the IJG License
+        - Clause 1 of the Modified BSD License
+
+    2.  You must add your own copyright notice to the header of each source
+        file you modified, so others can tell that you modified that file.  (If
+        there is not an existing copyright header in that file, then you can
+        simply add a notice stating that you modified the file.)
+
+        **Origin**
+        - Clause 1 of the IJG License
+
+    3.  You must include the IJG README file, and you must not alter any of the
+        copyright or license text in that file.
+
+        **Origin**
+        - Clause 1 of the IJG License
+
+2.  If you are distributing only libjpeg-turbo binaries without the source, or
+    if you are distributing an application that statically links with
+    libjpeg-turbo, then:
+
+    1.  Your product documentation must include a message stating:
+
+        This software is based in part on the work of the Independent JPEG
+        Group.
+
+        **Origin**
+        - Clause 2 of the IJG license
+
+    2.  If your binary distribution includes or uses the TurboJPEG API or
+        associated programs, cjpeg, or djpeg, then your product documentation
+        must include the text of the Modified BSD License (see below.)
+
+        **Origin**
+        - Clause 2 of the Modified BSD License
+
+3.  You cannot use the name of the IJG or The libjpeg-turbo Project or the
+    contributors thereof in advertising, publicity, etc.
+
+    **Origin**
+    - IJG License
+    - Clause 3 of the Modified BSD License
+
+4.  The authors and distributors do not warrant libjpeg-turbo to be free of
+    defects, nor do we accept any liability for undesirable consequences
+    resulting from your use of the software.
+
+    **Origin**
+    - IJG License
+    - Modified BSD License
+
+The Modified (3-clause) BSD License
+===================================
+
+Copyright (C) 2009-2026 D. R. Commander<br>
+Copyright (C) 2018-2023 Randy <randy408@protonmail.com>
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+- Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+- Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+- Neither the name of the libjpeg-turbo Project nor the names of its
+  contributors may be used to endorse or promote products derived from this
+  software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS",
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+-------------------------------------------------------------------------------
+libavif (https://github.com/AOMediaCodec/libavif)
+-------------------------------------------------------------------------------
+
+Terrio files derived from libavif source files (each file's header names them):
+  crates/terrio/src/avif.rs
+
+The copyright notices of those source files:
+  Copyright 2019 Joe Drago. All rights reserved.
+
+Copyright 2019 Joe Drago. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+c-blosc (https://github.com/Blosc/c-blosc)
+-------------------------------------------------------------------------------
+
+Terrio files derived from c-blosc source files (each file's header names them):
+  crates/terrio/src/drivers/zarr.rs
+
+The copyright notices of those source files:
+  Copyright (c) 2021  The Blosc Developers <blosc@blosc.org>
+
+BSD License
+
+For Blosc - A blocking, shuffling and lossless compression library
+
+Copyright (c) 2009-2018 Francesc Alted <francesc@blosc.org>
+Copyright (c) 2019-present Blosc Development Team <blosc@blosc.org>
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+ * Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+ * Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+ * Neither the name Francesc Alted nor the names of its contributors may be used
+   to endorse or promote products derived from this software without specific
+   prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+blosclz.c is based on FastLZ, whose licence c-blosc ships as LICENSES/FASTLZ.txt:
+
+FastLZ - Byte-aligned LZ77 compression library
+Copyright (C) 2005-2020 Ariya Hidayat <ariya.hidayat@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+-------------------------------------------------------------------------------
+geolibre-rust (https://github.com/opengeos/geolibre-rust)
+-------------------------------------------------------------------------------
+
+Terrio files derived from geolibre-rust source files (each file's header names them):
+  crates/terrio/src/tiles/pmtiles.rs
+
+The copyright notices of those source files:
+  Copyright (c) 2026 Qiusheng Wu
+
+MIT License
+
+Copyright (c) 2026 Qiusheng Wu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+lerc-rust (lerc-reader) (https://crates.io/crates/lerc-reader)
+-------------------------------------------------------------------------------
+
+Terrio files derived from lerc-rust source files (each file's header names them):
+  crates/terrio/src/tiff_codecs.rs
+
+Licensed under MIT OR Apache-2.0; Terrio uses it under the MIT License.
+
+-------------------------------------------------------------------------------
+ras-commander (https://github.com/gpt-cmdr/ras-commander)
+-------------------------------------------------------------------------------
+
+Terrio files derived from ras-commander source files (each file's header names them):
+  scripts/hecras_oracle.py
+
+The copyright notices of those source files:
+  Copyright (c) 2024 William M. Katzenmeyer
+
+MIT License
+
+Copyright (c) 2024 William M. Katzenmeyer
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+SQLite (https://sqlite.org)
+-------------------------------------------------------------------------------
+
+Terrio files derived from SQLite source files (each file's header names them):
+  crates/terrio/src/drivers/vector/gpkg_inplace.rs
+  crates/terrio/src/gpkg_validation/integrity.rs
+  crates/terrio/src/gpkg_validation/sqlite_expr/compound.rs
+
+SQLite is in the public domain (https://www.sqlite.org/copyright.html). Its source
+files carry this notice:
+
+  The author disclaims copyright to this source code.  In place of
+  a legal notice, here is a blessing:
+
+    May you do good and not evil.
+    May you find forgiveness for yourself and forgive others.
+    May you share freely, never taking more than you give.
+
+-------------------------------------------------------------------------------
+libtiff (through GDAL's palette quantization)
+-------------------------------------------------------------------------------
+
+GDAL's median-cut implementation acknowledges libtiff's tiffmedian.c as its
+original basis. The upstream libtiff copyright and permission notice is
+reproduced here (https://gitlab.com/libtiff/libtiff/-/blob/v4.0.10/COPYRIGHT):
+
+Copyright (c) 1988-1997 Sam Leffler
+Copyright (c) 1991-1997 Silicon Graphics, Inc.
+
+Permission to use, copy, modify, distribute, and sell this software and
+its documentation for any purpose is hereby granted without fee, provided
+that (i) the above copyright notices and this permission notice appear in
+all copies of the software and related documentation, and (ii) the names of
+Sam Leffler and Silicon Graphics may not be used in any advertising or
+publicity relating to the software without the specific, prior written
+permission of Sam Leffler and Silicon Graphics.
+
+THE SOFTWARE IS PROVIDED "AS-IS" AND WITHOUT WARRANTY OF ANY KIND,
+EXPRESS, IMPLIED OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY
+WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+IN NO EVENT SHALL SAM LEFFLER OR SILICON GRAPHICS BE LIABLE FOR
+ANY SPECIAL, INCIDENTAL, INDIRECT OR CONSEQUENTIAL DAMAGES OF ANY KIND,
+OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER OR NOT ADVISED OF THE POSSIBILITY OF DAMAGE, AND ON ANY THEORY OF
+LIABILITY, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+OF THIS SOFTWARE.
+
+-------------------------------------------------------------------------------
+CPython (https://github.com/python/cpython)
+-------------------------------------------------------------------------------
+
+Terrio files derived from CPython source files (each file's header names them):
+  crates/terrio/src/drivers/vector/shapefile_codepages.rs
+
+The copyright notices of those source files:
+  Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013,
+  2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023 Python Software Foundation; All
+  Rights Reserved
+
+The single-byte code page tables of the Shapefile driver are the decoding tables of CPython
+3.12.12's codecs (Lib/encodings). The changes made to them: only their upper halves (bytes 0x80
+to 0xFF) are kept, written as Rust arrays, and the bytes a code page leaves undefined (U+FFFE in
+CPython's tables) are U+FFFF. They are used under the Python Software Foundation License Version 2:
+
+PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
+--------------------------------------------
+
+1. This LICENSE AGREEMENT is between the Python Software Foundation
+("PSF"), and the Individual or Organization ("Licensee") accessing and
+otherwise using this software ("Python") in source or binary form and
+its associated documentation.
+
+2. Subject to the terms and conditions of this License Agreement, PSF hereby
+grants Licensee a nonexclusive, royalty-free, world-wide license to reproduce,
+analyze, test, perform and/or display publicly, prepare derivative works,
+distribute, and otherwise use Python alone or in any derivative version,
+provided, however, that PSF's License Agreement and PSF's notice of copyright,
+i.e., "Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023 Python Software Foundation;
+All Rights Reserved" are retained in Python alone or in any derivative version
+prepared by Licensee.
+
+3. In the event Licensee prepares a derivative work that is based on
+or incorporates Python or any part thereof, and wants to make
+the derivative work available to others as provided herein, then
+Licensee hereby agrees to include in any such work a brief summary of
+the changes made to Python.
+
+4. PSF is making Python available to Licensee on an "AS IS"
+basis.  PSF MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, PSF MAKES NO AND
+DISCLAIMS ANY REPRESENTATION OR WARRANTY OF MERCHANTABILITY OR FITNESS
+FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF PYTHON WILL NOT
+INFRINGE ANY THIRD PARTY RIGHTS.
+
+5. PSF SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON
+FOR ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS
+A RESULT OF MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON,
+OR ANY DERIVATIVE THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
+
+6. This License Agreement will automatically terminate upon a material
+breach of its terms and conditions.
+
+7. Nothing in this License Agreement shall be deemed to create any
+relationship of agency, partnership, or joint venture between PSF and
+Licensee.  This License Agreement does not grant permission to use PSF
+trademarks or trade name in a trademark sense to endorse or promote
+products or services of Licensee, or any third party.
+
+8. By copying, installing or otherwise using Python, Licensee
+agrees to be bound by the terms and conditions of this License
+Agreement.
+
+-------------------------------------------------------------------------------
+Independent implementations
+-------------------------------------------------------------------------------
+
+The deferred linework MakeValid implementation and its helpers formerly in
+crates/terrio/src/tiles/valid.rs have been removed. The replacement in
+crates/terrio/src/tiles/repair/ was independently implemented against a behavioral
+specification and executable reference observations, under a documented isolated
+process. It is part of Terrio's MIT-licensed code, not part of the JTS ports above.
+See docs/make-valid-implementation.md for task-local provenance, validation and
+limitations. This record makes no repository-wide licensing certification.
+
+SOZip specification
+
+The independent implementation in crates/terrio/src/vsi/sozip.rs follows version 0.5.0
+of the SOZip specification by Even Rouault (2023):
+https://github.com/sozip/sozip-spec/blob/master/sozip_specification.md
+The specification is licensed under CC BY 4.0:
+https://creativecommons.org/licenses/by/4.0/
+Its license notice explicitly excludes source and binary code derived from the
+specification from the scope of its copyrighted material.
+The independent chunk decoding step adapts Annex F under its offered CC0-1.0 option.
+
+The original Rust SQLite page/overflow layout and pointer-map implementations in
+crates/terrio/src/drivers/sqlite_edit.rs and sqlite_repack.rs follow SQLite's file-format
+documentation: https://www.sqlite.org/fileformat2.html
+
+-------------------------------------------------------------------------------
+GRIB tables and test files
+-------------------------------------------------------------------------------
+
+crates/terrio/data/grib2.tsv.zst and crates/terrio/src/drivers/grib/grib1.tsv.zst hold the GRIB
+tables GDAL distributes: its GRIB2 CSV tables (frmts/grib/data), and degrib's GRIB1 tables from
+grib1tab.cpp. GDAL's merge_degrib_and_wmo_tables.py (Copyright (C) 2021 Even Rouault, MIT)
+generates the GRIB2 tables from NOAA's degrib tables (public domain; see the GDAL section) and the
+WMO's GRIB2 tables
+(https://github.com/wmo-im/GRIB2), whose license reads:
+
+  Copyright © 2020-2024
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+Twenty-three GRIB files of GDAL's test suite (autotest/gdrivers/data/grib in GDAL 3.13.3), listed in
+REUSE.toml, are among terrio's test files in crates/terrio/tests/data/grib. They carry no
+copyright line and are distributed under GDAL's license. The other four, complex_missing.grib2,
+complex_sd2_missing.grib2, jpeg2000_lcc.grib2 and png_vis.grib2, were written with GDAL from a
+NOAA HRRR forecast field, in the public domain.
+
+-------------------------------------------------------------------------------
+EPSG Geodetic Parameter Dataset
+-------------------------------------------------------------------------------
+
+crates/terrio-crs/data/epsg.tsv.zst, datums.tsv.zst, epsg_vertical.tsv.zst and point_motion.tsv,
+and the EPSG definitions in crates/terrio-crs/data/esri.tsv.zst, are derived from the EPSG
+Geodetic Parameter Dataset (https://epsg.org), owned by the International Association of Oil &
+Gas Producers (IOGP), through PROJ's database and GDAL. They are redistributed under the EPSG
+Dataset Terms of Use (https://epsg.org/terms-of-use.html), with this attribution. They are not the EPSG Dataset itself, and
+terrio is not endorsed by IOGP. The EPSG method and parameter names and codes in
+crates/terrio-crs/src/projjson_write.rs and crates/terrio/src/drivers/vector/projjson.rs come
+from the same dataset.
+crates/terrio-crs/src/projjson_db.tsv.zst is derived from the same dataset (EPSG v12.029), through
+PROJ 9.7.1's database, under the same terms; the EPSG method and parameter names and codes in
+crates/terrio-crs/src/projjson_gdal.rs come from it too.
+
+-------------------------------------------------------------------------------
+Esri projection engine data
+-------------------------------------------------------------------------------
+
+crates/terrio-crs/data/esri.tsv.zst, and the Esri datum names in
+crates/terrio-crs/data/datums.tsv.zst, are derived, through PROJ 9.7.1's database, from Esri's
+projection engine documentation (https://github.com/Esri/projection-engine-db-doc), modified.
+
+  Copyright © 2010-2025 Esri
+
+Licensed under the Apache License, Version 2.0, reproduced at the end of this file.
+
+-------------------------------------------------------------------------------
+Esri FeatureCollection protocol buffer (https://github.com/Esri/arcgis-pbf)
+-------------------------------------------------------------------------------
+
+crates/terrio/src/drivers/vector/esripbf.rs reads the format that Esri's FeatureCollection.proto
+(proto/FeatureCollection/FeatureCollection.proto) defines, following its message and field numbers.
+No code is copied from it.
+
+  Copyright 2021 Esri
+
+Licensed under the Apache License, Version 2.0, reproduced at the end of this file.
+
+-------------------------------------------------------------------------------
+IAU_2015 definitions
+-------------------------------------------------------------------------------
+
+crates/terrio-crs/data/iau.tsv.zst and iau-source.json are derived from PROJ 9.8.1's
+data/sql/iau.sql, Git blob 900564ccf2e1f77fb708ddc2c8544843b29bc24a, generated by
+scripts/build_db_from_iau.py (Copyright (c) 2021, Hobu Inc; author Even Rouault), under PROJ's
+license (see the PROJ section). The source planetary reference is the IAU Working Group report
+at https://doi.org/10.1007/s10569-017-9805-5 .
+
+-------------------------------------------------------------------------------
+CRS benchmark reference data
+-------------------------------------------------------------------------------
+
+The pair-4979-4978, pair-mars-iau, form-27700-projjson, seed-tpers, edge-tpers-back,
+seed-igh, seed-ob_tran-moll, method-qsc, method-healpix, method-rhealpix and method-omerc-2pt numeric fixtures are from Michael Sumner's rust-proj-capability
+(https://github.com/mdsumner/rust-proj-capability), revision
+ddd9fac70ec370acd9651ebb8b46035207347ad5, generated with PROJ 9.9.0.
+The CRS-study oracle version is retained separately from projection-suite data.
+The repository carries no license yet; terrio has asked its author for one (see
+LICENSES/LicenseRef-rust-proj-capability.txt in https://github.com/opengeos/terrio).
+
+-------------------------------------------------------------------------------
+ras-commander-fast-hdf test fixtures
+-------------------------------------------------------------------------------
+
+The following files in crates/terrio/tests/data/hecras/ are copied unchanged
+from ras-commander-fast-hdf:
+https://github.com/gpt-cmdr/ras-commander-fast-hdf
+
+- coverage_mesh.h5, coverage_mesh_nogroups.h5 and coverage_mesh_nogeometry.h5:
+  tests/fixtures/coverage/ at commit
+  d6d52f41cb0ef0d4170f60db25d28e01dd543ecd.
+- pipes.h5 and terrain.h5:
+  tests/fixtures/terrio_io/ at commit
+  794b8f949f2179f0f9fcdb51417e3c97778c2358.
+
+results_mesh_xs.h5 is derived from coverage_mesh.h5 by
+scripts/make_hecras_fixture.py, results_two_areas.h5 from results_mesh_xs.h5 by
+scripts/make_hecras_area_fixture.py, and large_projection.h5 and
+large_root_attribute.h5 from pipes.h5 by scripts/make_hecras_root_fixtures.py.
+These fixtures are synthetic and contain no model data.
+
+  Copyright (c) 2024 CLB Engineering Corporation
+
+  Licensed under the MIT License (the terms reproduced in the GDAL section).
+
+-------------------------------------------------------------------------------
+Apache Arrow
+-------------------------------------------------------------------------------
+
+terrio's packages and binaries are built with the Rust implementation of Apache Arrow and
+Parquet (https://github.com/apache/arrow-rs), whose NOTICE reads:
+
+  Apache Arrow
+  Copyright 2016-2026 The Apache Software Foundation
+
+  This product includes software developed at
+  The Apache Software Foundation (http://www.apache.org/).
+
+  This product includes software from the chronoutil crate (MIT)
+   * Copyright (c) 2020-2022 Oliver Margetts
+   * https://github.com/olliemath/chronoutil
+
+  This product includes software from the compact-thrift project (Apache 2.0)
+   * Copyright Jörn Horstmann
+   * https://github.com/jhorstmann/compact-thrift
+
+-------------------------------------------------------------------------------
+Independent JPEG Group
+-------------------------------------------------------------------------------
+
+terrio writes JPEG with the jpeg-encoder crate, which contains code under the IJG license:
+this software is based in part on the work of the Independent JPEG Group.
+
+-------------------------------------------------------------------------------
+acadrust / ACadSharp
+-------------------------------------------------------------------------------
+
+DWG and DXF codecs are supplied by the acadrust dependency
+(https://github.com/hakanaktt/acadrust), licensed under MPL-2.0. Its source and
+license are available from that repository and crates.io. Terrio's CAD adapter
+contains no copied acadrust code. The memory64 build adjusts
+the dependency's target guards to recognize WebAssembly's 64-bit target. The dependency's DWG codecs include ports from
+ACadSharp. The following notice is reproduced from acadrust's THIRD_PARTY_NOTICES.md.
+
+Copyright (c) 2021 Albert Domenech
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+Apache License, Version 2.0
+-------------------------------------------------------------------------------
+
+The license of the Apache-2.0 code and data credited above:
+
+Apache License
+Version 2.0, January 2004
+http://www.apache.org/licenses/
+
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+1. Definitions.
+
+"License" shall mean the terms and conditions for use, reproduction, and distribution as defined by Sections 1 through 9 of this document.
+
+"Licensor" shall mean the copyright owner or entity authorized by the copyright owner that is granting the License.
+
+"Legal Entity" shall mean the union of the acting entity and all other entities that control, are controlled by, or are under common control with that entity. For the purposes of this definition, "control" means (i) the power, direct or indirect, to cause the direction or management of such entity, whether by contract or otherwise, or (ii) ownership of fifty percent (50%) or more of the outstanding shares, or (iii) beneficial ownership of such entity.
+
+"You" (or "Your") shall mean an individual or Legal Entity exercising permissions granted by this License.
+
+"Source" form shall mean the preferred form for making modifications, including but not limited to software source code, documentation source, and configuration files.
+
+"Object" form shall mean any form resulting from mechanical transformation or translation of a Source form, including but not limited to compiled object code, generated documentation, and conversions to other media types.
+
+"Work" shall mean the work of authorship, whether in Source or Object form, made available under the License, as indicated by a copyright notice that is included in or attached to the work (an example is provided in the Appendix below).
+
+"Derivative Works" shall mean any work, whether in Source or Object form, that is based on (or derived from) the Work and for which the editorial revisions, annotations, elaborations, or other modifications represent, as a whole, an original work of authorship. For the purposes of this License, Derivative Works shall not include works that remain separable from, or merely link (or bind by name) to the interfaces of, the Work and Derivative Works thereof.
+
+"Contribution" shall mean any work of authorship, including the original version of the Work and any modifications or additions to that Work or Derivative Works thereof, that is intentionally submitted to Licensor for inclusion in the Work by the copyright owner or by an individual or Legal Entity authorized to submit on behalf of the copyright owner. For the purposes of this definition, "submitted" means any form of electronic, verbal, or written communication sent to the Licensor or its representatives, including but not limited to communication on electronic mailing lists, source code control systems, and issue tracking systems that are managed by, or on behalf of, the Licensor for the purpose of discussing and improving the Work, but excluding communication that is conspicuously marked or otherwise designated in writing by the copyright owner as "Not a Contribution."
+
+"Contributor" shall mean Licensor and any individual or Legal Entity on behalf of whom a Contribution has been received by Licensor and subsequently incorporated within the Work.
+
+2. Grant of Copyright License. Subject to the terms and conditions of this License, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare Derivative Works of, publicly display, publicly perform, sublicense, and distribute the Work and such Derivative Works in Source or Object form.
+
+3. Grant of Patent License. Subject to the terms and conditions of this License, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable (except as stated in this section) patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Work, where such license applies only to those patent claims licensable by such Contributor that are necessarily infringed by their Contribution(s) alone or by combination of their Contribution(s) with the Work to which such Contribution(s) was submitted. If You institute patent litigation against any entity (including a cross-claim or counterclaim in a lawsuit) alleging that the Work or a Contribution incorporated within the Work constitutes direct or contributory patent infringement, then any patent licenses granted to You under this License for that Work shall terminate as of the date such litigation is filed.
+
+4. Redistribution. You may reproduce and distribute copies of the Work or Derivative Works thereof in any medium, with or without modifications, and in Source or Object form, provided that You meet the following conditions:
+
+     (a) You must give any other recipients of the Work or Derivative Works a copy of this License; and
+
+     (b) You must cause any modified files to carry prominent notices stating that You changed the files; and
+
+     (c) You must retain, in the Source form of any Derivative Works that You distribute, all copyright, patent, trademark, and attribution notices from the Source form of the Work, excluding those notices that do not pertain to any part of the Derivative Works; and
+
+     (d) If the Work includes a "NOTICE" text file as part of its distribution, then any Derivative Works that You distribute must include a readable copy of the attribution notices contained within such NOTICE file, excluding those notices that do not pertain to any part of the Derivative Works, in at least one of the following places: within a NOTICE text file distributed as part of the Derivative Works; within the Source form or documentation, if provided along with the Derivative Works; or, within a display generated by the Derivative Works, if and wherever such third-party notices normally appear. The contents of the NOTICE file are for informational purposes only and do not modify the License. You may add Your own attribution notices within Derivative Works that You distribute, alongside or as an addendum to the NOTICE text from the Work, provided that such additional attribution notices cannot be construed as modifying the License.
+
+     You may add Your own copyright statement to Your modifications and may provide additional or different license terms and conditions for use, reproduction, or distribution of Your modifications, or for any such Derivative Works as a whole, provided Your use, reproduction, and distribution of the Work otherwise complies with the conditions stated in this License.
+
+5. Submission of Contributions. Unless You explicitly state otherwise, any Contribution intentionally submitted for inclusion in the Work by You to the Licensor shall be under the terms and conditions of this License, without any additional terms or conditions. Notwithstanding the above, nothing herein shall supersede or modify the terms of any separate license agreement you may have executed with Licensor regarding such Contributions.
+
+6. Trademarks. This License does not grant permission to use the trade names, trademarks, service marks, or product names of the Licensor, except as required for reasonable and customary use in describing the origin of the Work and reproducing the content of the NOTICE file.
+
+7. Disclaimer of Warranty. Unless required by applicable law or agreed to in writing, Licensor provides the Work (and each Contributor provides its Contributions) on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied, including, without limitation, any warranties or conditions of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE. You are solely responsible for determining the appropriateness of using or redistributing the Work and assume any risks associated with Your exercise of permissions under this License.
+
+8. Limitation of Liability. In no event and under no legal theory, whether in tort (including negligence), contract, or otherwise, unless required by applicable law (such as deliberate and grossly negligent acts) or agreed to in writing, shall any Contributor be liable to You for damages, including any direct, indirect, special, incidental, or consequential damages of any character arising as a result of this License or out of the use or inability to use the Work (including but not limited to damages for loss of goodwill, work stoppage, computer failure or malfunction, or any and all other commercial damages or losses), even if such Contributor has been advised of the possibility of such damages.
+
+9. Accepting Warranty or Additional Liability. While redistributing the Work or Derivative Works thereof, You may choose to offer, and charge a fee for, acceptance of support, warranty, indemnity, or other liability obligations and/or rights consistent with this License. However, in accepting such obligations, You may act only on Your own behalf and on Your sole responsibility, not on behalf of any other Contributor, and only if You agree to indemnify, defend, and hold each Contributor harmless for any liability incurred by, or claims asserted against, such Contributor by reason of your accepting any such warranty or additional liability.
+
+END OF TERMS AND CONDITIONS
+
+APPENDIX: How to apply the Apache License to your work.
+
+To apply the Apache License to your work, attach the following boilerplate notice, with the fields enclosed by brackets "[]" replaced with your own identifying information. (Don't include the brackets!)  The text should be enclosed in the appropriate comment syntax for the file format. We also recommend that a file or class name and description of purpose be included on the same "printed page" as the copyright notice for easier identification within third-party archives.
+
+Copyright [yyyy] [name of copyright owner]
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+-------------------------------------------------------------------------------
+OGC CityGML schemas (https://schemas.opengis.net/citygml/)
+-------------------------------------------------------------------------------
+
+The generated CityGML writer profile tables in
+crates/terrio/src/drivers/vector/citygml_write_profiles.rs record element names,
+substitution relationships and property ordering from the published OGC CityGML
+2.0 and 3.0 schemas. The generator and encoder are original Terrio code; schema
+text and documentation are not bundled. The schemas and standards are published
+by the Open Geospatial Consortium. See scripts/generate_citygml_writer_profiles.py
+for the reproducible extraction procedure.
+
+GDAL raster management and overview algorithms
+--------------------------------------------
+The tile AVERAGE fractional footprint and accumulation arithmetic in
+crates/terrio/src/tiles/pyramid.rs and crates/terrio/src/tiles/raster.rs
+follows GDAL 3.13 gcore/overview.cpp
+(GDALResampleChunk_AverageOrRMS_T), with the source copyrights below.
+Source: https://github.com/OSGeo/gdal/blob/v3.13.3/gcore/overview.cpp
+
+GDAL raster-management source copyrights (MIT):
+- gcore/overview.cpp: Copyright (c) 2000, Frank Warmerdam;
+  Copyright (c) 2007-2010, Even Rouault <even dot rouault at spatialys.com>
+- frmts/gtiff/gtiffdataset_write.cpp: Copyright (c) 1998, 2002, Frank Warmerdam;
+  Copyright (c) 2007-2015, Even Rouault
+- swig/python/gdal-utils/osgeo_utils/gdal_edit.py:
+  Copyright (c) 2011-2013, Even Rouault
+- swig/python/gdal-utils/osgeo_utils/gdalmove.py:
+  Copyright (c) 2012, Frank Warmerdam; Copyright (c) 2021, Idan Miara
+Licensed under the MIT permission and warranty terms reproduced above for GDAL.
