@@ -12,12 +12,13 @@ function unique(rows, key, expected) {
   assert.equal(rows.length, expected.length, 'missing or extra samples');
   assert.deepEqual(rows.map(key).sort(), expected.toSorted(), 'duplicate or missing sample key');
 }
-export function audit(report) {
+export function audit(report, profile='full') {
+  assert.ok(['full','webkit-stress'].includes(profile),'unknown audit profile');
   assert.equal(report.completed,true,'runner cleanup did not complete successfully');
   assert.ok(Number.isFinite(Date.parse(report.finished))&&Date.parse(report.finished)>=Date.parse(report.started),'missing or invalid completion timestamp');
   assert.ok(Number.isInteger(report.trials) && report.trials > 0);
-  assert.ok(Number.isInteger(report.cycles) && report.cycles >= 4);
-  unique(report.engines,e=>e.engine,['chromium','firefox','webkit']);
+  assert.ok(Number.isInteger(report.cycles) && report.cycles >= (profile==='full'?4:80));
+  unique(report.engines,e=>e.engine,profile==='full'?['chromium','firefox','webkit']:['webkit']);
   const cycles = Array.from({length:report.trials},(_,t)=>Array.from({length:report.cycles},(_,c)=>`${t}/${c}`)).flat();
   const first = Array.from({length:report.trials},(_,t)=>['cold','warm'].map(p=>`${t}/${p}`)).flat();
   const results = [];
@@ -89,11 +90,25 @@ export function audit(report) {
       results.push({engine:e.engine,decoder,metrics,dryRenderedFrames:dry.length,rssEndpointBytes:stats(totals),rssFirstBytes:totals[0],rssLastBytes:totals.at(-1),wasmCapacityBytes:stats(switches.map(s=>s.done.timings.wasmCapacityBytes)),sparseBytes:stats(switches.map(s=>s.state.sparseBytes))});
     }
   }
+  if(profile==='webkit-stress') {
+    assert.equal(report.postCloseDelayMs,1000,'stress context-close delay must be explicit');
+    const expected=decoders.flatMap(decoder=>Array.from({length:report.trials},(_,trial)=>`${decoder}/${trial}`));
+    unique(report.engines[0].contextClosed,s=>`${s.decoder}/${s.trial}`,expected);
+    for(const row of report.engines[0].contextClosed) {
+      assert.ok(Array.isArray(row.processes)&&row.processes.length);
+      for(const p of row.processes)assert.ok(Number.isFinite(p.WorkingSet64)&&p.WorkingSet64>0);
+    }
+    for(const result of results) {
+      result.acceptanceScope='bounded-webkit-stress';
+      result.trials=report.trials;result.cycles=report.cycles;
+      result.contextClosed=report.engines[0].contextClosed.filter(s=>s.decoder===result.decoder);
+    }
+  }
   return results;
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
   const file=process.argv[2]||'target/viewer-acceptance/raw.json';
-  const results=audit(JSON.parse(readFileSync(file)));
+  const results=audit(JSON.parse(readFileSync(file)),process.argv.includes('--webkit-stress')?'webkit-stress':'full');
   writeFileSync(file.replace(/\.json$/,'.summary.json'),JSON.stringify(results,null,2));
   console.log(JSON.stringify(results,null,2));
 }

@@ -110,3 +110,11 @@ For a separate bounded single-engine stress run, ENGINES=webkit, TRIALS=1,
 CYCLES=80 and POST_CLOSE_MS=1000 retain the same exact render/error checks. Such
 a report is not the full three-engine audit result and must be labelled as a
 single-engine stress experiment.
+
+Audit the 80-cycle single-engine experiment with
+`node tests/viewer_acceptance/audit.mjs <raw.json> --webkit-stress`.
+This named profile requires WebKit only, at least 80 cycles per decoder, all of
+the existing exact sample/render/error/memory checks, and explicit 1000 ms
+post-context-close samples. Its output is labelled `bounded-webkit-stress`.
+The default full audit still requires all three engines; stress evidence cannot
+stand in for that result. Neither profile imposes an unagreed product RAM budget.

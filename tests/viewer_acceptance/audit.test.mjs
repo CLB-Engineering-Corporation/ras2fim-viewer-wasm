@@ -51,3 +51,10 @@ test('non-MISMATCH console, HTTP, page and request failures all reject acceptanc
  const d=fixture();d.engines[0].errors=errors;assert.throws(()=>audit(d));
  stop();page.emit('pageerror',new Error('teardown'));assert.equal(errors.length,4);
 });
+
+test('single-engine stress cannot replace full acceptance or use short smoke evidence',()=>{
+ const d=fixture();d.engines=d.engines.filter(e=>e.engine==='webkit');
+ assert.throws(()=>audit(d));
+ assert.throws(()=>audit(d,'webkit-stress'));
+ assert.throws(()=>audit(d,'arbitrary-relaxed-profile'));
+});

@@ -104,3 +104,30 @@ are recorded in the feature handover, not inferred from the backend name.
 archives without rebuilding. `tests/terrio-real-cog.py` validates a real WGS84
 profile through both writers. Lossy comparisons allow the nominal 0.01 codec
 bound plus Float32 readback rounding; the exact observed errors are reported.
+
+
+## Final fork package and retained acceptance evidence
+
+The reconciled fork branch `feat/clb-semantic-reconciliation-resume` at
+`9c644f4a1729e253f9714813912f54d32e306c38` preserves the CLB scientific policies
+and upstream mask/typed-storage correctness. Its tile-only NaN staging uses
+Float64 to avoid an intermediate Float32 rounding before Byte conversion; this
+does not change generic scientific warp precision. The strict synthetic and all
+72 real-profile comparisons pass without tolerance or a visible-only exception.
+
+The minimal `netcdf-hdf5` web package from this source is 14,376,789 bytes
+(5,233,091 bytes with gzip level 9), SHA256
+`e9f0a57ce955b71a74779cac9da73e176926f31a6ba442d569923b228316ebd5`.
+Use `--terrio-package` to package it explicitly; binaries and private datasets
+are not committed. The final packaged site passed exact decoder differential,
+worker failure/supersession/disposal and three-engine numeric/render checks.
+
+The final-package timing run has three cold/warm context pairs per decoder and
+engine. A separate WebKit stress run completed 80 stream switches and 240 slider
+renders per decoder, retaining exact gates and explicit context-close samples.
+See `tests/viewer_acceptance/README.md`, the controlled lifecycle diagnosis in
+`tests/viewer_retention_diagnostics/CONCLUSION.md`, and the final feature handover
+for raw paths, counts and limits. Browser working sets include engine/shared
+memory; these tests do not certify a target-device RAM budget, prove leak
+freedom, or justify changing defaults. The renderer milestone is a completed
+MapLibre depth render, not physical display timing.

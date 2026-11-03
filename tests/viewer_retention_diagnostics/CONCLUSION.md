@@ -50,3 +50,28 @@ Preserved producer evidence lives under
 The source copied into viewer/tests resolves its worker relative to its own module
 and supports DIAGNOSTIC_SITE for a newly pinned packaged site. Those path-only
 changes do not retroactively change the preserved measurements.
+
+## Coordinator continuation with the final scientific package
+
+The final package (source `9c644f4a1729e253f9714813912f54d32e306c38`, WASM
+`e9f0a57ce955b71a74779cac9da73e176926f31a6ba442d569923b228316ebd5`)
+was checked again with the same 120-operation minimized WebKit controls, recorded
+in viewer `.terrio-validation/retention-final-pin-frozen/raw.json`.
+
+A separate full-viewer Windows WebKit run completed 80 stream switches and 240
+slider renders per decoder in one context each, without recorded errors. It is
+in `.terrio-validation/render-final-pin-long-webkit/raw.json`; its named strict
+`--webkit-stress` audit passed. Matched small-stream endpoints rose and later
+fell within the context: h5wasm 903.2 MiB at switch 44 to 523.2 at switch 48;
+Terrio slices 1113.1 at switch 48 to 687.4 at switch 52. These are observed
+working-set reductions, not an attribution to GC or a particular allocator.
+Across all stream checkpoints, maxima were 1263.0 MiB (h5wasm) and 1392.9 MiB
+(Terrio); one second after context close, 130.8 and 150.9 MiB respectively.
+Logical per-stream layer counts and sparse-cache sizes remained constant.
+
+This extends the earlier 20-cycle observation and demonstrates reductions over
+the tested 80-switch interval; it does not establish an unbounded plateau or a
+product memory budget. These sampled totals still may double-count shared
+pages and are neither true peak RSS nor private heap. The separate final-package
+three-engine timing run is `render-final-pin-quiet/`; it ran after heavy builds
+finished. h5wasm and GDAL remain defaults. No worker-reuse change was made.
