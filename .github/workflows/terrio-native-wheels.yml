@@ -1,0 +1,111 @@
+name: pinned Terrio native wheels
+
+# Builds the Linux and macOS native publication extensions from the immutable
+# Terrio source the Windows artifact was reviewed from. The fork's own Actions
+# are suppressed by GitHub usage controls, so the build runs here.
+#
+# Each job produces a candidate wheel and lock entry as a workflow artifact.
+# Nothing here publishes: a person reviews the candidates, uploads them as new
+# draft-release assets and commits the entries. A rerun is a reproducibility
+# observation (`matches_reviewed_entry`), never a replacement.
+#
+# The configuration matches the reviewed Windows `_terrio.pyd`, whose bytes are
+# those of `target-clb-semantic/debug/_terrio.dll`: `maturin develop`, i.e. the
+# Cargo dev profile (debug = 0 in the workspace Cargo.toml; openjp2 optimized),
+# rustc 1.99.1, PyO3 abi3-py310, no optional features. That tree was a Windows
+# checkout with core.autocrlf=true, and the locked Python files are CRLF; the
+# same checkout is reproduced here so the Python bytes (and any text the Rust
+# embeds) are identical on every platform.
+
+on:
+  # push: a push's path filter sees only that push's files, so unrelated
+  # commits do not rebuild four ~300 MB artifacts.
+  push:
+    branches-ignore: [gh-pages]
+    paths:
+      - '.github/workflows/terrio-native-wheels.yml'
+      - 'scripts/build_terrio_wheel.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terrio-native-wheels-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRIO_COMMIT: 9c644f4a1729e253f9714813912f54d32e306c38
+
+jobs:
+  wheel:
+    name: wheel (${{ matrix.key }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { key: linux_x86_64, os: ubuntu-latest, target: x86_64, manylinux: auto, sys_platform: linux, machine: x86_64 }
+          # Terrio's own release build uses manylinux_2_28 for aarch64 (ring's ARM assembly).
+          - { key: linux_aarch64, os: ubuntu-24.04-arm, target: aarch64, manylinux: '2_28', sys_platform: linux, machine: aarch64 }
+          - { key: macos_arm64, os: macos-latest, target: aarch64, manylinux: 'off', sys_platform: darwin, machine: arm64 }
+          - { key: macos_x86_64, os: macos-15-intel, target: x86_64, manylinux: 'off', sys_platform: darwin, machine: x86_64 }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: viewer
+      - name: reproduce the reviewed Windows checkout's line endings
+        run: git config --global core.autocrlf true
+      - uses: actions/checkout@v4
+        with:
+          repository: CLB-Engineering-Corporation/terrio
+          ref: ${{ env.TERRIO_COMMIT }}
+          path: terrio
+          persist-credentials: false
+      - name: verify source pin and checkout bytes
+        working-directory: terrio
+        run: |
+          test "$(git rev-parse HEAD)" = "$TERRIO_COMMIT"
+          test -z "$(git status --porcelain)"
+          # CRLF in the working tree, exactly as the Windows build saw it.
+          head -c 200 python/python/terrio/__init__.py | od -c | grep -q '\\r'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: build (Cargo dev profile, as the reviewed Windows artifact)
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: terrio/python
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          rust-toolchain: 1.99.1
+          maturin-version: v1.15.0
+          args: --profile dev --locked --out dist
+      - name: repackage with the reviewed layout and Python bytes
+        run: |
+          ls -l terrio/python/dist
+          python viewer/scripts/build_terrio_wheel.py from-maturin terrio/python/dist/*.whl terrio out \
+            --platform ${{ matrix.key }} --sys-platform ${{ matrix.sys_platform }} --machine ${{ matrix.machine }}
+          shasum -a 256 out/*.whl terrio/python/dist/*.whl
+      - name: the extension loads on this runner and is the one recorded
+        run: |
+          python -m venv "$RUNNER_TEMP/smoke"
+          "$RUNNER_TEMP/smoke/bin/python" -m pip install --quiet out/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/smoke/bin/python" - "$GITHUB_WORKSPACE/out/${{ matrix.key }}.lock-entry.json" <<'EOF'
+          import hashlib, json, platform, sys
+          from pathlib import Path
+          import terrio, terrio._terrio as native
+          entry = json.loads(Path(sys.argv[1]).read_text())["native"]
+          origin = Path(native.__file__)
+          assert origin.name == entry["file"], origin
+          assert hashlib.sha256(origin.read_bytes()).hexdigest() == entry["sha256"]
+          assert (sys.platform, platform.machine()) == (entry["sys_platform"], entry["machine"])
+          print(sys.version, platform.platform(), origin, origin.stat().st_size)
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: terrio-wheel-${{ matrix.key }}
+          path: out/
+          if-no-files-found: error
+          compression-level: 0

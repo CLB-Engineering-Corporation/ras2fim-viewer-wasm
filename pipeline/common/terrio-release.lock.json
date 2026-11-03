@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source_commit": "9c644f4a1729e253f9714813912f54d32e306c38",
   "repository": "CLB-Engineering-Corporation/ras2fim-viewer-wasm",
   "tag": "viewer-runtime-9c644f4",
@@ -8,10 +8,37 @@
     "bytes": 171643130,
     "sha256": "5eb50b10bd4f3bf0f39423834d8428b64388d9a893165c36dc3f0327ecaadae6"
   },
-  "wheel": {
-    "name": "terrio-0.6.1+clb9c644f4.1-cp310-abi3-win_amd64.whl",
-    "bytes": 156287240,
-    "version": "0.6.1+clb9c644f4.1",
-    "sha256": "c40983634cc8f27f86135572722ed0f67193b67f8d18ae09e38cda2a814ba346"
+  "wheel_version": "0.6.1+clb9c644f4.1",
+  "wheels": {
+    "win_amd64": {
+      "name": "terrio-0.6.1+clb9c644f4.1-cp310-abi3-win_amd64.whl",
+      "bytes": 156287240,
+      "sha256": "c40983634cc8f27f86135572722ed0f67193b67f8d18ae09e38cda2a814ba346",
+      "asset_id": 705274190
+    },
+    "linux_x86_64": {
+      "name": "terrio-0.6.1+clb9c644f4.1-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "bytes": 326687500,
+      "sha256": "d4fa7a2d2ead71b173156e2e8859fb0370b5ad04d6da88b69824db85402c9e3d",
+      "asset_id": 705967216
+    },
+    "linux_aarch64": {
+      "name": "terrio-0.6.1+clb9c644f4.1-cp310-abi3-manylinux_2_28_aarch64.whl",
+      "bytes": 313167433,
+      "sha256": "3095366023a5ca095aa528477ce60b54021002b09948f2d58d8515c30260cb93",
+      "asset_id": 705967211
+    },
+    "macos_arm64": {
+      "name": "terrio-0.6.1+clb9c644f4.1-cp310-abi3-macosx_11_0_arm64.whl",
+      "bytes": 289463026,
+      "sha256": "6b7b20e914ec6c6b32da816c3c79b3fa96171933016bdb45cc88394863e9c228",
+      "asset_id": 705967212
+    },
+    "macos_x86_64": {
+      "name": "terrio-0.6.1+clb9c644f4.1-cp310-abi3-macosx_10_12_x86_64.whl",
+      "bytes": 280884685,
+      "sha256": "3b6381af2e0e82450282ad09e220e8efe531a9d26d3df3956a19543296ff7e9a",
+      "asset_id": 705967214
+    }
   }
 }

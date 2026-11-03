@@ -8,39 +8,95 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from pipeline.common.terrio_runtime import require_terrio
+from pipeline.common import terrio_runtime
+from pipeline.common.terrio_runtime import load_lock, platform_key, platform_view, require_terrio
+
+LOCK = Path(__file__).parents[1] / "pipeline/common/terrio-python.lock.json"
+
+
+def fake_lock(native_name, body, sys_platform, machine):
+    return {"schema_version": 2, "source_commit": "reviewed", "version": "0",
+            "python_sha256": {},
+            "native": {"here": {"sys_platform": sys_platform, "machine": machine,
+                                "file": native_name, "sha256": hashlib.sha256(body).hexdigest(),
+                                "wheel_platform": "x"},
+                       # Another platform's reviewed artifact must never satisfy this one.
+                       "elsewhere": {"sys_platform": "elsewhere", "machine": machine,
+                                     "file": "_terrio.other.so", "sha256": "0" * 64,
+                                     "wheel_platform": "y"}}}
 
 
 class RuntimePinTests(unittest.TestCase):
     def tearDown(self):
         require_terrio.cache_clear()
 
-    def test_matching_and_altered_native_artifact(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "_terrio.pyd").write_bytes(b"reviewed")
-            module = types.SimpleNamespace(__file__=str(root / "__init__.py"))
-            lock = {"source_commit": "reviewed", "sha256": {
-                "_terrio.pyd": hashlib.sha256(b"reviewed").hexdigest()}}
-            with patch.dict("sys.modules", {"terrio": module, "terrio._terrio": types.SimpleNamespace(__file__=str(root / "_terrio.pyd"))}), patch(
-                "pipeline.common.terrio_runtime.json.loads", return_value=lock
-            ):
-                self.assertIs(require_terrio(), module)
-                require_terrio.cache_clear()
-                other = root / "_terrio.cp313-win_amd64.pyd"
+    def run_guard(self, root, native_name, lock):
+        module = types.SimpleNamespace(__file__=str(root / "__init__.py"))
+        native = types.SimpleNamespace(__file__=str(root / native_name))
+        with patch.dict("sys.modules", {"terrio": module, "terrio._terrio": native}), patch.object(
+            terrio_runtime, "load_lock", return_value=lock
+        ), patch.object(terrio_runtime.sys, "platform", "testos"), patch.object(
+            terrio_runtime.platform, "machine", return_value="testarch"
+        ):
+            require_terrio.cache_clear()
+            return require_terrio(), module
+
+    def test_matching_and_altered_native_artifact_per_platform(self):
+        for native_name, competitor in (("_terrio.pyd", "_terrio.cp313-win_amd64.pyd"),
+                                        ("_terrio.abi3.so", "_terrio.cpython-312-x86_64-linux-gnu.so")):
+            with self.subTest(native=native_name), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / native_name).write_bytes(b"reviewed")
+                lock = fake_lock(native_name, b"reviewed", "testos", "testarch")
+                got, module = self.run_guard(root, native_name, lock)
+                self.assertIs(got, module)
+                other = root / competitor
                 other.write_bytes(b"unreviewed")
                 with self.assertRaisesRegex(RuntimeError, "competing native"):
-                    require_terrio()
+                    self.run_guard(root, native_name, lock)
                 other.unlink()
-                (root / "_terrio.pyd").write_bytes(b"wrong")
+                (root / native_name).write_bytes(b"wrong")
                 with self.assertRaisesRegex(RuntimeError, "does not match"):
-                    require_terrio()
+                    self.run_guard(root, native_name, lock)
 
-    def test_lock_contains_native_binary_and_source(self):
-        lock = json.loads((Path(__file__).parents[1] / "pipeline/common/terrio-python.lock.json").read_text())
+    def test_other_platform_artifact_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "_terrio.other.so").write_bytes(b"reviewed elsewhere")
+            lock = fake_lock("_terrio.abi3.so", b"reviewed", "testos", "testarch")
+            with self.assertRaisesRegex(RuntimeError, "loaded native binary"):
+                self.run_guard(root, "_terrio.other.so", lock)
+
+    def test_unreviewed_platform_fails_closed_with_fallback(self):
+        lock = load_lock(LOCK)
+        with self.assertRaisesRegex(RuntimeError, "--writer-backend gdal"):
+            platform_key(lock, "sunos5", "sparc64")
+        with self.assertRaisesRegex(RuntimeError, "--backend gdal"):
+            platform_key(lock, "linux", "riscv64")
+
+    def test_committed_lock_selects_one_entry_per_platform(self):
+        lock = load_lock(LOCK)
         self.assertEqual(lock["source_commit"], "9c644f4a1729e253f9714813912f54d32e306c38")
-        self.assertIn("_terrio.pyd", lock["sha256"])
-        self.assertIn("__init__.py", lock["sha256"])
+        self.assertEqual(platform_key(lock, "win32", "AMD64"), "win_amd64")
+        self.assertIn("__init__.py", lock["python_sha256"])
+        for key, entry in lock["native"].items():
+            self.assertEqual(platform_key(lock, entry["sys_platform"], entry["machine"]), key)
+            self.assertTrue(entry["file"].startswith("_terrio") and entry["file"].endswith((".pyd", ".so")))
+            self.assertRegex(entry["sha256"], "^[0-9a-f]{64}$")
+            view = platform_view(lock, key)
+            self.assertEqual(len(view["sha256"]), len(lock["python_sha256"]) + 1)
+        self.assertEqual(len({e["sha256"] for e in lock["native"].values()}), len(lock["native"]))
+
+    def test_windows_view_is_the_reviewed_schema_1_object(self):
+        # The Windows wheel embeds this object as terrio-source.json; changing its
+        # shape would change the identity of an artifact already released.
+        view = platform_view(load_lock(LOCK), "win_amd64")
+        self.assertEqual(sorted(view), ["platform", "schema_version", "sha256", "source_commit", "version"])
+        self.assertEqual(view["schema_version"], 1)
+        # SHA256 of terrio-0.6.1+clb9c644f4.1.dist-info/terrio-source.json in the
+        # released win_amd64 wheel (c40983634cc8...).
+        self.assertEqual(hashlib.sha256(json.dumps(view, sort_keys=True).encode()).hexdigest(),
+                         "6de59ec011df857e4090c3a7ef9d4a3ca0a10d1be8bcaec77a9682f9fc23e3fe")
 
     def test_import_failure_has_fallback_and_cause(self):
         with patch("pipeline.common.terrio_runtime.importlib.import_module", side_effect=ImportError("ABI")):
@@ -48,9 +104,27 @@ class RuntimePinTests(unittest.TestCase):
                 require_terrio()
             self.assertIsInstance(caught.exception.__cause__, ImportError)
 
-    def test_actual_loaded_origin_is_checked(self):
-        module = types.SimpleNamespace(__file__=str(Path.cwd() / "__init__.py"))
-        native = types.SimpleNamespace(__file__=str(Path.cwd() / "_terrio.cp313-win_amd64.pyd"))
-        with patch.dict("sys.modules", {"terrio": module, "terrio._terrio": native}):
-            with self.assertRaisesRegex(RuntimeError, "loaded native binary"):
-                require_terrio()
+
+try:
+    from packaging.requirements import Requirement
+except ImportError:  # not a declared test dependency; CI images normally carry it
+    Requirement = None
+
+
+@unittest.skipIf(Requirement is None, "requires packaging")
+class DependencyMarkerTests(unittest.TestCase):
+    def test_fim1d_marker_selects_exactly_the_reviewed_platforms(self):
+        import tomllib
+        project = tomllib.loads((LOCK.parents[2] / "pyproject.toml").read_text())["project"]
+        terrio = [Requirement(r) for r in project["optional-dependencies"]["fim1d"]
+                  if r.startswith("terrio")]
+        self.assertEqual(len(terrio), 1)
+        system = {"win32": "Windows", "linux": "Linux", "darwin": "Darwin"}
+        reviewed = {(system[e["sys_platform"]], e["machine"]) for e in load_lock(LOCK)["native"].values()}
+        candidates = reviewed | {("Windows", "ARM64"), ("Linux", "arch64"), ("Linux", "ppc64le"),
+                                 ("Linux", "riscv64"), ("Darwin", "x86"), ("FreeBSD", "amd64")}
+        for platform_system, machine in candidates:
+            with self.subTest(platform=platform_system, machine=machine):
+                self.assertEqual(
+                    terrio[0].marker.evaluate({"platform_system": platform_system, "platform_machine": machine}),
+                    (platform_system, machine) in reviewed)

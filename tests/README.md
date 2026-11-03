@@ -115,3 +115,23 @@ fixtures described in the feature handover; generated datasets are not committed
 The release uses one transparent z0 sentinel per empty profile, never an absent
 archive or a tile-service fallback. Browser render/retention measurements and
 strict evidence auditing are documented in `viewer_acceptance/README.md`.
+
+## Native publication on every reviewed platform
+
+The `native` CI job runs, with GDAL 3.13.3 and each platform's reviewed Terrio
+wheel (Linux x86_64/arm64, macOS arm64/x86_64, Windows): the whole suite above
+(the GDAL-gated tests become active), `terrio-publication.py` (exact
+Terrio-vs-GDAL archives on synthetic fixtures; COG codec bounds against the
+exact supplied arrays; atomicity) and `terrio-synthetic-default.py`
+(omitted-backend default dispatch on a synthetic State Plane grid). Set
+`PMTILES_CLI` to the go-pmtiles binary. `native-identity` then requires every
+platform's Terrio tiles to equal the reviewed Windows wheel's wherever the
+tilers received identical input (`terrio-synthetic-compare.py`). See
+docs/terrio-assets.md for what is exact and what is reported.
+
+## Safari and Mobile Safari
+
+`safari_acceptance/` -- see its README. `safari.test.mjs` runs in the Node job
+(pins, threshold derivation, macOS process attribution); the browser sessions
+run in `.github/workflows/safari-acceptance.yml`.
+

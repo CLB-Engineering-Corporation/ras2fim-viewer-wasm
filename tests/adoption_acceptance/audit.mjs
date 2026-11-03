@@ -32,15 +32,30 @@ export function recovery(rows,expectedCount){
     assert.equal(r.liveHandles,0);exact(r.verification);
   }
 }
-export function adoptionAudit(report,baseline,expectedPins){
+// options.engines: expected engine set (default: the Windows three-engine run).
+// options.limits(engine,decoder): {timings,rssLimitBytes}; default: baseline rows.
+// options.thresholds: 'assert' (default) fails on a limit; 'report' records
+// every comparison in `checks` so a run's full result is preserved, and leaves
+// the verdict to the caller. Structural/exactness checks always assert.
+export function adoptionAudit(report,baseline,expectedPins,options={}){
+  const engines=options.engines??['chromium','firefox','webkit'];
+  const mode=options.thresholds??'assert';assert.ok(['assert','report'].includes(mode));
+  const checks=[];
+  const check=(row)=>{checks.push(row);if(mode==='assert')assert.ok(row.pass,`${row.engine}/${row.metric} ${row.kind==='rss'?'RSS':'timing'} regression: ${row.value}`);};
+  const defaultLimits=(engine,decoder)=>{
+    const limit=baseline.thresholds.find(x=>x.engine===engine&&x.decoder===decoder);assert.ok(limit);
+    const long=baseline.webkitLong.find(x=>x.decoder===decoder);
+    return {timings:limit.timings,rssLimitBytes:engine==='webkit'?long.limitBytes:limit.rss.limitBytes};
+  };
+  const limitsFor=options.limits??defaultLimits;
   assert.equal(report.adoption?.schema,1,'new adoption evidence required');
   assert.ok(expectedPins && Object.keys(expectedPins).length>=7,'independently freeze candidate pins');
   for(const key of ['vendor/terrio/terrio.js','vendor/h5wasm.js'])assert.ok(expectedPins[key],'missing executable decoder dependency');
   for(const value of Object.values(expectedPins))assert.match(value,/^[a-f0-9]{64}$/,'invalid SHA256 pin');
   assert.deepEqual(report.sourcePins,expectedPins,'candidate artifact mismatch');
   assert.notDeepEqual(report.sourcePins,baseline.baselineSourcePins,'old baseline is not adoption');
-  assert.equal(report.adoption.preflight?.length,3,'independent decoder preflight required');
-  assert.deepEqual(report.adoption.preflight.map(p=>p.engine).sort(),['chromium','firefox','webkit']);
+  assert.equal(report.adoption.preflight?.length,engines.length,'independent decoder preflight required');
+  assert.deepEqual(report.adoption.preflight.map(p=>p.engine).sort(),engines.toSorted());
   const inputs=['data/filter_depth_wb-2427467.nc','data/filter_wsel_wb-2427466.nc','data/filter_wsel_wb-2427467.nc','/fixtures/receding.nc'];
   assert.deepEqual(Object.keys(report.adoption.inputPins).sort(),inputs.toSorted());
   for(const p of report.adoption.preflight){
@@ -51,15 +66,13 @@ export function adoptionAudit(report,baseline,expectedPins){
   }
   assert.ok(report.trials>=3&&report.cycles>=80,'require three trials, 80 cycles, all engines');
   assert.equal(report.cacheRouting,false);assert.equal(report.basemap,'same-origin-transparent');
-  const results=audit(report);
+  const results=audit(report,'full',engines);
   assert.ok(Array.isArray(report.adoption.stress));
-  assert.equal(report.adoption.stress.length,3*2*report.trials*3*20);
+  assert.equal(report.adoption.stress.length,engines.length*2*report.trials*3*20);
   for(const result of results){
-    const limit=baseline.thresholds.find(x=>x.engine===result.engine&&x.decoder===result.decoder);assert.ok(limit);
-    for(const [key,v] of Object.entries(result.metrics))assert.ok(v.p95<=limit.timings[key].limitMs,`${result.engine}/${key} timing regression: ${v.p95}`);
-    const long=baseline.webkitLong.find(x=>x.decoder===result.decoder);
-    const rssLimit=result.engine==='webkit'?long.limitBytes:limit.rss.limitBytes;
-    assert.ok(result.rssEndpointBytes.max<=rssLimit,`${result.engine}/${result.decoder} RSS regression`);
+    const limit=limitsFor(result.engine,result.decoder);
+    for(const [key,v] of Object.entries(result.metrics))check({engine:result.engine,decoder:result.decoder,kind:'timing-p95-ms',metric:key,value:v.p95,limit:limit.timings[key].limitMs,pass:v.p95<=limit.timings[key].limitMs});
+    check({engine:result.engine,decoder:result.decoder,kind:'rss',metric:`${result.decoder}/sampled-working-set-max-bytes`,value:result.rssEndpointBytes.max,limit:limit.rssLimitBytes,pass:result.rssEndpointBytes.max<=limit.rssLimitBytes});
     const engine=report.engines.find(e=>e.engine===result.engine);
     for(let trial=0;trial<report.trials;trial++){
       const samples=engine.samples.filter(s=>s.decoder===result.decoder&&s.trial===trial);
@@ -72,7 +85,7 @@ export function adoptionAudit(report,baseline,expectedPins){
       }
     }
   }
-  return {scope:'bounded measured-baseline regression; not operational RAM certification',results};
+  return {scope:'bounded measured-baseline regression; not operational RAM certification',results,checks,thresholdsPassed:checks.every(c=>c.pass)};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   const load=p=>JSON.parse(readFileSync(p));

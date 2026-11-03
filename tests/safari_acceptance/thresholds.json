@@ -1,0 +1,176 @@
+{
+  "schema": 1,
+  "derivedFrom": {
+    "file": "tests/adoption_acceptance/baseline.json",
+    "sha256": "1657bcb76872b0f28fe0a5ea2efc259a18e1d836f7685d68c686612dd6470170",
+    "provenance": {
+      "quiet": {
+        "path": "render-final-pin-quiet/raw.json",
+        "sha256": "30d6d0bdf196e6e339ed47b8acd3b9b2e1edc6046aca61af39f3cfd84a4608d5"
+      },
+      "stress": {
+        "path": "render-final-pin-long-webkit/raw.json",
+        "sha256": "2a18e608e068a7693e6c54f313e673a12210047d65556367e75881ed89579a4c"
+      },
+      "retention": {
+        "path": "retention-final-pin-frozen/raw.json",
+        "sha256": "d4eb5096c83096abaa7c053add42fa3ff847e313eb9fe6053b52b26d543a1c89"
+      }
+    }
+  },
+  "method": "timing p95 <= ceil(WebKit quiet p95*1.5+100ms); sampled working-set max <= ceil(WebKit long max*1.25+128MiB)",
+  "gates": "Every row is a gate. Any exceedance fails the run and is reported as measured; limits are never changed after a run.",
+  "comparability": "The baseline is Windows WorkingSet64 of Playwright WebKit; macOS rows are ps RSS of Safari/WebKit processes on a GitHub-hosted VM. Same engine family, different OS, measure and hardware. A pass is bounded regression evidence, not a device RAM budget.",
+  "thresholds": [
+    {
+      "engine": "webkit",
+      "decoder": "h5wasm",
+      "baselineEngine": "webkit (Windows, Playwright)",
+      "timings": {
+        "h5wasm/first-render/cold": {
+          "baselineP95": 468,
+          "limitMs": 802
+        },
+        "h5wasm/first-render/warm": {
+          "baselineP95": 393,
+          "limitMs": 690
+        },
+        "h5wasm/slider-settled-render": {
+          "baselineP95": 267,
+          "limitMs": 501
+        },
+        "h5wasm/stream-render": {
+          "baselineP95": 415,
+          "limitMs": 723
+        }
+      },
+      "rssBaselineMaxBytes": 1324396544,
+      "rssLimitBytes": 1789713408
+    },
+    {
+      "engine": "webkit",
+      "decoder": "terrio-slices",
+      "baselineEngine": "webkit (Windows, Playwright)",
+      "timings": {
+        "terrio-slices/first-render/cold": {
+          "baselineP95": 492,
+          "limitMs": 838
+        },
+        "terrio-slices/first-render/warm": {
+          "baselineP95": 446,
+          "limitMs": 769
+        },
+        "terrio-slices/slider-settled-render": {
+          "baselineP95": 247,
+          "limitMs": 471
+        },
+        "terrio-slices/stream-render": {
+          "baselineP95": 370,
+          "limitMs": 655
+        }
+      },
+      "rssBaselineMaxBytes": 1460563968,
+      "rssLimitBytes": 1959922688
+    },
+    {
+      "engine": "safari",
+      "decoder": "h5wasm",
+      "baselineEngine": "webkit (Windows, Playwright)",
+      "timings": {
+        "h5wasm/first-render/cold": {
+          "baselineP95": 468,
+          "limitMs": 802
+        },
+        "h5wasm/first-render/warm": {
+          "baselineP95": 393,
+          "limitMs": 690
+        },
+        "h5wasm/slider-settled-render": {
+          "baselineP95": 267,
+          "limitMs": 501
+        },
+        "h5wasm/stream-render": {
+          "baselineP95": 415,
+          "limitMs": 723
+        }
+      },
+      "rssBaselineMaxBytes": 1324396544,
+      "rssLimitBytes": 1789713408
+    },
+    {
+      "engine": "safari",
+      "decoder": "terrio-slices",
+      "baselineEngine": "webkit (Windows, Playwright)",
+      "timings": {
+        "terrio-slices/first-render/cold": {
+          "baselineP95": 492,
+          "limitMs": 838
+        },
+        "terrio-slices/first-render/warm": {
+          "baselineP95": 446,
+          "limitMs": 769
+        },
+        "terrio-slices/slider-settled-render": {
+          "baselineP95": 247,
+          "limitMs": 471
+        },
+        "terrio-slices/stream-render": {
+          "baselineP95": 370,
+          "limitMs": 655
+        }
+      },
+      "rssBaselineMaxBytes": 1460563968,
+      "rssLimitBytes": 1959922688
+    },
+    {
+      "engine": "ios-simulator",
+      "decoder": "h5wasm",
+      "baselineEngine": "webkit (Windows, Playwright)",
+      "timings": {
+        "h5wasm/first-render/cold": {
+          "baselineP95": 468,
+          "limitMs": 802
+        },
+        "h5wasm/first-render/warm": {
+          "baselineP95": 393,
+          "limitMs": 690
+        },
+        "h5wasm/slider-settled-render": {
+          "baselineP95": 267,
+          "limitMs": 501
+        },
+        "h5wasm/stream-render": {
+          "baselineP95": 415,
+          "limitMs": 723
+        }
+      },
+      "rssBaselineMaxBytes": 1324396544,
+      "rssLimitBytes": 1789713408
+    },
+    {
+      "engine": "ios-simulator",
+      "decoder": "terrio-slices",
+      "baselineEngine": "webkit (Windows, Playwright)",
+      "timings": {
+        "terrio-slices/first-render/cold": {
+          "baselineP95": 492,
+          "limitMs": 838
+        },
+        "terrio-slices/first-render/warm": {
+          "baselineP95": 446,
+          "limitMs": 769
+        },
+        "terrio-slices/slider-settled-render": {
+          "baselineP95": 247,
+          "limitMs": 471
+        },
+        "terrio-slices/stream-render": {
+          "baselineP95": 370,
+          "limitMs": 655
+        }
+      },
+      "rssBaselineMaxBytes": 1460563968,
+      "rssLimitBytes": 1959922688
+    }
+  ]
+}

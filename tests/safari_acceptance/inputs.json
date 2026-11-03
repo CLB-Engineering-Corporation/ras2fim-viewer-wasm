@@ -1,0 +1,25 @@
+{
+  "_comment": "The exact inputs of the accepted Windows adoption run (same SHA256). Two pilot streams are already public on gh-pages; the depth stream and the two synthetic fixtures are draft-release assets (repository writers only).",
+  "files": {
+    "data/filter_depth_wb-2427467.nc": {
+      "sha256": "cfcacf5b32fc8f8ae7b1edbf63f7133de58e890350bfb2359123a797b789dae6",
+      "release_asset": "acceptance-filter_depth_wb-2427467.nc"
+    },
+    "data/filter_wsel_wb-2427466.nc": {
+      "sha256": "0704adae7086e00aad4b32b296d99a7562e48a61c9b3532055e5fd6b75c6e28f",
+      "gh_pages": "data/filter_wsel_wb-2427466.nc"
+    },
+    "data/filter_wsel_wb-2427467.nc": {
+      "sha256": "d43106c65d2147763910e55d4589fc2a147302ffe402b94ae19c9cab3ad97183",
+      "gh_pages": "data/filter_wsel_wb-2427467.nc"
+    },
+    "fixtures/receding.nc": {
+      "sha256": "524b643971a4cb0f8e87bab055b29e734d629896ae21633eae98f4e3ff75f001",
+      "release_asset": "acceptance-fixture-receding.nc"
+    },
+    "fixtures/badshape.nc": {
+      "sha256": "9f44bb3b5bdfe32409c56c05556f5d838109de416bf9f4d9b208fddbabfaaf7b",
+      "release_asset": "acceptance-fixture-badshape.nc"
+    }
+  }
+}
