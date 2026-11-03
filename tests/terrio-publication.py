@@ -6,6 +6,7 @@ Reports mismatches as acceptance blockers; never changes a publication default.
 
 import io
 import json
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -22,7 +23,7 @@ from pipeline.fim1d import depth_pmtiles as tiles
 gdal.UseExceptions()
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".terrio-validation/publication")
 root.mkdir(parents=True, exist_ok=True)
-cli = str(Path(".terrio-validation/bin/pmtiles.exe").resolve())
+cli = os.environ.get("PMTILES_CLI") or str(Path(".terrio-validation/bin/pmtiles.exe").resolve())
 
 
 def archive(path):

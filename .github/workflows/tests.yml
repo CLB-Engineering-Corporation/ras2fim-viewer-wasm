@@ -8,8 +8,10 @@ name: tests
 # the sparse-vs-dense oracle, the gate on a 16x paint optimisation, cheap enough
 # to run on every push instead of by hand in a browser with ?verify=1.
 #
-# The 1D pipeline needs the GDAL Python bindings and real ras2fim output, and is
-# therefore NOT run here. Its release gate stays manual; see tests/README.md.
+# The 1D pipeline's real-output release gate stays manual (it needs real
+# ras2fim output; see tests/README.md). The `native` job runs its default
+# Terrio publication path with GDAL on synthetic fixtures on every platform
+# that has a reviewed native wheel.
 
 on:
   push:
@@ -103,12 +105,88 @@ jobs:
           python -m pipeline.fim2d.site .terrio-validation/ci-input --out .terrio-validation/ci-site
           python -m pipeline.fim2d.validate .terrio-validation/ci-site --deep
 
+  native:
+    # The default 1D publication path (Terrio PMTiles + Terrio COG writer) on
+    # every platform with a reviewed native wheel, on real hosted runners.
+    # Same draft-visibility rationale as `assets`: the wheels are draft assets.
+    permissions:
+      contents: write
+    name: native publication (${{ matrix.key }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { key: linux_x86_64, os: ubuntu-latest, pmtiles: go-pmtiles_1.31.2_Linux_x86_64.tar.gz, pmtiles_sha256: 3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f }
+          - { key: linux_aarch64, os: ubuntu-24.04-arm, pmtiles: go-pmtiles_1.31.2_Linux_arm64.tar.gz, pmtiles_sha256: f8bd47e7ea866863489cad588fbaf2f31f42e5821f7a03f009b3769f05801cb1 }
+          - { key: macos_arm64, os: macos-latest, pmtiles: go-pmtiles-1.31.2_Darwin_arm64.zip, pmtiles_sha256: 40528f7f616fcbf91207cd48c8fc023d213f6d86c0cbf1f748732803d1880f3d }
+          - { key: macos_x86_64, os: macos-15-intel, pmtiles: go-pmtiles-1.31.2_Darwin_x86_64.zip, pmtiles_sha256: 1f0dc02eee6c58312dd6c509faee1b5c32f0596568af1bf51f1b034e7a88a65b }
+          - { key: win_amd64, os: windows-latest, pmtiles: go-pmtiles_1.31.2_Windows_x86_64.zip, pmtiles_sha256: a658baa4d7e55020aef6ca17bd9ff9faa1582671266b36f58c52db0ac8e785a1 }
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      # GDAL 3.13.3: the version the accepted parity evidence was measured with.
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: native
+          create-args: python=3.12 gdal=3.13.3 numpy pillow affine pmtiles=3.8.1 netcdf4 packaging
+          init-shell: bash
+      - name: go-pmtiles 1.31.2 (pinned digest)
+        run: |
+          mkdir -p "$RUNNER_TEMP/pmtiles" && cd "$RUNNER_TEMP/pmtiles"
+          curl -fsSLO "https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/${{ matrix.pmtiles }}"
+          echo "${{ matrix.pmtiles_sha256 }}  ${{ matrix.pmtiles }}" | shasum -a 256 -c
+          case "${{ matrix.pmtiles }}" in *.zip) unzip -q "${{ matrix.pmtiles }}" ;; *) tar xzf "${{ matrix.pmtiles }}" ;; esac
+          cli=$(ls "$RUNNER_TEMP/pmtiles" | grep -E '^pmtiles(\.exe)?$')
+          echo "PMTILES_CLI=$RUNNER_TEMP/pmtiles/$cli" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/pmtiles" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/pmtiles/$cli" version
+      - name: acquire and install this platform's reviewed wheel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/terrio_release_assets.py --python-lock pipeline/common/terrio-python.lock.json wheel             --platform ${{ matrix.key }} --destination "$RUNNER_TEMP/wheel"
+          python -m pip install --no-deps "$RUNNER_TEMP"/wheel/*.whl
+      - name: the guard accepts exactly the reviewed native artifact
+        run: |
+          cd "$RUNNER_TEMP"
+          python - "$GITHUB_WORKSPACE" <<'EOF'
+          import hashlib, platform, sys
+          sys.path.insert(0, sys.argv[1])
+          from osgeo import gdal
+          from pipeline.common.terrio_runtime import load_lock, platform_key, require_terrio
+          terrio = require_terrio()
+          import terrio._terrio as native
+          key = platform_key(load_lock())
+          assert key == "${{ matrix.key }}", key
+          print(key, sys.version.split()[0], platform.platform(), "GDAL", gdal.__version__)
+          print(native.__file__, hashlib.sha256(open(native.__file__, "rb").read()).hexdigest())
+          EOF
+      - name: pipeline suite with GDAL and the native runtime
+        run: python -m unittest discover -s tests -t . -v
+      - name: exact Terrio-vs-GDAL archive and COG codec gate (synthetic)
+        run: python tests/terrio-publication.py "$RUNNER_TEMP/publication" | tee "$RUNNER_TEMP/publication.json"
+      - name: omitted-backend default dispatch (synthetic State Plane)
+        run: |
+          python tests/terrio-synthetic-default.py "$RUNNER_TEMP/synthetic" > /dev/null
+          python tests/terrio-synthetic-compare.py "$RUNNER_TEMP/synthetic/report.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-publication-${{ matrix.key }}
+          path: |
+            ${{ runner.temp }}/publication.json
+            ${{ runner.temp }}/synthetic/report.json
+          if-no-files-found: warn
+
   # A single required check to protect the branch with, so adding a matrix entry
   # later does not silently leave the branch unprotected against it.
   all-green:
     name: all tests green
     if: always()
-    needs: [reader, pipeline, assets]
+    needs: [reader, pipeline, assets, native]
     runs-on: ubuntu-latest
     steps:
       - name: fail if any job did not succeed
@@ -117,3 +195,4 @@ jobs:
           [ "${{ needs.reader.result }}" = "success" ] || exit 1
           [ "${{ needs.pipeline.result }}" = "success" ] || exit 1
           [ "${{ needs.assets.result }}" = "success" ] || exit 1
+          [ "${{ needs.native.result }}" = "success" ] || exit 1

@@ -103,3 +103,28 @@ class RuntimePinTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "--writer-backend gdal") as caught:
                 require_terrio()
             self.assertIsInstance(caught.exception.__cause__, ImportError)
+
+
+try:
+    from packaging.requirements import Requirement
+except ImportError:  # not a declared test dependency; CI images normally carry it
+    Requirement = None
+
+
+@unittest.skipIf(Requirement is None, "requires packaging")
+class DependencyMarkerTests(unittest.TestCase):
+    def test_fim1d_marker_selects_exactly_the_reviewed_platforms(self):
+        import tomllib
+        project = tomllib.loads((LOCK.parents[2] / "pyproject.toml").read_text())["project"]
+        terrio = [Requirement(r) for r in project["optional-dependencies"]["fim1d"]
+                  if r.startswith("terrio")]
+        self.assertEqual(len(terrio), 1)
+        system = {"win32": "Windows", "linux": "Linux", "darwin": "Darwin"}
+        reviewed = {(system[e["sys_platform"]], e["machine"]) for e in load_lock(LOCK)["native"].values()}
+        candidates = reviewed | {("Windows", "ARM64"), ("Linux", "arch64"), ("Linux", "ppc64le"),
+                                 ("Linux", "riscv64"), ("Darwin", "x86"), ("FreeBSD", "amd64")}
+        for platform_system, machine in candidates:
+            with self.subTest(platform=platform_system, machine=machine):
+                self.assertEqual(
+                    terrio[0].marker.evaluate({"platform_system": platform_system, "platform_machine": machine}),
+                    (platform_system, machine) in reviewed)
