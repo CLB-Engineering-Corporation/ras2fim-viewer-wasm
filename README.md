@@ -85,7 +85,7 @@ Neither has a tile server behind it. Both are built from `main` by
 ```text
 src/
   viewer-1d/             1D dashboard: COG or baked-PMTiles depth, no build step
-  viewer-2d/             2D viewer: NetCDF read in the browser with h5wasm
+  viewer-2d/             2D viewer: pinned Terrio NetCDF decoder; explicit h5wasm fallback
 pipeline/
   common/                geodesy.py, ramp.py -- what both products genuinely share
   fim1d/                 source.py cogs.py pmtiles.py depth_pmtiles.py
@@ -107,3 +107,23 @@ lets `serve/` share the colour ramp with the pipeline instead of copying it.
 The 1D half needs the GDAL Python bindings; the 2D half deliberately does not,
 and neither does `pipeline/fim1d/validate.py`, so a published release can be
 validated on the host that will serve it. See `pyproject.toml` for the groups.
+
+
+### Terrio adoption candidate
+
+Site builds default to the immutable Terrio package in
+[pipeline/common/terrio-assets.lock.json](pipeline/common/terrio-assets.lock.json).
+Import/acquire it as described in [docs/terrio-assets.md](docs/terrio-assets.md);
+a missing or altered package stops the build rather than changing decoders.
+`--reader-backend h5wasm` builds an explicit reference site; `?decoder=h5wasm`
+selects the shipped reference decoder in a Terrio site. `?verify=1` checks every
+prepared layer against the dense renderer. One worker/module is reused across
+stream switches; cancellation releases dataset/view state and ignores old epochs.
+
+The COG command uses Terrio only to write the supplied existing area/mode
+pyramid; State Plane warping and area-matched calculations stay with GDAL.
+`python -m pipeline.fim1d.cogs ... --writer-backend gdal` and
+`python -m pipeline.fim1d.depth_pmtiles ... --backend gdal` select the explicit
+reference publication paths. Terrio publication requires the reviewed native
+artifact; a same-version PyPI installation is insufficient. See the asset guide.
+No production deployment is implied by this feature branch.

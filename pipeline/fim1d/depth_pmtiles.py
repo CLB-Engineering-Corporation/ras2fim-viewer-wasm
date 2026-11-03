@@ -361,7 +361,7 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"ramp name from pipeline/common/ramp.py (default: {DEFAULT_RAMP})")
     parser.add_argument("--report", help="write a JSON build report here")
     parser.add_argument("--backend", choices=("gdal", "terrio"), default="terrio",
-                        help="experimental Terrio requires pixel/alpha acceptance before adoption")
+                        help="pinned Terrio writer (default), or explicit GDAL reference")
     args = parser.parse_args(argv)
 
     frontend = Path(args.source).resolve()

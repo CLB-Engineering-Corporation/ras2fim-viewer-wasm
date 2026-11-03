@@ -1,8 +1,10 @@
-# Experimental Terrio backends
+# Terrio backends and reference fallbacks
 
-h5wasm and GDAL remain the defaults. This branch adds explicit experiments;
-it does not migrate a production release or change hydraulics, packing, flow
-ordering, profile identity, normalization, or the shared colour ramp.
+The adoption candidate defaults to pinned Terrio sliced decoding and Terrio
+PMTiles/COG writing. Explicit h5wasm and GDAL reference controls remain available.
+Promotion is subject to the recorded acceptance audit; no production release or
+deployment is implied. Hydraulics, packing, flow ordering, profile identity,
+normalization and the shared colour ramp are unchanged.
 
 ## Browser decoder and slices
 
@@ -16,7 +18,8 @@ python -m pipeline.fim2d.validate <site-directory> --deep
 
 Open `?decoder=terrio&verify=1` for full-stack differential behavior or
 `?decoder=terrio-slices&verify=1` for one decoded flow layer plus terrain.
-Without the query parameter, h5wasm is used. An excluded/missing decoder fails
+Without the query parameter, the packaged catalog selects Terrio slices; a site
+built with `--reader-backend h5wasm` selects that explicit fallback. An excluded/missing decoder fails
 explicitly; it never retries a different decoder. The site ships glue, WASM,
 declarations, notices and a SHA256 asset inventory. No COOP/COEP is required;
 serve `.wasm` as `application/wasm`.
@@ -25,8 +28,10 @@ The adapter feeds the existing reader's metadata/geodesy/packing validation.
 Sliced layers feed the same `buildIndex` and rendering functions. Dataset and
 view handles stay worker-local, are freed on completion, error or cancellation,
 and only JS-owned sparse output buffers transfer to the main thread. Superseded
-fetches abort; worker termination is the immediate synchronous-decode cancellation
-mechanism. Inputs are still whole-file downloads; no remote range API is implied.
+fetches abort; one worker/module is reused for the page session. Cancellation aborts fetches
+and supersedes generations; synchronous decode cannot be interrupted mid-task.
+The serialized lane disposes stale returned sources before the next decode.
+A crashed worker is replaced on the next stream selection. Inputs are still whole-file downloads; no remote range API is implied.
 
 Rendering uses the public Float32 sparse-layer depth representation, then clamps
 and floors the normalized value into the 256-bin ramp. Dense verification reads
@@ -88,7 +93,9 @@ restores the previous release. GDAL remains the non-empty tile default.
 builds the existing area-matched or mode overview arrays, stamps metadata, checks
 bounds, invokes the independent validator, and replaces atomically. Terrio only
 writes supplied base/overview arrays. Other resampling methods are rejected for
-this trial; no Terrio area-matched algorithm is substituted. GDAL remains default.
+this trial; no Terrio area-matched algorithm is substituted. The pipeline COG command defaults to Terrio; `--writer-backend gdal` selects
+the reference writer. The generic `finish_cog` helper retains its GDAL default
+for unsupported overview methods and existing external callers.
 
 The optional hook is an explicit local extension to the vendored module. Before
 any production adoption, coordinate the same generic hook with `clb_lwi_webmap`;
@@ -127,7 +134,8 @@ engine. A separate WebKit stress run completed 80 stream switches and 240 slider
 renders per decoder, retaining exact gates and explicit context-close samples.
 See `tests/viewer_acceptance/README.md`, the controlled lifecycle diagnosis in
 `tests/viewer_retention_diagnostics/CONCLUSION.md`, and the final feature handover
-for raw paths, counts and limits. Browser working sets include engine/shared
+for raw paths, counts and limits. The subsequent adoption report records reuse
+acceptance separately from the archived fresh-worker experiments. Browser working sets include engine/shared
 memory; these tests do not certify a target-device RAM budget, prove leak
-freedom, or justify changing defaults. The renderer milestone is a completed
+freedom or actual Safari-device performance. The renderer milestone is a completed
 MapLibre depth render, not physical display timing.

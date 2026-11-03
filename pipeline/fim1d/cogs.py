@@ -130,6 +130,8 @@ def build_model(
     verbose: bool = True,
 ) -> dict:
     """Build every profile COG for one model. Returns a report dict."""
+    if writer_backend not in ("terrio", "gdal"):
+        raise ValueError("writer_backend must be terrio or gdal")
     dest = out_root / unit.unit_name / model.slug
     dest.mkdir(parents=True, exist_ok=True)
     staging = _stage_dir(out_root)
@@ -137,6 +139,12 @@ def build_model(
     profiles = model.profiles[:limit] if limit else model.profiles
     built: list[dict] = []
     t0 = time.time()
+
+    if writer_backend == "terrio" and any(
+        force or not (dest / f"depth_{profile.index:03d}.tif").is_file() for profile in profiles
+    ):
+        from ..common.terrio_runtime import require_terrio
+        require_terrio()  # Fail before warping or pyramid preparation.
 
     for profile in profiles:
         name = f"depth_{profile.index:03d}.tif"
@@ -157,6 +165,7 @@ def build_model(
                     "depth_min_ft": round(lo, 4),
                     "depth_max_ft": round(hi, 4),
                     "reused": True,
+                    "writer": {"backend": "reused-existing", "requested_backend": writer_backend},
                 }
             )
             ds = None
@@ -209,6 +218,7 @@ def build_model(
                     "depth_min_ft": round(lo, 4),
                     "depth_max_ft": round(hi, 4),
                     "wet_cells": wet,
+                    "writer": report.get("writer", {"backend": "gdal"}),
                     "overviews": report.get("overviews", {}).get("factors"),
                 }
             )
