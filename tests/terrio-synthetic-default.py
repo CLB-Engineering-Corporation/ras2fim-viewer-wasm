@@ -21,7 +21,7 @@ wheel, GDAL >= 3.8, Pillow, pmtiles and the go-pmtiles CLI (``PMTILES_CLI``).
 * Cross-platform identity: the source is built only from correctly rounded
   IEEE operations (no libm transcendental), so its bytes are the same on every
   OS. The report digests the supplied COG arrays, the RGBA raster both tilers
-  consume (``tiler_input_sha256``) and every tile of both archives, so
+  consume (``tiler_input``: pixel digest, geotransform, size, CRS) and every tile of both archives, so
   ``terrio-synthetic-compare.py`` can hold a platform's Terrio output to the
   reviewed Windows wheel's whenever the two received identical input.
 
@@ -159,8 +159,13 @@ for i, profile in enumerate(model.profiles):
     shared = root / f"tiler-input-{i}.tif"
     tiles.colourise(cog, shared, depth_max, tiles.DEFAULT_RAMP)
     ds = gdal.Open(str(shared))
-    tiler_input = hashlib.sha256(ds.ReadRaster() + repr(
-        (ds.GetGeoTransform(), ds.GetProjection(), ds.RasterXSize, ds.RasterYSize)).encode()).hexdigest()
+    crs = ds.GetSpatialRef()
+    crs.AutoIdentifyEPSG()
+    # Components, not one digest: WKT text formatting varies between PROJ builds
+    # while the CRS (and every pixel) is the same.
+    tiler_input = {"pixels_sha256": hashlib.sha256(ds.ReadRaster()).hexdigest(),
+                   "geotransform": list(ds.GetGeoTransform()), "size": [ds.RasterXSize, ds.RasterYSize],
+                   "crs": f"{crs.GetAuthorityName(None)}:{crs.GetAuthorityCode(None)}"}
     ds = None
     reference = tiles.build_profile(cog, root / f"gdal-{i}.pmtiles", depth_max, backend="gdal", cli=cli)
     candidate = tiles.build_profile(cog, root / f"default-{i}.pmtiles", depth_max)
@@ -186,7 +191,7 @@ for i, profile in enumerate(model.profiles):
         "rgb_different_pixels": sum(r["pixels"] for r in rgb),
         "rgb_max_channel_difference": max((max(r["max_per_channel"]) for r in rgb), default=0),
         "supplied_level_sha256": [digest(x) for x in supplied_default],
-        "tiler_input_sha256": tiler_input,
+        "tiler_input": tiler_input,
         "terrio_tile_rgba_sha256": {"/".join(map(str, k)): digest(b[k]) for k in sorted(b)},
         "gdal_tile_rgba_sha256": {"/".join(map(str, k)): digest(a[k]) for k in sorted(a)},
         "zooms": [ah["min_zoom"], ah["max_zoom"]], "pmtiles_backend": candidate["provenance"]})
