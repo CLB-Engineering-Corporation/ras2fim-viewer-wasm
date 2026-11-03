@@ -20,8 +20,10 @@ wheel, GDAL >= 3.8, Pillow, pmtiles and the go-pmtiles CLI (``PMTILES_CLI``).
   72-archive real-pilot corpus, which this does not replace.
 * Cross-platform identity: the source is built only from correctly rounded
   IEEE operations (no libm transcendental), so its bytes are the same on every
-  OS. Per-tile RGBA digests for both backends are recorded so a platform's
-  output can be compared with the reviewed Windows wheel's byte for byte.
+  OS. The report digests the supplied COG arrays, the RGBA raster both tilers
+  consume (``tiler_input_sha256``) and every tile of both archives, so
+  ``terrio-synthetic-compare.py`` can hold a platform's Terrio output to the
+  reviewed Windows wheel's whenever the two received identical input.
 
 Usage: python tests/terrio-synthetic-default.py OUTPUT_DIRECTORY
 """
@@ -153,6 +155,13 @@ for i, profile in enumerate(model.profiles):
 
     cog = root / "default" / name
     depth_max = max(peaks)
+    # The exact raster both tilers consume (build_profile colourises the same way).
+    shared = root / f"tiler-input-{i}.tif"
+    tiles.colourise(cog, shared, depth_max, tiles.DEFAULT_RAMP)
+    ds = gdal.Open(str(shared))
+    tiler_input = hashlib.sha256(ds.ReadRaster() + repr(
+        (ds.GetGeoTransform(), ds.GetProjection(), ds.RasterXSize, ds.RasterYSize)).encode()).hexdigest()
+    ds = None
     reference = tiles.build_profile(cog, root / f"gdal-{i}.pmtiles", depth_max, backend="gdal", cli=cli)
     candidate = tiles.build_profile(cog, root / f"default-{i}.pmtiles", depth_max)
     assert candidate["provenance"]["backend"] == "terrio", candidate["provenance"]
@@ -177,6 +186,7 @@ for i, profile in enumerate(model.profiles):
         "rgb_different_pixels": sum(r["pixels"] for r in rgb),
         "rgb_max_channel_difference": max((max(r["max_per_channel"]) for r in rgb), default=0),
         "supplied_level_sha256": [digest(x) for x in supplied_default],
+        "tiler_input_sha256": tiler_input,
         "terrio_tile_rgba_sha256": {"/".join(map(str, k)): digest(b[k]) for k in sorted(b)},
         "gdal_tile_rgba_sha256": {"/".join(map(str, k)): digest(a[k]) for k in sorted(a)},
         "zooms": [ah["min_zoom"], ah["max_zoom"]], "pmtiles_backend": candidate["provenance"]})

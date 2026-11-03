@@ -36,6 +36,12 @@ export function descendants(rows, root) {
   return rows.filter(r => ids.has(r.pid));
 }
 
+// Executable paths can contain spaces ("iOS 26.5.simruntime"); arguments start
+// at the first " -". Display only -- attribution uses the whole command.
+export function executableName(command) {
+  return basename(command.split(/ -/)[0].trim());
+}
+
 /** Select one engine's processes from a ps snapshot. Pure, for tests. */
 export function select(rows, engine, rootPid, self = -1) {
   let chosen;
@@ -47,7 +53,7 @@ export function select(rows, engine, rootPid, self = -1) {
     chosen = [...tree, ...rows.filter(r => PLAYWRIGHT.test(r.command) && !ids.has(r.pid))];
   }
   return chosen.filter(r => r.pid !== self && r.rssBytes > 0)
-    .map(r => ({Id: r.pid, ProcessName: basename(r.command.split(' ')[0]), WorkingSet64: r.rssBytes, command: r.command.slice(0, 300)}));
+    .map(r => ({Id: r.pid, ProcessName: executableName(r.command), WorkingSet64: r.rssBytes, command: r.command.slice(0, 300)}));
 }
 
 export function browserProcesses(engine, rootPid) {

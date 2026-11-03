@@ -18,7 +18,10 @@ name: pinned Terrio native wheels
 # embeds) are identical on every platform.
 
 on:
-  pull_request:
+  # push: a push's path filter sees only that push's files, so unrelated
+  # commits do not rebuild four ~300 MB artifacts.
+  push:
+    branches-ignore: [gh-pages]
     paths:
       - '.github/workflows/terrio-native-wheels.yml'
       - 'scripts/build_terrio_wheel.py'

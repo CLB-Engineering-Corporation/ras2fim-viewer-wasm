@@ -169,9 +169,7 @@ jobs:
       - name: exact Terrio-vs-GDAL archive and COG codec gate (synthetic)
         run: python tests/terrio-publication.py "$RUNNER_TEMP/publication" | tee "$RUNNER_TEMP/publication.json"
       - name: omitted-backend default dispatch (synthetic State Plane)
-        run: |
-          python tests/terrio-synthetic-default.py "$RUNNER_TEMP/synthetic" > /dev/null
-          python tests/terrio-synthetic-compare.py "$RUNNER_TEMP/synthetic/report.json"
+        run: python tests/terrio-synthetic-default.py "$RUNNER_TEMP/synthetic" > /dev/null
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -179,14 +177,29 @@ jobs:
           path: |
             ${{ runner.temp }}/publication.json
             ${{ runner.temp }}/synthetic/report.json
-          if-no-files-found: warn
+          if-no-files-found: error
+
+  native-identity:
+    # Every platform against the originally reviewed Windows wheel, on the same
+    # run's GDAL stack: identical tiler input must give identical Terrio RGBA.
+    name: native output identity across platforms
+    needs: native
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-publication-*
+          path: reports
+      - run: |
+          python tests/terrio-synthetic-compare.py reports/native-publication-win_amd64/synthetic/report.json             reports/native-publication-{linux_x86_64,linux_aarch64,macos_arm64,macos_x86_64}/synthetic/report.json
 
   # A single required check to protect the branch with, so adding a matrix entry
   # later does not silently leave the branch unprotected against it.
   all-green:
     name: all tests green
     if: always()
-    needs: [reader, pipeline, assets, native]
+    needs: [reader, pipeline, assets, native, native-identity]
     runs-on: ubuntu-latest
     steps:
       - name: fail if any job did not succeed
@@ -196,3 +209,4 @@ jobs:
           [ "${{ needs.pipeline.result }}" = "success" ] || exit 1
           [ "${{ needs.assets.result }}" = "success" ] || exit 1
           [ "${{ needs.native.result }}" = "success" ] || exit 1
+          [ "${{ needs.native-identity.result }}" = "success" ] || exit 1

@@ -147,10 +147,16 @@ export function safariEngine({server, capabilities = {browserName: 'safari'}, po
   return {
     async launchServer() {
       child = spawn('safaridriver', ['-p', String(port)], {stdio: ['ignore', 'inherit', 'inherit']});
+      let exited = null;
+      child.on('exit', (code, signal) => { exited = {code, signal}; });
       const endpoint = `http://127.0.0.1:${port}`;
-      for (let i = 0; ; i++) {
-        try { if ((await call(endpoint, 'GET', '/status')).ready !== undefined) break; } catch (e) { if (i > 100) throw e; }
-        await sleep(100);
+      // A driver for the simulator can take tens of seconds to come up.
+      for (const end = Date.now() + 120000; ;) {
+        try { if ((await call(endpoint, 'GET', '/status')).ready !== undefined) break; } catch (e) {
+          if (exited) throw Error(`safaridriver exited before serving (${JSON.stringify(exited)}): ${e.message}`);
+          if (Date.now() > end) throw Error(`safaridriver did not serve on ${endpoint} within 120 s: ${e.message}`);
+        }
+        await sleep(250);
       }
       return {wsEndpoint: () => endpoint, process: () => child, close: async () => { child.kill(); await sleep(500); }};
     },
