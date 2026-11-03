@@ -6,8 +6,7 @@ The checked-in `pipeline/common/terrio-release.lock.json` records actual archive
 and wheel digests separately from the complete inner web/Python locks. Draft
 preparation is not a public application deployment or a production release.
 
-From a fresh checkout with authenticated GitHub CLI (same-repository contents
-read access, including drafts):
+From a fresh checkout with authenticated GitHub CLI (same-repository draft-capable access):
 
 ```sh
 python scripts/terrio_release_assets.py acquire --sha256 5eb50b10bd4f3bf0f39423834d8428b64388d9a893165c36dc3f0327ecaadae6 --destination .terrio-validation/runtime
@@ -23,7 +22,10 @@ site builds copy only verified assets, record provenance and fail on unavailable
 or altered bytes. No decoder downgrade occurs. `--archive PATH` supports offline
 acquisition with the same digest. Existing destinations are refused and preserved.
 `TERRIO_ASSET_CACHE` selects a fresh cache when validating independence from local
-state. CI uses its own contents-read token and committed digest, never a digest
+state. The dedicated CI asset job uses an ephemeral contents-write token for GitHub draft
+visibility; all other jobs remain read-only. No persistent OAuth token is copied
+into secrets. Fork PR tokens retain GitHub's read-only cap and cannot silently
+bypass the default gate. CI uses the committed digest , never a digest
 fetched beside the download; pinned default-site validation is required by all-green.
 
 The bundle is 171643130 bytes. It contains `web/`, `python/terrio/`, three

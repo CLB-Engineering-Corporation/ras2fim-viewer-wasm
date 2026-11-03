@@ -79,6 +79,11 @@ jobs:
         run: python -m unittest discover -s tests -t . -v
 
   assets:
+    # GitHub draft visibility requires push access. Scope the ephemeral write
+    # token to this acquisition job; other jobs remain contents:read. Fork PRs
+    # retain GitHub's read-only cap and must not bypass this fail-closed gate.
+    permissions:
+      contents: write
     name: pinned default site assets
     runs-on: ubuntu-latest
     steps:
