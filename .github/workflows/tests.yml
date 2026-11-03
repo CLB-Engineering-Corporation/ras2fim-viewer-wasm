@@ -44,7 +44,7 @@ jobs:
       # Unquoted, so bash expands the glob and Node receives explicit paths.
       # Node's own glob handling in --test arrived after 20, and a quoted
       # pattern fails there with "Could not find" rather than running nothing.
-      - run: node --test tests/*.test.mjs tests/adoption_acceptance/*.test.mjs tests/adoption_acceptance/oracle/*.test.mjs
+      - run: node --test tests/*.test.mjs tests/adoption_acceptance/*.test.mjs tests/adoption_acceptance/oracle/*.test.mjs tests/safari_acceptance/*.test.mjs
 
   pipeline:
     name: pipeline (python ${{ matrix.python }})

@@ -1,0 +1,188 @@
+name: Safari acceptance
+
+# Long-session browser acceptance on GitHub-hosted macOS: the adoption
+# harness's own design (3 fresh-context trials x 80 stream switches x 3 slider
+# renders per decoder, plus 20 each of fetch-cancel, preparation-cancel and
+# malformed-recovery per trial) against Playwright WebKit and real Safari via
+# safaridriver, and -- when the runner can host it -- Mobile Safari in an iOS
+# Simulator. Limits are tests/safari_acceptance/thresholds.json, derived from
+# tests/adoption_acceptance/baseline.json and committed before any run.
+#
+# These are virtual machines in a data centre, not the user's devices: no
+# physical display, GPU or thermal/memory-pressure behaviour of a real Mac,
+# iPhone or iPad is represented. The evidence is bounded regression evidence
+# for the engine, not device certification.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/safari-acceptance.yml'
+      - 'tests/safari_acceptance/**'
+      - 'tests/adoption_acceptance/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: safari-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PLAYWRIGHT_VERSION: '1.64.1'  # the accepted Windows run's Playwright (WebKit 27.2)
+
+jobs:
+  desktop:
+    # Draft-release visibility (runtime archive, acceptance inputs) needs an
+    # ephemeral contents:write token, as in the tests.yml assets job.
+    permissions:
+      contents: write
+    name: Safari + WebKit long session (macOS arm64)
+    runs-on: macos-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: packaged default site from the reviewed runtime and the accepted inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -m pip install --quiet ".[test]"
+          archive_sha=$(python -c "import json;print(json.load(open('pipeline/common/terrio-release.lock.json'))['archive']['sha256'])")
+          python scripts/terrio_release_assets.py acquire --sha256 "$archive_sha" --destination .terrio-validation/ci-runtime
+          git fetch --no-tags --depth=1 origin gh-pages:refs/remotes/origin/gh-pages
+          python tests/safari_acceptance/fetch_inputs.py .terrio-validation/acceptance-input .terrio-validation/fixtures
+          python -m pipeline.fim2d.site .terrio-validation/acceptance-input --out .terrio-validation/adoption-site
+          python -m pipeline.fim2d.validate .terrio-validation/adoption-site --deep
+      - name: the site is the independently frozen candidate
+        run: |
+          node -e "
+            const {createHash}=require('crypto'),fs=require('fs');
+            const pins=JSON.parse(fs.readFileSync('tests/safari_acceptance/candidate-pins.json'));
+            for (const [f,h] of Object.entries(pins)) {
+              const got=createHash('sha256').update(fs.readFileSync('.terrio-validation/adoption-site/'+f)).digest('hex');
+              if (got!==h) { console.error('candidate pin mismatch', f, got); process.exit(1); }
+            }
+            console.log('7 candidate pins match');"
+      - name: Playwright WebKit and safaridriver
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null && npm install --no-save --no-audit --no-fund "playwright@$PLAYWRIGHT_VERSION"
+          npx playwright install webkit
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/pw/node_modules/playwright" >> "$GITHUB_ENV"
+          sudo safaridriver --enable
+          sw_vers; sysctl -n machdep.cpu.brand_string hw.memsize
+          /usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' /Applications/Safari.app/Contents/Info.plist
+      - name: long session (WebKit, then Safari)
+        env:
+          VIEWER_ROOT: ${{ github.workspace }}
+          ADOPTION_SITE: ${{ github.workspace }}/.terrio-validation/adoption-site
+          ENGINES: webkit,safari
+        run: node tests/safari_acceptance/run.mjs evidence/desktop
+      - name: audit against the pre-declared limits
+        if: always()
+        run: |
+          test -f evidence/desktop/raw.json || exit 1
+          node tests/safari_acceptance/evaluate.mjs evidence/desktop/raw.json webkit,safari
+      - name: evidence hashes
+        if: always()
+        run: |
+          { echo '### Safari desktop evidence'; echo '```'; shasum -a 256 evidence/desktop/* 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          shasum -a 256 evidence/desktop/* || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: safari-desktop-evidence
+          path: evidence/desktop/
+          if-no-files-found: error
+
+  ios-simulator:
+    permissions:
+      contents: write
+    name: Mobile Safari in iOS Simulator (macOS arm64)
+    runs-on: macos-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: packaged default site from the reviewed runtime and the accepted inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -m pip install --quiet ".[test]"
+          archive_sha=$(python -c "import json;print(json.load(open('pipeline/common/terrio-release.lock.json'))['archive']['sha256'])")
+          python scripts/terrio_release_assets.py acquire --sha256 "$archive_sha" --destination .terrio-validation/ci-runtime
+          git fetch --no-tags --depth=1 origin gh-pages:refs/remotes/origin/gh-pages
+          python tests/safari_acceptance/fetch_inputs.py .terrio-validation/acceptance-input .terrio-validation/fixtures
+          python -m pipeline.fim2d.site .terrio-validation/acceptance-input --out .terrio-validation/adoption-site
+          python -m pipeline.fim2d.validate .terrio-validation/adoption-site --deep
+      - name: boot an iPhone simulator with Remote Automation
+        run: |
+          mkdir -p evidence/ios
+          xcodebuild -version | tee evidence/ios/xcode.txt
+          xcrun simctl list runtimes | tee -a evidence/ios/xcode.txt
+          udid=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)['devices']
+          ios=[(k,x) for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]
+          ios.sort(key=lambda p:[int(n) for n in p[0].rsplit('iOS-',1)[1].split('-')])
+          print(ios[-1][1]['udid'])")
+          echo "IOS_DEVICE_UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          # Settings > Safari > Advanced > Remote Automation, written directly.
+          xcrun simctl spawn "$udid" defaults write com.apple.mobilesafari RemoteAutomationEnabled -bool YES
+          xcrun simctl spawn "$udid" defaults write com.apple.mobilesafari WebKitRemoteAutomationEnabled -bool YES
+          xcrun simctl list devices | grep "$udid" | tee evidence/ios/device.txt
+          sudo safaridriver --enable
+      - name: feasibility probe (one WebDriver session in Mobile Safari)
+        id: probe
+        run: |
+          safaridriver -p 4445 & driver=$!
+          sleep 3
+          node -e "
+            const caps={platformName:'iOS',browserName:'Safari','safari:useSimulator':true,'safari:deviceUDID':process.env.IOS_DEVICE_UDID};
+            (async()=>{
+              const r=await fetch('http://127.0.0.1:4445/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({capabilities:{alwaysMatch:caps}})});
+              const j=await r.json(); require('fs').writeFileSync('evidence/ios/probe.json',JSON.stringify({status:r.status,response:j},null,2));
+              if(!r.ok){console.error(JSON.stringify(j));process.exit(1);}
+              const s='http://127.0.0.1:4445/session/'+j.value.sessionId;
+              await fetch(s+'/url',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:'about:blank'})});
+              const v=await (await fetch(s+'/execute/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({script:'var c=document.createElement(\"canvas\");return {ua:navigator.userAgent,webgl:!!c.getContext(\"webgl\"),webgl2:!!c.getContext(\"webgl2\"),hidden:document.hidden}',args:[]})})).json();
+              require('fs').writeFileSync('evidence/ios/probe.json',JSON.stringify({status:r.status,capabilities:j.value.capabilities,page:v.value},null,2));
+              await fetch(s,{method:'DELETE'});
+            })().catch(e=>{console.error(e);process.exit(1);});" && echo "feasible=true" >> "$GITHUB_OUTPUT" || echo "feasible=false" >> "$GITHUB_OUTPUT"
+          kill "$driver" || true
+          cat evidence/ios/probe.json || true
+      - name: long session (Mobile Safari)
+        if: steps.probe.outputs.feasible == 'true'
+        env:
+          VIEWER_ROOT: ${{ github.workspace }}
+          ADOPTION_SITE: ${{ github.workspace }}/.terrio-validation/adoption-site
+          ENGINES: ios-simulator
+        run: node tests/safari_acceptance/run.mjs evidence/ios/run
+      - name: audit against the pre-declared limits
+        if: always() && steps.probe.outputs.feasible == 'true'
+        run: |
+          test -f evidence/ios/run/raw.json || exit 1
+          node tests/safari_acceptance/evaluate.mjs evidence/ios/run/raw.json ios-simulator
+      - name: evidence hashes
+        if: always()
+        run: |
+          { echo '### iOS Simulator evidence'; echo "feasible=${{ steps.probe.outputs.feasible }}"; echo '```'; find evidence/ios -type f -exec shasum -a 256 {} \; ; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-simulator-evidence
+          path: evidence/ios/
+          if-no-files-found: error

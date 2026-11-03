@@ -12,13 +12,14 @@ function unique(rows, key, expected) {
   assert.equal(rows.length, expected.length, 'missing or extra samples');
   assert.deepEqual(rows.map(key).sort(), expected.toSorted(), 'duplicate or missing sample key');
 }
-export function audit(report, profile='full') {
+// `engines` overrides the expected engine set (e.g. ['webkit','safari'] on macOS).
+export function audit(report, profile='full', engines=null) {
   assert.ok(['full','webkit-stress'].includes(profile),'unknown audit profile');
   assert.equal(report.completed,true,'runner cleanup did not complete successfully');
   assert.ok(Number.isFinite(Date.parse(report.finished))&&Date.parse(report.finished)>=Date.parse(report.started),'missing or invalid completion timestamp');
   assert.ok(Number.isInteger(report.trials) && report.trials > 0);
   assert.ok(Number.isInteger(report.cycles) && report.cycles >= (profile==='full'?4:80));
-  unique(report.engines,e=>e.engine,profile==='full'?['chromium','firefox','webkit']:['webkit']);
+  unique(report.engines,e=>e.engine,engines ?? (profile==='full'?['chromium','firefox','webkit']:['webkit']));
   const cycles = Array.from({length:report.trials},(_,t)=>Array.from({length:report.cycles},(_,c)=>`${t}/${c}`)).flat();
   const first = Array.from({length:report.trials},(_,t)=>['cold','warm'].map(p=>`${t}/${p}`)).flat();
   const results = [];
