@@ -14,8 +14,8 @@ node tests/viewer_acceptance/run.mjs
 
 The server reads the packaged pilot site, adding the existing receding fixture to
 its in-memory manifest. It patches five uniquely asserted app.js anchors in the
-HTTP response only; no viewer files change. External satellite requests are
-fulfilled with a transparent PNG to isolate local depth rendering. Verification remains enabled, default
+HTTP response only; no viewer files change. The basemap URL is rewritten to a same-origin transparent PNG to isolate local
+depth rendering without request interception. Verification remains enabled, default
 smoothing remains enabled. Real small/depth, large WSEL, small WSEL, and synthetic
 receding streams rotate. Every cycle selects dry/low, high, and middle flows.
 
@@ -64,7 +64,7 @@ The audit writes `raw.summary.json` with timing counts/median/p95, RSS endpoint
 range and first/last, WASM capacity and retained sparse-array bytes separately.
 Do not interpret first-to-last RSS differences as leak slopes: stream sizes,
 process lifetime, allocator retention and shared working sets affect them.
-Pinned packaged WASM SHA256 for this run:
+Archived initial-run packaged WASM SHA256 (not the final package):
 `DD196F4B6B38347C92E2548054F4146E7BCCF206559A4787F76F227A27DFA7E6`
 (source scientific fork 7f09be44ff95937cf66801da730d2b17e7d9d440).
 
