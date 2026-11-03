@@ -1,3 +1,4 @@
+import email
 import base64
 import csv
 import hashlib
@@ -34,6 +35,10 @@ class ReviewedWheelTests(unittest.TestCase):
                     self.assertEqual(int(size), len(body))
                     self.assertEqual(digest, "sha256=" + base64.urlsafe_b64encode(hashlib.sha256(body).digest()).decode().rstrip("="))
                 self.assertEqual(sum("/licenses/" in n for n in archive.namelist()), 3)
+                metadata = next(n for n in archive.namelist() if n.endswith("/METADATA"))
+                fields = email.message_from_bytes(archive.read(metadata))
+                for declared in fields.get_all("License-File"):
+                    self.assertIn(metadata.rsplit("/", 1)[0] + "/licenses/" + declared, archive.namelist())
             (package / "_terrio.pyd").write_bytes(b"wrong binary")
             with self.assertRaisesRegex(ValueError, "artifact mismatch"):
                 build(package, root, root / "c", lock)

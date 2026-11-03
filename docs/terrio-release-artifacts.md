@@ -36,11 +36,11 @@ special files, encryption and unsupported codecs are rejected. Parent paths
 remain caller-controlled; do not permit concurrent untrusted parent mutation.
 A later importer failure leaves verified directories for inspection.
 
-The separate wheel is `terrio-0.6.1+clb9c644f4-cp310-abi3-win_amd64.whl`,
-156287223 bytes, SHA256
-`dcb10acf2ba5158664b952c263a4befb3ea8b8ab43906804b1c4729c334a1ac8`.
+The separate wheel is `terrio-0.6.1+clb9c644f4.1-cp310-abi3-win_amd64.whl`,
+156287240 bytes, SHA256
+`c40983634cc8f27f86135572722ed0f67193b67f8d18ae09e38cda2a814ba346`.
 Download it with authenticated `gh release download viewer-runtime-9c644f4 --repo
-CLB-Engineering-Corporation/ras2fim-viewer-wasm --pattern '*.whl' --dir <new-dir>`,
+CLB-Engineering-Corporation/ras2fim-viewer-wasm --pattern 'terrio-0.6.1+clb9c644f4.1-cp310-abi3-win_amd64.whl' --dir <new-dir>`,
 verify that digest, then install into a dedicated Windows environment. The wheel
 contains the exact reviewed package/native bytes and all licenses; it is not on
 PyPI. Its local version satisfies the Windows fim1d dependency group after import.
@@ -63,3 +63,11 @@ A source-locked byte-identical rebuild is required before replacing any artifact
 lock. Keep previous locks/assets for rollback. Do not overwrite candidate assets
 in place; a changed artifact needs a new reviewed tag/digest. Final adoption QAQC
 records exact draft asset IDs/locations, fresh acquisition and browser evidence.
+
+
+Packaging revision `.1` corrects License-File paths to be relative to the
+`.dist-info/licenses/` directory as required by the
+[wheel specification](https://packaging.python.org/en/latest/specifications/binary-distribution-format/).
+A regression resolves every declared license path. Native and Python executable
+bytes are unchanged. The earlier wheel remains in the draft audit trail and is
+superseded; acquisition/install instructions select the exact revised filename.

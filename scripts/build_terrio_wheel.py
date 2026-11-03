@@ -17,7 +17,7 @@ from pathlib import Path
 def build(package: Path, licenses: Path, output: Path, lock: dict) -> Path:
     if lock["platform"] != "win_amd64":
         raise ValueError("only the reviewed Windows abi3 artifact is supported")
-    version = lock["version"] + "+clb" + lock["source_commit"][:7]
+    version = lock["version"] + "+clb" + lock["source_commit"][:7] + ".1"
     dist = f"terrio-{version}.dist-info"
     entries = {}
     for name, expected in lock["sha256"].items():
@@ -35,8 +35,8 @@ def build(package: Path, licenses: Path, output: Path, lock: dict) -> Path:
         "Summary: Reviewed CLB Terrio native publication artifact\n"
         "Requires-Python: >=3.10\nRequires-Dist: numpy>=1.21\nRequires-Dist: affine>=2.3\n"
         "License-Expression: MIT AND MPL-2.0\n"
-        "License-File: licenses/LICENSE\nLicense-File: licenses/NOTICE\n"
-        "License-File: licenses/LICENSE-THIRD-PARTY.md\n\n"
+        "License-File: LICENSE\nLicense-File: NOTICE\n"
+        "License-File: LICENSE-THIRD-PARTY.md\n\n"
         f"Source commit: {lock['source_commit']}\n"
     ).encode()
     entries[f"{dist}/WHEEL"] = (

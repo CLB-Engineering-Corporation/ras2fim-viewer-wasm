@@ -1,75 +1,67 @@
-# Pinned Terrio viewer assets
+# Pinned Terrio assets and reference controls
 
-The default site build requires the complete package identified by
-`pipeline/common/terrio-assets.lock.json`. This locks source
-9c644f4a1729e253f9714813912f54d32e306c38 and every shipped byte, including
-JavaScript, both declarations, package metadata and three license/notice files.
-The WASM SHA256 is e9f0a57ce955b71a74779cac9da73e176926f31a6ba442d569923b228316ebd5.
-No binary or invented public download URL is checked in.
+The default site uses `terrio-slices`, selected through the catalog. It requires
+the complete eight-asset package in `pipeline/common/terrio-assets.lock.json`:
+Terrio source `9c644f4a1729e253f9714813912f54d32e306c38`, WASM SHA256
+`e9f0a57ce955b71a74779cac9da73e176926f31a6ba442d569923b228316ebd5`.
+Both declarations, package metadata and three license/notice files are locked.
+Snippets must be included and inventoried when generated; this build has none.
 
-Acquire the reviewed package from the coordinator's retained local package or a
-future immutable CLB release. After extracting it to an otherwise empty directory:
+Acquire the candidate from the authenticated CLB draft as described in
+[terrio-release-artifacts.md](terrio-release-artifacts.md). The archive digest is
+committed separately in `pipeline/common/terrio-release.lock.json`. A fresh CI
+runner downloads/verifies it, imports the cache and builds/validates a default
+site; default asset validation is required by all-green. Draft visibility uses
+an ephemeral contents-write token in that dedicated job only; no persistent OAuth
+credential is copied into repository secrets. Other jobs remain read-only.
 
 ```sh
-python -m pipeline.common.terrio_assets --package /path/to/package
-python -m pipeline.fim2d.site /path/to/nc --out site
-python -m pipeline.fim2d.validate site --deep
+python scripts/terrio_release_assets.py acquire --sha256 5eb50b10bd4f3bf0f39423834d8428b64388d9a893165c36dc3f0327ecaadae6 --destination .terrio-validation/runtime
+python -m pipeline.fim2d.site <nc-directory> --out <site-directory>
+python -m pipeline.fim2d.validate <site-directory> --deep
 ```
 
-`TERRIO_ASSET_CACHE` overrides the cache root (default
-`~/.cache/ras2fim-terrio`); the source commit names its package directory.
-Import checks the lock before staging and renaming, and refuses to replace a
-corrupt existing cache. Remove/quarantine such a cache explicitly before retrying.
-Every default build verifies the bytes again. Missing or changed assets stop the
-build before viewer/vendor acquisition or output replacement. There is no network
-fetch or silent downgrade. CI must acquire/import the same package before default
-site builds; asset unit tests use synthetic packages and require no downloads.
+For an already acquired offline web package, import it using
+`python -m pipeline.common.terrio_assets --package <web-package>`.
+`TERRIO_ASSET_CACHE` overrides the cache root (default `~/.cache/ras2fim-terrio`);
+the immutable source commit names the package directory. Imports verify before
+staging/renaming and refuse to overwrite a corrupt existing cache. Quarantine
+corrupt caches explicitly before retrying. Every default build verifies again.
+Missing or altered assets stop the build before output replacement. No binary is
+committed, no network retry changes the selected decoder, and no fallback is silent.
 
-`--reader-backend h5wasm` explicitly omits Terrio. `--terrio-package PATH`
-retains local development overrides, inventories their bytes/licenses and marks
-provenance and catalog as `local-override`; these are not claimed to match the lock.
-The catalog's `reader_backend` is the integration contract for the app/worker owner.
-This patch does not implement browser backend selection.
-
-## Rebuilding and release prerequisites
-
-In the CLB Terrio repository at the exact source commit above, use the locked
-Cargo dependencies and `node js/build.mjs --target web --out-dir pkg-viewer-final
---no-default-features --features netcdf-hdf5`. See Terrio's
-`docs/scientific-wasm-build.md`. The retained build used rustc 1.99.1 and
-wasm-pack 0.15.0. This is a reproducible verification/acquisition path, not a
-claim of hermetic compilation: wasm-bindgen/wasm-opt and the complete build
-environment must be pinned for byte-for-byte rebuilds. Any different output is
-rejected; changing the reviewed lock requires explicit release review.
-
-Before CI/release can work on a fresh host, the coordinator must publish or
-otherwise supply the full reviewed package (including licenses) through an
-immutable CLB artifact, record its archive digest and actual acquisition location,
-and arrange CI credentials if private. No public artifact currently exists in
-this patch. Do not add an unverified mutable URL. Browser default selection,
-persistent module/worker reuse, and browser acceptance remain with their owners.
-
-Overlay integration: copy each file below `viewer_adoption/` to the same relative
-path in the viewer repository. Run its existing Node/Python suites after combining
-owners' changes. Asset regressions alone:
-`python -m unittest discover -s tests -p test_terrio_assets.py`.
-
+`--reader-backend h5wasm` builds an explicit reference site and omits Terrio assets.
+In a Terrio site, `?decoder=h5wasm` selects the shipped reference runtime.
+`--terrio-package PATH` permits local development overrides, inventories all
+bytes/licenses and marks the provenance/catalog `local-override`; it does not
+claim reviewed lock identity. Unknown backend names fail. `?verify=1` compares
+prepared layers with the dense renderer. Whole-file input still downloads before
+bounded flow decoding; this is not scientific HTTP range access.
 
 ## Native publication artifact
 
-The reviewed native wheel is `terrio-0.6.1+clb9c644f4-cp310-abi3-win_amd64.whl`,
-with SHA256 `dcb10acf2ba5158664b952c263a4befb3ea8b8ab43906804b1c4729c334a1ac8`.
-It wraps the already validated binary without recompilation and carries all
-three license/notice files. Install this verified wheel in a dedicated compatible
-Windows environment before resolving `.[fim1d]`; its local version is intentionally
-absent from PyPI. The fixed source is recorded in both wheel and runtime lock.
-The guard checks all Python files and the actual loaded extension, and rejects
-competing ABI-qualified binaries. A same-version unreviewed build is refused.
-Other native platforms require an independently built/reviewed lock and wheel;
-use the explicit GDAL publication controls until such an artifact exists.
-The universal browser WASM package is independent of the native platform.
+The reviewed native wheel is `terrio-0.6.1+clb9c644f4.1-cp310-abi3-win_amd64.whl`,
+SHA256 `c40983634cc8f27f86135572722ed0f67193b67f8d18ae09e38cda2a814ba346`.
+Acquire that exact filename, verify its digest, then install in a dedicated
+compatible Windows environment before resolving `.[fim1d]`. It is not on PyPI.
+It wraps the reviewed abi3-py310 binary without recompiling; all three licenses
+and a complete RECORD are included. Packaging revision `.1` corrects license
+metadata paths; Python/native executable bytes are unchanged. Isolated Python
+3.12 installation and actual loaded-origin/package hash validation pass.
 
-The `build_terrio_wheel.py` script wraps, rather than compiles, source-locked bytes.
-Its ZIP timestamps/order/permissions and RECORD are deterministic. Publication
-smoke testing installed the actual wheel into a separate Python 3.12 environment.
-No existing conda or global Python environment was modified.
+The runtime guard checks every locked Python file and the actual loaded native
+extension; competing ABI-qualified artifacts are refused. Missing/DLL/ABI import
+failures name explicit `--writer-backend gdal` and `--backend gdal` controls.
+Other native platforms need their own reviewed build/lock/wheel or those explicit
+GDAL controls; universal browser WASM is independent of that limitation.
+
+## Rebuilding
+
+In the pinned CLB Terrio checkout, use locked Cargo dependencies and
+`node js/build.mjs --target web --out-dir pkg-viewer-final --no-default-features --features netcdf-hdf5`.
+See Terrio `docs/scientific-wasm-build.md`. Retained tools were rustc 1.99.1 and
+wasm-pack 0.15.0. The lock verifies output bytes; this is not a hermetic compiler
+build claim. Different bytes require a new reviewed artifact identity/digest.
+`build_terrio_wheel.py` wraps the existing native artifact, preserving its bytes,
+with fixed ZIP timestamps/order/permissions and valid RECORD/license paths.
+The draft contains preparation candidates and does not deploy a public app.

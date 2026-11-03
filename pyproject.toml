@@ -54,7 +54,7 @@ fim1d = [
   "GDAL>=3.8",
   "numpy>=1.26,<3.0",
   "pmtiles>=3.4,<4",
-  "terrio==0.6.1+clb9c644f4; platform_system == 'Windows' and platform_machine == 'AMD64'",
+  "terrio==0.6.1+clb9c644f4.1; platform_system == 'Windows' and platform_machine == 'AMD64'",
 ]
 
 # serve/dev_tiles.py, the local TiTiler stand-in. It only reads COGs and encodes
