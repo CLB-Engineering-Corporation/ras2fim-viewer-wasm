@@ -119,9 +119,28 @@ Two things they encode that are easy to undo by accident:
   other way round. Regenerate with `python -m tests.regenerate_geodesy_fixture`
   only when the rule itself is meant to change.
 
-CI (`.github/workflows/tests.yml`) runs exactly these two commands. The 1D
-pipeline is not in CI: it needs the GDAL bindings and real ras2fim output, so
-its gate stays the manual `--deep` run below. See `tests/README.md`.
+CI (`.github/workflows/tests.yml`) runs these two commands (plus the
+acceptance-harness Node tests). The 1D pipeline's real-output gate is not in
+CI: it needs real ras2fim output, so it stays the manual `--deep` run below.
+The `native` job does run the default Terrio publication path with GDAL on
+synthetic fixtures on Linux x86_64/arm64, macOS arm64/x86_64 and Windows. See
+`tests/README.md`.
+
+## Native Terrio wheels, one per platform
+
+- **`terrio-python.lock.json` is schema 2: one Python inventory, one native
+  extension per platform.** The Python files are CRLF on every platform --
+  that is how the reviewed Windows artifact was checked out. A Linux/macOS
+  build from an LF checkout produces different Python bytes and is refused by
+  `build_terrio_wheel.py from-maturin`. Do not "normalize" them.
+- **The native builds are Cargo dev-profile on purpose**: that is what the
+  reviewed Windows `_terrio.pyd` is. Switching to `--release` is a new
+  artifact identity for every platform, with fresh parity evidence.
+- **Never re-upload a wheel under an existing name.** A rebuild that does not
+  reproduce the locked digest needs a new identity.
+- **Safari acceptance is `tests/safari_acceptance/`**, run by
+  `.github/workflows/safari-acceptance.yml` on GitHub macOS VMs. Its limits are
+  committed before a run; never edit `thresholds.json` after seeing results.
 
 ## Before calling a build done
 
