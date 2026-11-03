@@ -13,7 +13,10 @@ committed separately in `pipeline/common/terrio-release.lock.json`. A fresh CI
 runner downloads/verifies it, imports the cache and builds/validates a default
 site; default asset validation is required by all-green. Draft visibility uses
 an ephemeral contents-write token in that dedicated job only; no persistent OAuth
-credential is copied into repository secrets. Other jobs remain read-only.
+credential is copied into repository secrets. Exactly the jobs that download draft
+assets hold that token -- `assets` and `native` in tests.yml and the session job in
+safari-acceptance.yml; every other job is read-only, and fork PRs get GitHub's
+read-only cap.
 
 ```sh
 python scripts/terrio_release_assets.py acquire --sha256 5eb50b10bd4f3bf0f39423834d8428b64388d9a893165c36dc3f0327ecaadae6 --destination .terrio-validation/runtime

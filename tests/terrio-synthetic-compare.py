@@ -47,4 +47,9 @@ for path in sys.argv[2:]:
             row["verdict"] = "not attributable: GDAL-side tiler input differs on this platform"
         summary.append(row)
 print(json.dumps(summary, indent=2))
+attributable = [r for r in summary if r["tiler_input_identical"]]
+if not attributable:
+    # Otherwise a drifted GDAL stack would turn this gate into a silent no-op.
+    print("FAIL: no platform received input identical to the reference; nothing was compared")
+    failed = True
 sys.exit(1 if failed else 0)

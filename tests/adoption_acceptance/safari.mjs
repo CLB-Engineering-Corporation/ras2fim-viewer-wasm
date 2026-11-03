@@ -16,8 +16,11 @@
 //   are not captured -- a recorded limitation, not silence.
 // * No network events. The acceptance server records every >= 400 response and
 //   every response the client abandoned; those become `response` and
-//   `requestfailed` events. That sees every request the page and its workers
-//   make, because they all go to that one server.
+//   `requestfailed` events. It sees every request that reaches it. A request
+//   the engine refuses before sending (blocked, CSP) and a worker's own console
+//   errors are not observed -- known limitations of this path.
+// * Session creation is retried (a booting simulator can be slow to expose
+//   Mobile Safari); nothing measured is retried.
 // * One session at a time. A context is one WebDriver session; closing it ends
 //   the session, so each trial is a fresh Safari automation session.
 import {spawn} from 'node:child_process';
@@ -113,7 +116,15 @@ class Context {
   async newPage() {
     assert.equal(this.session, undefined, 'one page per Safari session');
     this.browser.server.inject([CAPTURE, ...this.inits].join('\n'));
-    const value = await call(this.browser.endpoint, 'POST', '/session', {capabilities: {alwaysMatch: this.browser.capabilities}});
+    let value;
+    for (let attempt = 1; ; attempt++) {
+      try { value = await call(this.browser.endpoint, 'POST', '/session', {capabilities: {alwaysMatch: this.browser.capabilities}}); break; }
+      catch (error) {
+        if (attempt >= 3 || !/session not created/.test(error.message)) throw error;
+        this.browser.sessionRetries = (this.browser.sessionRetries || 0) + 1;
+        await sleep(10000);
+      }
+    }
     this.session = value.sessionId; this.browser.lastCapabilities = value.capabilities;
     const page = new Page(this, this.session);
     page.serverCursor = this.browser.server.events.length;

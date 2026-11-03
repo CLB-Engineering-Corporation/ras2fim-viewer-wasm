@@ -23,7 +23,8 @@ or altered bytes. No decoder downgrade occurs. `--archive PATH` supports offline
 acquisition with the same digest. Existing destinations are refused and preserved.
 `TERRIO_ASSET_CACHE` selects a fresh cache when validating independence from local
 state. The dedicated CI asset job uses an ephemeral contents-write token for GitHub draft
-visibility; all other jobs remain read-only. No persistent OAuth token is copied
+visibility, as do `native` (per-platform wheels) and the Safari acceptance
+session job (inputs); all other jobs remain read-only. No persistent OAuth token is copied
 into secrets. Fork PR tokens retain GitHub's read-only cap and cannot silently
 bypass the default gate. CI uses the committed digest , never a digest
 fetched beside the download; pinned default-site validation is required by all-green.

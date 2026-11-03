@@ -6,6 +6,7 @@ import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {parsePs, select} from '../adoption_acceptance/processes.mjs';
 import {CAPTURE} from '../adoption_acceptance/safari.mjs';
+import {requireContentProcess} from './evaluate.mjs';
 
 const root = new URL('../../', import.meta.url);
 const sha = p => createHash('sha256').update(readFileSync(new URL(p, root))).digest('hex');
@@ -40,6 +41,21 @@ test('macOS process attribution keeps engines apart', () => {
   assert.deepEqual(select(rows, 'webkit', 12).map(r => r.Id).sort(), [12, 13, 16]);
   assert.deepEqual(select(rows, 'ios-simulator', 0).map(r => r.Id), [14, 15]);
   assert.equal(select(rows, 'safari', 0)[0].WorkingSet64, 2048 * 1024);
+  // Other WebKit service layouts are attributed too.
+  const variants = parsePs([
+    '20 1 100 /System/Library/Frameworks/WebKit.framework/XPCServices/com.apple.WebKit.WebContent.CaptivePortal.xpc/Contents/MacOS/x',
+    '21 1 100 /Library/Developer/CoreSimulator/Volumes/iOS/System/Library/ExtensionKit/Extensions/WebContentExtension.appex/WebContentExtension',
+    '22 1 100 /System/Library/ExtensionKit/Extensions/NetworkingExtension.appex/NetworkingExtension',
+  ].join('\n'));
+  assert.deepEqual(select(variants, 'safari', 0).map(r => r.Id), [20, 22]);
+  assert.deepEqual(select(variants, 'ios-simulator', 0).map(r => r.Id), [21]);
+});
+
+test('evaluation refuses memory samples without a content process', () => {
+  const report = {engines: [{engine: 'safari', rss: [{decoder: 'h5wasm', trial: 0, cycle: 0, processes: [{ProcessName: 'Safari', command: '/Applications/Safari.app/x'}]}], contextClosed: []}]};
+  assert.throws(() => requireContentProcess(report), /content process/);
+  report.engines[0].rss[0].processes.push({ProcessName: 'com.apple.WebKit.WebContent', command: '/x/com.apple.WebKit.WebContent.xpc/y'});
+  assert.doesNotThrow(() => requireContentProcess(report));
 });
 
 test('injected error capture parses', () => {

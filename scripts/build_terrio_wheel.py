@@ -200,7 +200,8 @@ def main(argv=None):
     if reviewed is not None:
         # A rebuild is a reproducibility observation, never a replacement: a
         # different digest needs a new identity, not these bytes under this name.
-        record["matches_reviewed_entry"] = reviewed == record["native"]
+        identity = ("sys_platform", "machine", "file", "sha256", "wheel_platform")
+        record["matches_reviewed_entry"] = all(reviewed[k] == record["native"][k] for k in identity)
     (args.output / f"{args.platform}.lock-entry.json").write_text(
         json.dumps(record, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(record, indent=2))

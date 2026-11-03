@@ -167,7 +167,11 @@ jobs:
       - name: pipeline suite with GDAL and the native runtime
         run: python -m unittest discover -s tests -t . -v
       - name: exact Terrio-vs-GDAL archive and COG codec gate (synthetic)
-        run: python tests/terrio-publication.py "$RUNNER_TEMP/publication" | tee "$RUNNER_TEMP/publication.json"
+        # A custom shell gets no implicit pipefail: without it, tee's status
+        # would mask a failed assertion.
+        run: |
+          set -o pipefail
+          python tests/terrio-publication.py "$RUNNER_TEMP/publication" | tee "$RUNNER_TEMP/publication.json"
       - name: omitted-backend default dispatch (synthetic State Plane)
         run: python tests/terrio-synthetic-default.py "$RUNNER_TEMP/synthetic" > /dev/null
       - uses: actions/upload-artifact@v4

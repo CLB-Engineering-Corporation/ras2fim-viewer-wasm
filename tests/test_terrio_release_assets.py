@@ -132,7 +132,7 @@ class WheelAcquisitionTests(unittest.TestCase):
                   'native': {'linux_x86_64': {'sys_platform': 'linux', 'machine': 'x86_64',
                                               'file': '_terrio.abi3.so', 'sha256': '1'*64,
                                               'wheel_platform': 'manylinux_2_17_x86_64'}}}
-        release = {'source_commit': r.COMMIT, 'wheels': {'linux_x86_64': {
+        release = {'schema_version': 2, 'source_commit': r.COMMIT, 'wheels': {'linux_x86_64': {
             'name': self.wheel.name, 'bytes': 14, 'sha256': r.digest(self.wheel)}}}
         self.native, self.release = self.root/'native.json', self.root/'release.json'
         self.native.write_text(json.dumps(native))

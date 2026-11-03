@@ -14,10 +14,15 @@
 import {execFileSync} from 'node:child_process';
 import {basename} from 'node:path';
 
-export const SAFARI = /\/Safari\.app\/|\/com\.apple\.WebKit\.(WebContent|Networking|GPU)\.xpc\/|\/com\.apple\.Safari\.[A-Za-z]+\.xpc\//;
+// WebKit service bundles: .xpc, or ExtensionKit .appex, including variants such
+// as com.apple.WebKit.WebContent.CaptivePortal.xpc or WebContentExtension.appex.
+const WEBKIT_SERVICE = String.raw`\/(com\.apple\.WebKit\.)?(WebContent|Networking|GPU)[\w.]*\.(xpc|appex)\/`;
+export const SAFARI = new RegExp(String.raw`\/Safari\.app\/|\/com\.apple\.Safari\.[A-Za-z]+\.xpc\/|` + WEBKIT_SERVICE);
 const PLAYWRIGHT = /ms-playwright/;
 const SIMULATOR = /CoreSimulator/;
-export const SIMULATED_SAFARI = /\/MobileSafari\.app\/|\/com\.apple\.WebKit\.(WebContent|Networking|GPU)\.xpc\//;
+export const SIMULATED_SAFARI = new RegExp(String.raw`\/MobileSafari\.app\/|` + WEBKIT_SERVICE);
+/** A sample without a content process has lost the page's memory: never a pass. */
+export const CONTENT_PROCESS = /WebContent/;
 
 export function parsePs(text) {
   return text.split('\n').filter(l => l.trim()).map(line => {

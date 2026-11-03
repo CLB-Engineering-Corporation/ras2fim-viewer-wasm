@@ -157,6 +157,8 @@ def acquire_wheel(destination, key=None, wheel=None, release_lock=RELEASE_LOCK, 
     native = load_lock(python_lock) if python_lock else load_lock()
     key = key or platform_key(native)
     release = json.loads(Path(release_lock).read_text(encoding='utf-8'))
+    if release.get('schema_version') != 2:
+        raise ValueError('release lock must be schema_version 2')
     if release.get('source_commit') != COMMIT or native['source_commit'] != COMMIT:
         raise ValueError('release and Python locks must identify the reviewed source')
     entry = release['wheels'][key]
@@ -186,8 +188,9 @@ def acquire_wheel(destination, key=None, wheel=None, release_lock=RELEASE_LOCK, 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--web-lock', type=Path, default=Path('pipeline/common/terrio-assets.lock.json'))
-    p.add_argument('--python-lock', type=Path, default=Path('pipeline/common/terrio-python.lock.json'))
+    here = Path(__file__).resolve().parents[1]/'pipeline/common'
+    p.add_argument('--web-lock', type=Path, default=here/'terrio-assets.lock.json')
+    p.add_argument('--python-lock', type=Path, default=here/'terrio-python.lock.json')
     sub = p.add_subparsers(dest='command', required=True)
     b = sub.add_parser('bundle')
     for name in ('web', 'python', 'output'):

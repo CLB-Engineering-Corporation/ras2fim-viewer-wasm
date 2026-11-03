@@ -81,7 +81,7 @@ jobs:
               const got=createHash('sha256').update(fs.readFileSync('.terrio-validation/adoption-site/'+f)).digest('hex');
               if (got!==h) { console.error('candidate pin mismatch', f, got); process.exit(1); }
             }
-            console.log('7 candidate pins match');"
+            console.log(Object.keys(pins).length + ' candidate pins match');"
       - name: host
         run: |
           mkdir -p evidence/${{ matrix.engine }}-host
@@ -115,6 +115,9 @@ jobs:
           xcrun simctl spawn "$udid" defaults write com.apple.mobilesafari RemoteAutomationEnabled -bool YES
           xcrun simctl spawn "$udid" defaults write com.apple.mobilesafari WebKitRemoteAutomationEnabled -bool YES
           xcrun simctl list devices | grep "$udid" | tee -a evidence/ios-simulator-host/host.txt
+          # WebDriver attaches to a running Mobile Safari; launch it once first.
+          xcrun simctl launch "$udid" com.apple.mobilesafari
+          sleep 10
       - name: long session
         env:
           VIEWER_ROOT: ${{ github.workspace }}

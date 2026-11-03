@@ -144,7 +144,8 @@ class FromMaturinTests(unittest.TestCase):
     def test_cli_reports_rebuild_against_reviewed_entry(self):
         lock_path, web_path = self.root / "lock.json", self.root / "web.json"
         _, record = self.convert(self.maturin(), out="first")
-        lock = dict(self.lock, native={"linux_x86_64": record["native"]})
+        # A committed entry also carries review notes; only identity is compared.
+        lock = dict(self.lock, native={"linux_x86_64": dict(record["native"], build="reviewed notes")})
         lock_path.write_text(json.dumps(lock))
         web_path.write_text(json.dumps({"sha256": self.license_sha}))
         with contextlib.redirect_stdout(io.StringIO()):
