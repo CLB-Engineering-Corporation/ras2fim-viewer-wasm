@@ -20,7 +20,7 @@ from pipeline.fim1d import cog_postprocess as cp
 from pipeline.fim1d import depth_pmtiles as tiles
 
 gdal.UseExceptions()
-root = Path(".terrio-validation/publication")
+root = Path(sys.argv[1] if len(sys.argv) > 1 else ".terrio-validation/publication")
 root.mkdir(parents=True, exist_ok=True)
 cli = str(Path(".terrio-validation/bin/pmtiles.exe").resolve())
 
@@ -158,7 +158,11 @@ for codec, tolerance in [("DEFLATE", 0), (cp.COMPRESS, cp.MAX_Z_ERROR)]:
                 assert np.array_equal(x == -9999, y == -9999)
                 valid = x != -9999
                 error = float(np.max(np.abs(x[valid] - y[valid])))
-                assert error <= tolerance + 1e-6
+                if codec == "DEFLATE":
+                    assert np.array_equal(x, y), "lossless COG values must be exact"
+                else:
+                    rounding = float(np.spacing(np.float32(np.max(np.abs(x[valid])))))
+                    assert error <= tolerance + rounding
                 errors.append(error)
             written.append(actual)
             reports.append(
@@ -200,3 +204,16 @@ with patch(
         assert not list(root.glob(".atomic-cog.tif.partial-*"))
         reports.append({"cog_failure_atomicity": "passed"})
 print(json.dumps(reports, indent=2))
+
+assert not any("blocked" in report for report in reports), "publication acceptance blocked"
+tile_reports = [r for r in reports if "case" in r]
+assert {r["case"] for r in tile_reports} == {"dry", "one", "edge", "offgrid", "partial-alpha"}
+assert all(r["coverage_equal"] and not r["pixel_different"] and not r["alpha_different"]
+           and all(pair[0] == pair[1] for pair in r["headers"].values())
+           for r in tile_reports), "exact archive acceptance failed"
+assert len([r for r in reports if r.get("validation") == "passed"]) == 4
+comparisons = [r for r in reports if "cog_base_equal" in r]
+assert len(comparisons) == 2
+assert all(r["metadata_equal"] and r["transform_equal"] and r["nodata_equal"]
+           and (r["codec"] != "DEFLATE" or r["cog_base_equal"]) for r in comparisons)
+assert any(r.get("cog_failure_atomicity") == "passed" for r in reports)

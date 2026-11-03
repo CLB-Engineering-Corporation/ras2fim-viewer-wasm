@@ -67,7 +67,11 @@ and transparent omission. The fork's independent `OVERVIEW_RESAMPLING` control
 lets the trial use base BILINEAR plus overview AVERAGE. Its minimum zoom also
 matches the available levels of a reopened GDAL MBTiles raster (including the
 first level below 256 pixels in both dimensions). The synthetic non-empty cases
-match exactly. Real-profile RGB mismatches still block promotion; see the handover.
+match exactly. The fixed fork also matches all 72 pilot profiles across every
+RGBA channel, coverage, bounds and zooms through the rebuilt Python binding.
+This is bounded fixture/corpus evidence, not universal reprojection parity.
+Artifact pins and validation of the separate reconciliation branch are recorded
+in the handover. GDAL remains default pending performance/adoption acceptance.
 All-dry profiles use a valid PMTiles v3 archive with one transparent zoom-zero
 sentinel, source bounds, and explicit `empty: true` metadata. This works with
 standard readers and overzooming; it paints no water. Zero-entry archives were

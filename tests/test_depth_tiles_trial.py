@@ -87,6 +87,15 @@ class DepthTilesTrial(unittest.TestCase):
                     _validate_pmtiles_archive(target, "dry", validation, expect_empty=True)
                     self.assertEqual(validation.failures, [])
                     self.assertEqual(validation.warnings, [])
+                    undeclared = Report()
+                    _validate_pmtiles_archive(target, "undeclared dry", undeclared)
+                    self.assertTrue(undeclared.failures)
+                    from pipeline.fim1d import site
+                    stale = {"units": [{"models": [{"fim": {"profiles": [{
+                        "depth_pmtiles": target.name, "depth_max_ft": 5,
+                    }]}}]}]}
+                    with self.assertRaisesRegex(site.SiteError, "not declared"):
+                        site.select_inventory(Path(tmp), stale, require_baked=True)
                     png = Path(tmp) / "transparent.png"
                     png.write_bytes(reader.get(0, 0, 0))
                     image = gdal.Open(str(png))

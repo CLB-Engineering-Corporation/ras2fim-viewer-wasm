@@ -113,8 +113,15 @@ def select_inventory(source: Path, manifest: dict, *, require_baked: bool) -> li
                     empty = profile.get("depth_empty", False)
                     if not isinstance(empty, bool):
                         raise SiteError(f"{baked}: depth_empty must be a boolean")
+                    from ..common.empty_tiles import validate_empty_archive
+                    if not empty and (source / baked).is_file():
+                        try:
+                            validate_empty_archive(source / baked)
+                        except (ValueError, OSError, EOFError):
+                            pass  # Ordinary nonempty archives have a different structure.
+                        else:
+                            raise SiteError(f"{baked}: empty archive is not declared by the manifest")
                     if empty:
-                        from ..common.empty_tiles import validate_empty_archive
                         try:
                             if float(profile["depth_max_ft"]) > 0:
                                 raise ValueError("empty profile has a positive source maximum")

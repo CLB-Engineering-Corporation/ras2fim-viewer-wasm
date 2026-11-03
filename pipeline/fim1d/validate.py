@@ -100,6 +100,14 @@ def _validate_pmtiles_archive(path: Path, label: str, report: Report, *,
         else:
             report.check(True, f"{label}: valid empty depth archive")
     elif expect_tile_type == PMTILES_TILETYPE_PNG:
+        if max_zoom == 0:
+            from ..common.empty_tiles import validate_empty_archive
+            try:
+                validate_empty_archive(path)
+            except (ValueError, OSError, EOFError):
+                pass
+            else:
+                report.check(False, f"{label}: empty archive is not declared by the manifest")
         report.warn(
             max_zoom >= 12,
             f"{label}: base zoom is only {max_zoom}; the depth grid will look coarse",

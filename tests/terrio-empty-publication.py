@@ -25,8 +25,14 @@ dry.update(label='synthetic-all-dry', depth_empty=True, depth_max_ft=0)
 for entry in (wet, dry):
     (source / entry['depth_pmtiles']).parent.mkdir(parents=True, exist_ok=True)
 wet_archive = source / wet['depth_pmtiles']
-shutil.copy2(root / 'real-tile-comparison/gdal/depth_000.pmtiles', wet_archive)
-wet['depth_pmtiles_bytes'] = wet_archive.stat().st_size
+wet_source = root / 'real-1d' / wet['cog']
+wet_ds = gdal.Open(str(wet_source))
+wet_max = wet_ds.GetRasterBand(1).ComputeRasterMinMax(False)[1]
+wet_ds = None
+wet_report = build_profile(wet_source, wet_archive, wet_max,
+                           cli=str((root / 'bin/pmtiles.exe').resolve()))
+wet['depth_max_ft'] = round(wet_max, 3)
+wet['depth_pmtiles_bytes'] = wet_report['bytes']
 base = gdal.Open(str(root / 'real-1d' / wet['cog']))
 dry_cog = source / 'synthetic-dry.tif'
 ds = gdal.GetDriverByName('GTiff').Create(str(dry_cog), base.RasterXSize, base.RasterYSize, 1, gdal.GDT_Float32)
@@ -37,7 +43,9 @@ ds.GetRasterBand(1).Fill(-9999)
 ds = None
 report = build_profile(dry_cog, source / dry['depth_pmtiles'], 0)
 dry['depth_pmtiles_bytes'] = report['bytes']
-model['fim'].update(profiles=[wet, dry], profile_count=2, profile_range=[0, 1])
+model['fim'].update(profiles=[wet, dry], profile_count=2, profile_range=[0, 1],
+                    depth_max_ft=round(wet_max, 3), reaches=[])
+manifest['title'] = 'Synthetic dry transition acceptance fixture'
 unit['models'] = [model]
 vector = source / unit['pmtiles']
 vector.parent.mkdir(parents=True, exist_ok=True)
