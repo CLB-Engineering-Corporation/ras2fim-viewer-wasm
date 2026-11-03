@@ -143,7 +143,7 @@ class RoundTripTest(unittest.TestCase):
         second = self.tmp / "site2"
         with redirect_stdout(io.StringIO()):
             site.build(self.source, second, viewer_root=str(self.viewer),
-                       title="round-trip fixture", attribution=None, data_base_url=None)
+                       title="round-trip fixture", attribution=None, data_base_url=None, reader_backend="h5wasm")
         a = json.loads((self.out / "manifest.json").read_text("utf-8"))
         b = json.loads((second / "manifest.json").read_text("utf-8"))
         for doc in (a, b):
