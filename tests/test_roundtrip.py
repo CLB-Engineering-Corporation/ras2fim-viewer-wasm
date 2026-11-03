@@ -78,7 +78,7 @@ class RoundTripTest(unittest.TestCase):
         with redirect_stdout(cls.build_log):
             code = site.build(cls.source, cls.out, viewer_root=str(cls.viewer),
                               title="round-trip fixture", attribution=None,
-                              data_base_url=None)
+                              data_base_url=None, reader_backend="h5wasm")
         assert code == 0, cls.build_log.getvalue()
         cls.manifest = json.loads((cls.out / "manifest.json").read_text("utf-8"))
 
@@ -143,7 +143,7 @@ class RoundTripTest(unittest.TestCase):
         second = self.tmp / "site2"
         with redirect_stdout(io.StringIO()):
             site.build(self.source, second, viewer_root=str(self.viewer),
-                       title="round-trip fixture", attribution=None, data_base_url=None)
+                       title="round-trip fixture", attribution=None, data_base_url=None, reader_backend="h5wasm")
         a = json.loads((self.out / "manifest.json").read_text("utf-8"))
         b = json.loads((second / "manifest.json").read_text("utf-8"))
         for doc in (a, b):

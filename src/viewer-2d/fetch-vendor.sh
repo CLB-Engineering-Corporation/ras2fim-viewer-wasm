@@ -35,7 +35,7 @@ fetch "https://cdn.jsdelivr.net/npm/h5wasm@${H5WASM_VERSION}/dist/iife/h5wasm.js
 for asset in maplibre-gl.js maplibre-gl.css; do
   if [ ! -s "$vendor/$asset" ]; then
     printf '  copy  %s\n' "$asset"
-    cp "$here/../frontend/vendor/$asset" "$vendor/$asset"
+    cp "$here/../viewer-1d/vendor/$asset" "$vendor/$asset"
   else
     printf '  have  %s\n' "$asset"
   fi

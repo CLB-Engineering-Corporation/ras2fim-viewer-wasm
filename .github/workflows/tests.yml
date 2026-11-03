@@ -44,7 +44,7 @@ jobs:
       # Unquoted, so bash expands the glob and Node receives explicit paths.
       # Node's own glob handling in --test arrived after 20, and a quoted
       # pattern fails there with "Could not find" rather than running nothing.
-      - run: node --test tests/*.test.mjs
+      - run: node --test tests/*.test.mjs tests/adoption_acceptance/*.test.mjs tests/adoption_acceptance/oracle/*.test.mjs
 
   pipeline:
     name: pipeline (python ${{ matrix.python }})
@@ -78,12 +78,37 @@ jobs:
       - name: full suite
         run: python -m unittest discover -s tests -t . -v
 
+  assets:
+    # GitHub draft visibility requires push access. Scope the ephemeral write
+    # token to this acquisition job; other jobs remain contents:read. Fork PRs
+    # retain GitHub's read-only cap and must not bypass this fail-closed gate.
+    permissions:
+      contents: write
+    name: pinned default site assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: install fixture dependencies
+        run: python -m pip install ".[test]"
+      - name: acquire reviewed candidate and build default site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          archive_sha=$(python -c "import json;print(json.load(open('pipeline/common/terrio-release.lock.json'))['archive']['sha256'])")
+          python scripts/terrio_release_assets.py acquire --sha256 "$archive_sha" --destination .terrio-validation/ci-runtime
+          python -c "from pathlib import Path; from tests.fixture_nc import write_stack; write_stack(Path('.terrio-validation/ci-input/depth.nc'))"
+          python -m pipeline.fim2d.site .terrio-validation/ci-input --out .terrio-validation/ci-site
+          python -m pipeline.fim2d.validate .terrio-validation/ci-site --deep
+
   # A single required check to protect the branch with, so adding a matrix entry
   # later does not silently leave the branch unprotected against it.
   all-green:
     name: all tests green
     if: always()
-    needs: [reader, pipeline]
+    needs: [reader, pipeline, assets]
     runs-on: ubuntu-latest
     steps:
       - name: fail if any job did not succeed
@@ -91,3 +116,4 @@ jobs:
           echo "reader=${{ needs.reader.result }} pipeline=${{ needs.pipeline.result }}"
           [ "${{ needs.reader.result }}" = "success" ] || exit 1
           [ "${{ needs.pipeline.result }}" = "success" ] || exit 1
+          [ "${{ needs.assets.result }}" = "success" ] || exit 1

@@ -19,7 +19,6 @@ from pathlib import Path
 
 from ..common.geodesy import looks_like_lonlat
 
-
 def _gdal():
     """Import GDAL only when a check actually needs it.
 
@@ -68,7 +67,8 @@ PMTILES_TILETYPE_MVT = 1
 
 
 def _validate_pmtiles_archive(path: Path, label: str, report: Report, *,
-                              expect_tile_type: int = PMTILES_TILETYPE_PNG) -> None:
+                              expect_tile_type: int = PMTILES_TILETYPE_PNG,
+                              expect_empty: bool = False) -> None:
     """Header-level checks on a PMTiles archive."""
     with path.open("rb") as handle:
         header = handle.read(PMTILES_HEADER_BYTES)
@@ -91,7 +91,23 @@ def _validate_pmtiles_archive(path: Path, label: str, report: Report, *,
     )
     # Overzooming a base tile is fine and honest -- the cells really are ~8 m --
     # but an archive that stops far short of native resolution is a build error.
-    if expect_tile_type == PMTILES_TILETYPE_PNG:
+    if expect_empty:
+        from ..common.empty_tiles import validate_empty_archive
+        try:
+            validate_empty_archive(path)
+        except (ValueError, OSError, EOFError) as error:
+            report.check(False, f"{label}: invalid empty depth archive: {error}")
+        else:
+            report.check(True, f"{label}: valid empty depth archive")
+    elif expect_tile_type == PMTILES_TILETYPE_PNG:
+        if max_zoom == 0:
+            from ..common.empty_tiles import validate_empty_archive
+            try:
+                validate_empty_archive(path)
+            except (ValueError, OSError, EOFError):
+                pass
+            else:
+                report.check(False, f"{label}: empty archive is not declared by the manifest")
         report.warn(
             max_zoom >= 12,
             f"{label}: base zoom is only {max_zoom}; the depth grid will look coarse",
@@ -117,6 +133,10 @@ def validate_cogs(manifest: dict, frontend: Path, report: Report, deep: bool) ->
             library_max = 0.0
             for entry in profiles:
                 library_max = max(library_max, float(entry["depth_max_ft"]))
+                empty = entry.get("depth_empty", False)
+                report.check(isinstance(empty, bool), "depth_empty must be a boolean")
+                report.check(not empty or float(entry["depth_max_ft"]) <= 0,
+                             "empty profile contradicts positive source depth maximum")
 
                 # A published release carries baked tiles and no COGs, so a
                 # profile without a "cog" key is correct rather than broken --
@@ -133,7 +153,8 @@ def validate_cogs(manifest: dict, frontend: Path, report: Report, deep: bool) ->
                             f"{entry.get('depth_pmtiles_bytes')}",
                         )
                         if deep:
-                            _validate_pmtiles_archive(tiles, baked, report)
+                            _validate_pmtiles_archive(
+                                tiles, baked, report, expect_empty=entry.get("depth_empty", False))
 
                 if "cog" not in entry:
                     report.check(
@@ -165,7 +186,8 @@ def validate_cogs(manifest: dict, frontend: Path, report: Report, deep: bool) ->
                     # approx_ok=False: the approximate path reads the overview
                     # pyramid, whose area-matched cells hold the mean of their
                     # wet contributors and so under-report the peak.
-                    _, exact_max = band.ComputeRasterMinMax(False)
+                    from ..common.raster_extrema import exact_depth_range
+                    _, exact_max = exact_depth_range(band)
                     method = ds.GetMetadataItem(f"{cp.METADATA_PREFIX}_OVERVIEW_METHOD")
                     tolerance = ds.GetMetadataItem(f"{cp.METADATA_PREFIX}_MAX_Z_ERROR")
                     ds = None

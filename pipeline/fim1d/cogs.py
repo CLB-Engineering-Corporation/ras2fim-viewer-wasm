@@ -45,6 +45,12 @@ gdal.UseExceptions()
 PUBLISH_CRS = "EPSG:4326"
 
 
+def _exact_depth_range(band) -> tuple[float, float]:
+    """Overviews contain wet means and cannot supply the library ramp maximum."""
+    from ..common.raster_extrema import exact_depth_range
+    return exact_depth_range(band)
+
+
 def _stage_dir(out_root: Path) -> Path:
     staging = out_root / ".staging"
     staging.mkdir(parents=True, exist_ok=True)
@@ -64,6 +70,7 @@ def _warp_to_publish_crs(
     ``STATISTICS_*`` tags: those are computed by whatever wrote the file, may be
     approximate, and say nothing about what survived the warp.
     """
+
     import numpy as np
 
     options = {
@@ -116,12 +123,15 @@ def build_model(
     out_root: Path,
     *,
     min_depth: float | None = None,
+    writer_backend: str = "terrio",
     src_crs: str | None = None,
     limit: int | None = None,
     force: bool = False,
     verbose: bool = True,
 ) -> dict:
     """Build every profile COG for one model. Returns a report dict."""
+    if writer_backend not in ("terrio", "gdal"):
+        raise ValueError("writer_backend must be terrio or gdal")
     dest = out_root / unit.unit_name / model.slug
     dest.mkdir(parents=True, exist_ok=True)
     staging = _stage_dir(out_root)
@@ -129,6 +139,12 @@ def build_model(
     profiles = model.profiles[:limit] if limit else model.profiles
     built: list[dict] = []
     t0 = time.time()
+
+    if writer_backend == "terrio" and any(
+        force or not (dest / f"depth_{profile.index:03d}.tif").is_file() for profile in profiles
+    ):
+        from ..common.terrio_runtime import require_terrio
+        require_terrio()  # Fail before warping or pyramid preparation.
 
     for profile in profiles:
         name = f"depth_{profile.index:03d}.tif"
@@ -139,7 +155,7 @@ def build_model(
                 print(f"    {name}: exists, skipping (use --force to rebuild)")
             ds = gdal.Open(str(target))
             band = ds.GetRasterBand(1)
-            lo, hi = band.ComputeRasterMinMax(True)
+            lo, hi = _exact_depth_range(band)
             built.append(
                 {
                     "index": profile.index,
@@ -149,6 +165,7 @@ def build_model(
                     "depth_min_ft": round(lo, 4),
                     "depth_max_ft": round(hi, 4),
                     "reused": True,
+                    "writer": {"backend": "reused-existing", "requested_backend": writer_backend},
                 }
             )
             ds = None
@@ -185,6 +202,7 @@ def build_model(
                 stage,
                 target,
                 categorical=False,
+                writer_backend=writer_backend,
                 overview_method="area_matched",
                 nodata=cp.NODATA,
                 extra_metadata=metadata,
@@ -200,6 +218,7 @@ def build_model(
                     "depth_min_ft": round(lo, 4),
                     "depth_max_ft": round(hi, 4),
                     "wet_cells": wet,
+                    "writer": report.get("writer", {"backend": "gdal"}),
                     "overviews": report.get("overviews", {}).get("factors"),
                 }
             )
@@ -243,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--src-crs", help="source CRS override, only for rasters missing projection metadata")
     parser.add_argument("--limit", type=int, help="build only the first N profiles (smoke test)")
+    parser.add_argument("--writer-backend", choices=("terrio", "gdal"), default="terrio")
     parser.add_argument("--force", action="store_true", help="rebuild COGs that already exist")
     parser.add_argument("--report", help="write the build report to this JSON path")
     args = parser.parse_args(argv)
@@ -266,6 +286,7 @@ def main(argv: list[str] | None = None) -> int:
                 model,
                 out_root,
                 min_depth=args.min_depth,
+                writer_backend=args.writer_backend,
                 src_crs=args.src_crs,
                 limit=args.limit,
                 force=args.force,

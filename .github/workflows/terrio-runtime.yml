@@ -1,0 +1,56 @@
+name: pinned Terrio runtime
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/terrio-runtime.yml'
+      - 'pipeline/common/terrio*.json'
+      - 'scripts/build_terrio_wheel.py'
+      - 'scripts/terrio_release_assets.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pinned-terrio-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime:
+    name: pinned Terrio Rust QAQC
+    runs-on: ubuntu-latest
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      # The fork's own Actions are suppressed by GitHub usage controls. This
+      # job validates the immutable dependency, not the viewer merge commit.
+      - uses: actions/checkout@v4
+        with:
+          repository: CLB-Engineering-Corporation/terrio
+          ref: 9c644f4a1729e253f9714813912f54d32e306c38
+          persist-credentials: false
+      - name: verify source pin
+        run: test "$(git rev-parse HEAD)" = 9c644f4a1729e253f9714813912f54d32e306c38
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@1.99.1
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: clb-runtime-9c644f4-rust199
+      - name: format
+        run: cargo fmt --all -- --check
+      - name: workspace Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: workspace unit tests
+        run: cargo test --workspace --lib --locked
+      - uses: dtolnay/rust-toolchain@1.90.0
+      - name: workspace MSRV compatibility
+        run: cargo check --workspace --all-targets --locked
+      - name: license inventory
+        uses: fsfe/reuse-action@v6

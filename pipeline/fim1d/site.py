@@ -110,6 +110,24 @@ def select_inventory(source: Path, manifest: dict, *, require_baked: bool) -> li
                 baked = profile.get("depth_pmtiles")
                 if baked:
                     wanted.append(Path(baked))
+                    empty = profile.get("depth_empty", False)
+                    if not isinstance(empty, bool):
+                        raise SiteError(f"{baked}: depth_empty must be a boolean")
+                    from ..common.empty_tiles import validate_empty_archive
+                    if not empty and (source / baked).is_file():
+                        try:
+                            validate_empty_archive(source / baked)
+                        except (ValueError, OSError, EOFError):
+                            pass  # Ordinary nonempty archives have a different structure.
+                        else:
+                            raise SiteError(f"{baked}: empty archive is not declared by the manifest")
+                    if empty:
+                        try:
+                            if float(profile["depth_max_ft"]) > 0:
+                                raise ValueError("empty profile has a positive source maximum")
+                            validate_empty_archive(source / baked)
+                        except (ValueError, OSError, EOFError) as error:
+                            raise SiteError(f"{baked}: invalid empty depth artifact: {error}") from error
                 else:
                     unbaked.append(f"{model.get('slug', '?')} profile {profile.get('index')}")
 
@@ -242,10 +260,23 @@ def build(source: Path, out: Path, *, require_baked: bool = True,
         # Jekyll would otherwise process the site and can mangle or drop assets.
         (staging / ".nojekyll").write_text("", encoding="utf-8")
 
-        if out.exists():
-            shutil.rmtree(out)
         out.parent.mkdir(parents=True, exist_ok=True)
-        staging.replace(out)
+        # Preserve the previous release if replacement fails (notably open
+        # directory handles on Windows). Neither input nor old output is erased.
+        backup = out.parent / f".{out.name}.previous-{os.getpid()}"
+        if backup.exists():
+            raise SiteError(f"preserved previous release requires inspection: {backup}")
+        had_previous = out.exists()
+        if had_previous:
+            out.replace(backup)
+        try:
+            staging.replace(out)
+        except OSError:
+            if had_previous:
+                backup.replace(out)
+            raise
+        if had_previous:
+            shutil.rmtree(backup)
     finally:
         if staging.exists():
             shutil.rmtree(staging, ignore_errors=True)
