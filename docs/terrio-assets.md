@@ -53,3 +53,23 @@ Overlay integration: copy each file below `viewer_adoption/` to the same relativ
 path in the viewer repository. Run its existing Node/Python suites after combining
 owners' changes. Asset regressions alone:
 `python -m unittest discover -s tests -p test_terrio_assets.py`.
+
+
+## Native publication artifact
+
+The reviewed native wheel is `terrio-0.6.1+clb9c644f4-cp310-abi3-win_amd64.whl`,
+with SHA256 `dcb10acf2ba5158664b952c263a4befb3ea8b8ab43906804b1c4729c334a1ac8`.
+It wraps the already validated binary without recompilation and carries all
+three license/notice files. Install this verified wheel in a dedicated compatible
+Windows environment before resolving `.[fim1d]`; its local version is intentionally
+absent from PyPI. The fixed source is recorded in both wheel and runtime lock.
+The guard checks all Python files and the actual loaded extension, and rejects
+competing ABI-qualified binaries. A same-version unreviewed build is refused.
+Other native platforms require an independently built/reviewed lock and wheel;
+use the explicit GDAL publication controls until such an artifact exists.
+The universal browser WASM package is independent of the native platform.
+
+The `build_terrio_wheel.py` script wraps, rather than compiles, source-locked bytes.
+Its ZIP timestamps/order/permissions and RECORD are deterministic. Publication
+smoke testing installed the actual wheel into a separate Python 3.12 environment.
+No existing conda or global Python environment was modified.
