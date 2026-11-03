@@ -117,8 +117,12 @@ tilers received identical input.
 Reported, not gated: on the smooth synthetic gradient, Terrio and GDAL differ
 by one 8-bit level in some bilinear/average-resampled RGB pixels (about 18.8k
 and 41.9k pixels over two 17-tile profiles; alpha, coverage, zooms and bounds
-exact). This already happens on Windows with the reviewed wheel; it is a
-property of the pinned runtime, not of the new builds. The accepted exact gates
+exact). This already happens on Windows with the reviewed wheel, and it is
+the GDAL reference that moved, not Terrio: on identical colourised input the
+reviewed wheel's tiles are byte-stable and match GDAL 3.10.1 exactly (0 / 0
+differing pixels), while GDAL 3.13.3's own tiles differ from 3.10.1's in all 17.
+Parity against GDAL, including the 72-archive pilot corpus measured with 3.13.3,
+is parity with a reference that itself drifts between GDAL releases. The accepted exact gates
 remain the synthetic fixtures above and the 72-archive real-pilot corpus. On
 arm64 both backends' archives differ from x86_64 together (20 tiles instead of
 17), which is GDAL-side floating point upstream of the tilers.

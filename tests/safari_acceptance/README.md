@@ -51,8 +51,10 @@ XPC services inside the simulator runtime; Playwright WebKit = its process tree
 plus anything under `ms-playwright`. The value is ps RSS (bytes). It is not the
 Windows working set the baseline measured, it excludes compressed memory (a
 lower bound on macOS footprint), and Safari's count includes its helper
-extensions. The attribution rule was committed before the first run and is not
-narrowed after seeing results; any narrower breakdown is labelled diagnostic.
+extensions. The attribution rule was committed with the first run and afterwards only
+broadened (more WebKit service/extension paths) and hardened (a structural
+failure when no content process is found), never narrowed; any narrower
+breakdown is labelled diagnostic.
 
 ## Limits
 
@@ -71,3 +73,19 @@ a simulator is not a device. The baseline is Windows Playwright WebKit measured
 with a different quantity. A pass is bounded regression evidence for the engine
 family; a failure is a measured exceedance to investigate, never a reason to
 change a limit. Neither is a device RAM budget or certification.
+
+Recorded disposition of the first audited runs (head 4a97204): desktop Safari's
+memory rows are **not comparable as designed**. Path attribution sums every
+Safari-family process on the VM, including WebContent processes that survive
+earlier WebDriver sessions (3 WebContent / 1,250 MiB at the first h5wasm sample;
+7 at the h5wasm peak; 1.1-1.7 GiB still attributed after each context close),
+whereas the Windows baseline summed one Playwright tree with one WebContent. The
+h5wasm exceedance and the terrio-slices pass are therefore both measurement
+artifacts, not decoder findings; same-VM Playwright WebKit (h5wasm 1,184 MiB vs
+1,706.8) is the comparable control. First-render timing fails on every macOS
+engine, including Playwright WebKit, on GPU-less 3-vCPU VMs against limits from
+a GPU workstation. The limits stay exactly as committed and the checks stay red
+as the record; the owner accepted these results for merge on 2026-11-03. Any
+rerun needs a replacement method declared before it runs (a fresh Safari
+process per trial with process caches cleared, and/or a same-VM Playwright
+WebKit control).

@@ -55,6 +55,10 @@ jobs:
         engine: [safari, ios-simulator, webkit]
     steps:
       - uses: actions/checkout@v4
+        # contents:write is only for draft-asset visibility via GH_TOKEN in the
+        # acquisition step; keep it out of .git/config for every other step.
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

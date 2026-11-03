@@ -90,6 +90,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        # contents:write is only for draft-asset visibility via GH_TOKEN in the
+        # acquisition step; keep it out of .git/config for every other step.
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -127,6 +131,10 @@ jobs:
         shell: bash -el {0}
     steps:
       - uses: actions/checkout@v4
+        # contents:write is only for draft-asset visibility via GH_TOKEN in the
+        # acquisition step; keep it out of .git/config for every other step.
+        with:
+          persist-credentials: false
       # GDAL 3.13.3: the version the accepted parity evidence was measured with.
       - uses: mamba-org/setup-micromamba@v2
         with:
