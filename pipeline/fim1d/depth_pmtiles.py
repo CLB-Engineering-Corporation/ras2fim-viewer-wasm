@@ -77,7 +77,8 @@ class DepthTileError(RuntimeError):
 
 def _to_terrio_pmtiles(rgba: Path, destination: Path, name: str) -> dict:
     """Trial the generic lazy tile writer; preserve the RGBA input and ramp."""
-    import terrio
+    from ..common.terrio_runtime import require_terrio
+    terrio = require_terrio()
     source = gdal.Open(str(rgba))
     projected = gdal.AutoCreateWarpedVRT(source, None, "EPSG:3857", gdal.GRA_Bilinear)
     resolution = abs(projected.GetGeoTransform()[1])
@@ -92,8 +93,7 @@ def _to_terrio_pmtiles(rgba: Path, destination: Path, name: str) -> dict:
     terrio.open_raster(str(rgba), lazy=True).write(
         str(destination), driver="PMTiles", options=options)
     return {"backend": "terrio", "version": getattr(terrio, "__version__", "unknown"),
-            "options": options, "experimental": True,
-            "limitation": "experimental; pixel/alpha/coverage comparison required before adoption"}
+            "options": options, "source_commit": "9c644f4a1729e253f9714813912f54d32e306c38"}
 
 
 def _minimum_tile_zoom(width: float, height: float, maximum: int) -> int:
@@ -241,7 +241,7 @@ def _to_pmtiles(mbtiles_path: Path, out_path: Path, cli: str) -> None:
 
 def build_profile(cog: Path, out_path: Path, depth_max_ft: float, *,
                   colormap: str = DEFAULT_RAMP, cli: str | None = None,
-                  backend: str = "gdal") -> dict:
+                  backend: str = "terrio") -> dict:
     """Tile one profile. Returns a record for the manifest."""
     if backend not in ("gdal", "terrio"):
         raise DepthTileError(f"unknown tile backend: {backend}")
@@ -296,7 +296,7 @@ def build_profile(cog: Path, out_path: Path, depth_max_ft: float, *,
 
 def build_library(frontend: Path, out_root: Path, depth_max_ft: float, *,
                   colormap: str = DEFAULT_RAMP, verbose: bool = True,
-                  backend: str = "gdal") -> dict:
+                  backend: str = "terrio") -> dict:
     """Tile every COG under ``frontend/cogs`` into ``out_root/pmtiles/depth``."""
     cli = None
     cog_root = frontend / "cogs"
@@ -360,7 +360,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--colormap", default=DEFAULT_RAMP,
                         help=f"ramp name from pipeline/common/ramp.py (default: {DEFAULT_RAMP})")
     parser.add_argument("--report", help="write a JSON build report here")
-    parser.add_argument("--backend", choices=("gdal", "terrio"), default="gdal",
+    parser.add_argument("--backend", choices=("gdal", "terrio"), default="terrio",
                         help="experimental Terrio requires pixel/alpha acceptance before adoption")
     args = parser.parse_args(argv)
 

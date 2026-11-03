@@ -61,7 +61,17 @@ def validate_site_files(site: Path, report: Report) -> None:
     if not report.check(index.is_file(), "no index.html in the site"):
         return
     report.check((site / "manifest.json").is_file(), "no manifest.json in the site")
+    manifest_path = site / "manifest.json"
+    catalog = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {}
     terrio = site / "vendor" / "terrio"
+    if catalog.get("reader_backend", "terrio") == "terrio":
+        report.check(terrio.is_dir(), "Terrio reader selected but vendor/terrio assets are missing")
+        if catalog.get("terrio_asset_policy", "locked") == "locked" and terrio.is_dir():
+            from ..common.terrio_assets import verify_locked
+            try:
+                verify_locked(terrio)
+            except (OSError, ValueError) as error:
+                report.check(False, str(error))
     if terrio.exists():
         from ..common.terrio_assets import verify_package
         errors = verify_package(terrio)

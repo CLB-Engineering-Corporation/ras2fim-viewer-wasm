@@ -1,4 +1,4 @@
-"""Experimental writer beneath finish_cog; never generates overview algorithms."""
+"""Pinned writer beneath finish_cog; never generates overview algorithms."""
 
 from pathlib import Path
 
@@ -7,7 +7,8 @@ from osgeo import gdal
 
 
 def write_existing_overviews(source: Path, destination: Path, creation: list[str]) -> dict:
-    import terrio
+    from ..common.terrio_runtime import require_terrio
+    terrio = require_terrio()
 
     ds = gdal.Open(str(source))
     bands = [ds.GetRasterBand(i + 1) for i in range(ds.RasterCount)]
@@ -33,5 +34,5 @@ def write_existing_overviews(source: Path, destination: Path, creation: list[str
         "version": getattr(terrio, "__version__", "unknown"),
         "supplied_levels": levels,
         "options": options,
-        "experimental": True,
+        "source_commit": "9c644f4a1729e253f9714813912f54d32e306c38",
     }

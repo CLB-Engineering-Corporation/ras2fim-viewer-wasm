@@ -54,6 +54,7 @@ fim1d = [
   "GDAL>=3.8",
   "numpy>=1.26,<3.0",
   "pmtiles>=3.4,<4",
+  "terrio @ git+https://github.com/CLB-Engineering-Corporation/terrio.git@9c644f4a1729e253f9714813912f54d32e306c38#subdirectory=python",
 ]
 
 # serve/dev_tiles.py, the local TiTiler stand-in. It only reads COGs and encodes
@@ -78,6 +79,7 @@ packages = ["pipeline", "pipeline.common", "pipeline.fim1d", "pipeline.fim2d", "
 
 [tool.setuptools.package-data]
 pipeline = ["*.md"]
+"pipeline.common" = ["*.json"]
 
 [tool.ruff]
 line-length = 100

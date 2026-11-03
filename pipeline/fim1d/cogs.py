@@ -123,6 +123,7 @@ def build_model(
     out_root: Path,
     *,
     min_depth: float | None = None,
+    writer_backend: str = "terrio",
     src_crs: str | None = None,
     limit: int | None = None,
     force: bool = False,
@@ -192,6 +193,7 @@ def build_model(
                 stage,
                 target,
                 categorical=False,
+                writer_backend=writer_backend,
                 overview_method="area_matched",
                 nodata=cp.NODATA,
                 extra_metadata=metadata,
@@ -250,6 +252,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--src-crs", help="source CRS override, only for rasters missing projection metadata")
     parser.add_argument("--limit", type=int, help="build only the first N profiles (smoke test)")
+    parser.add_argument("--writer-backend", choices=("terrio", "gdal"), default="terrio")
     parser.add_argument("--force", action="store_true", help="rebuild COGs that already exist")
     parser.add_argument("--report", help="write the build report to this JSON path")
     args = parser.parse_args(argv)
@@ -273,6 +276,7 @@ def main(argv: list[str] | None = None) -> int:
                 model,
                 out_root,
                 min_depth=args.min_depth,
+                writer_backend=args.writer_backend,
                 src_crs=args.src_crs,
                 limit=args.limit,
                 force=args.force,

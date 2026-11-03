@@ -30,7 +30,7 @@
   var px = null;               // Uint32Array view over imageData, one word per pixel
   var layers = [];             // prepared layers, by flow index
   var shown = null;            // the layer currently on the canvas
-  var verify = /[?&]verify=1/.test(location.search);
+  var verify = /[?&]verify=1\b/.test(location.search);
   var playTimer = null;
   var rafPending = 0;         // requestAnimationFrame handle for coalesced input
   var rafTarget = null;       // the layer the most recent input asked for
@@ -49,6 +49,7 @@
   var worker = null;
   var pendingRender = null;   // layer index waiting on its prepared data
   var catalogSummary = "";
+  var readerBackend = "terrio-slices";
 
   function byId(id) { return document.getElementById(id); }
   function fmt(v, d) {
@@ -319,29 +320,41 @@
     ]);
   }
 
-  /** Terminate and respawn rather than trying to cancel.
-   *
-   * AbortController cannot interrupt a synchronous wasm decode already running,
-   * and messages already dispatched still run their handlers. Terminating kills
-   * the decode outright and guarantees the 84 MB is freed rather than relying on
-   * a dropped reference and GC timing. The replacement is spawned immediately so
-   * its h5wasm init overlaps the next fetch.
-   */
+  /* Reuse one module per session; replace a crashed worker on the next load. */
   function respawnWorker() {
-    if (worker) worker.terminate();
-    worker = new Worker("netcdf-worker.js");
-    worker.onmessage = onWorkerMessage;
-    worker.onerror = function (event) {
-      setStatus("worker failed: " + (event.message || "unknown"), "error");
+    if (worker) return worker;
+    var instance = new Worker("netcdf-worker.js");
+    worker = instance;
+    instance.onmessage = function (event) {
+      if (worker === instance) onWorkerMessage(event);
     };
-    return worker;
+    function failed(event) {
+      if (worker !== instance) return;
+      instance.terminate();
+      worker = null;
+      generation += 1;
+      stopPlay();
+      cancelTransition();
+      if (rafPending) cancelAnimationFrame(rafPending);
+      rafPending = 0;
+      rafTarget = null;
+      layers = [];
+      stack = null;
+      pendingRender = null;
+      setStatus("worker failed: " + (event.message || "message decoding failed") +
+        " — select a stream to retry", "error");
+    }
+    instance.onerror = failed;
+    instance.onmessageerror = failed;
+    return instance;
   }
 
   function onWorkerMessage(event) {
     var message = event.data || {};
     // Belt and braces: terminate() does not un-dispatch messages already queued
     // on this thread, so the epoch is checked here too.
-    if (message.epoch !== generation && message.type !== "progress") return;
+    if (message.epoch !== generation &&
+        !(message.type === "progress" && message.phase === "ready" && message.epoch === -1)) return;
 
     if (message.type === "progress" && message.phase === "ready") {
       timings.init = message.ms;
@@ -457,7 +470,7 @@
     respawnWorker().postMessage({
       type: "load", epoch: generation, url: url,
       verify: verify, rampStops: RAMP_STOPS,
-      backend: new URLSearchParams(location.search).get("decoder") || "h5wasm"
+      backend: new URLSearchParams(location.search).get("decoder") || readerBackend
     });
   }
 
@@ -547,6 +560,7 @@
         return response.json();
       })
       .then(function (manifest) {
+        readerBackend = manifest.reader_backend === "h5wasm" ? "h5wasm" : "terrio-slices";
         var select = byId("stream");
         select.textContent = "";
         (manifest.streams || []).forEach(function (entry) {

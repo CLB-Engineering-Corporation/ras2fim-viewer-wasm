@@ -114,3 +114,57 @@ class TerrioAssets(unittest.TestCase):
             manifest.write_text(original)
             (output / "terrio_bg.wasm").write_bytes(b"changed")
             self.assertTrue(any("hash mismatch" in e for e in verify_package(output)))
+
+
+class LockedAssets(unittest.TestCase):
+    def test_default_missing_fails_and_fallback_is_explicit(self):
+        import os
+        from unittest.mock import patch
+        from pipeline.common.terrio_assets import resolve_package
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"TERRIO_ASSET_CACHE": tmp}):
+            with self.assertRaisesRegex(ValueError, "No automatic fallback"):
+                resolve_package()
+            self.assertIsNone(resolve_package(reader_backend="h5wasm"))
+            self.assertEqual(resolve_package("local"), Path("local"))
+            with self.assertRaises(ValueError):
+                resolve_package("local", reader_backend="h5wasm")
+
+    def test_locked_inventory_tamper_and_cache(self):
+        import hashlib
+        import os
+        from unittest.mock import patch
+        from pipeline.common import terrio_assets as assets
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "source"
+            source.mkdir()
+            for name in FILES:
+                (source / name).write_text("{}" if name == "package.json" else name)
+            lock = {"source_commit": "test-pin", "sha256": {
+                name: hashlib.sha256((source / name).read_bytes()).hexdigest() for name in FILES}}
+            with patch.object(assets, "asset_lock", return_value=lock), patch.dict(
+                os.environ, {"TERRIO_ASSET_CACHE": str(Path(tmp) / "cache")}
+            ):
+                self.assertEqual(assets.main(["--package", str(source)]), 0)
+                cached = assets.resolve_package()
+                self.assertEqual(assets.verify_package(cached), [])
+                self.assertEqual(assets.main(["--package", str(source)]), 0)
+                for name in FILES:
+                    original = (cached / name).read_bytes()
+                    (cached / name).write_bytes(b"tampered")
+                    with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                        assets.resolve_package()
+                    (cached / name).unlink()
+                    with self.assertRaisesRegex(ValueError, "missing"):
+                        assets.resolve_package()
+                    (cached / name).write_bytes(original)
+                (cached / "extra.js").write_text("unlocked")
+                with self.assertRaisesRegex(ValueError, "unlocked"):
+                    assets.resolve_package()
+
+    def test_site_default_contract(self):
+        import ast
+        source = Path(__file__).parents[1] / "pipeline/fim2d/site.py"
+        tree = ast.parse(source.read_text())
+        build = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "build")
+        defaults = dict(zip((a.arg for a in build.args.kwonlyargs), build.args.kw_defaults))
+        self.assertEqual(ast.literal_eval(defaults["reader_backend"]), "terrio")

@@ -14,6 +14,14 @@
  *                    { type: "done",  epoch, timings }
  *                    { type: "error", epoch, phase, url, message }
  *
+ * Session contract: successful module initialization is cached until worker
+ * termination. Loads supersede the previous private generation, abort its
+ * fetch, and serialize decode access. Cancellation is silent; synchronous
+ * native decode/prepare cannot be interrupted within a task. Preparation yields
+ * between layers. Done/error/cancel release the source and verification cache.
+ * Consumers must discard old epochs and old worker instances after a crash.
+ * No protocol changes or decoder-default changes are required by reuse.
+ *
  * `meta` always precedes any `layer`, so the client can size its canvas before
  * anything needs painting. Layers arrive one message each, with `offsets` and
  * `depths` transferred rather than copied.
@@ -41,7 +49,7 @@ function decoder(backend) {
       ready = self.h5wasm.ready.then(function (module) {
         post({ type: "progress", epoch: -1, phase: "ready", ms: performance.now() - readyStart });
         return module;
-      });
+      }).catch(function (error) { ready = null; throw error; });
     }
     return ready;
   }
@@ -50,12 +58,16 @@ function decoder(backend) {
     await t.default({ module_or_path: new URL("vendor/terrio/terrio_bg.wasm", self.location.href) });
     post({ type: "progress", epoch: -1, phase: "ready", ms: performance.now() - readyStart });
     return t;
-  });
+  }).catch(function (error) { terrioReady = null; throw error; });
   return terrioReady;
 }
 function disposeStack() {
-  if (state.stack && state.stack.dispose) state.stack.dispose();
+  var stack = state.stack;
   state.stack = null;
+  state.reference = null;
+  state.queue = [];
+  state.heapCapacity = null;
+  if (stack && stack.dispose) stack.dispose();
 }
 function layerStack(stack, index) {
   if (!stack.readLayer) return { stack: stack, index: index };
@@ -85,6 +97,7 @@ var state = {
 };
 var loadGeneration = 0;
 var fetchController = null;
+var loadTail = Promise.resolve();
 
 /* A task boundary that survives background-tab throttling.
    setTimeout(fn, 0) is clamped to ~1000 ms in a throttled context; a
@@ -125,10 +138,7 @@ function prepareNext(generation) {
       // Every layer is indexed; the dense arrays have no further use. Dropping
       // them here is what keeps a long-lived worker from holding 84 MB per
       // stream it has ever opened.
-      state.stack.wsel = null;
-      state.stack.terrain = null;
-      if (state.stack.dispose) state.stack.dispose();
-      state.reference = null;
+      disposeStack();
       post({ type: "done", epoch: state.epoch, timings: state.timings });
     }
     return;
@@ -211,7 +221,7 @@ function verifyLayer(index, layer, stack) {
   };
 }
 
-function load(epoch, url, backend) {
+function load(epoch, url, backend, verify, rampStops) {
   var generation = ++loadGeneration;
   if (fetchController) fetchController.abort();
   fetchController = new AbortController();
@@ -221,6 +231,9 @@ function load(epoch, url, backend) {
   state.timings = {};
   var timings = state.timings;
   state.reference = null;
+  state.verify = verify;
+  state.rampStops = rampStops;
+  var controller = fetchController;
   var phase = "fetch";
 
   var t0 = performance.now();
@@ -229,28 +242,46 @@ function load(epoch, url, backend) {
      than before it means the two overlap -- and reading the file without waiting
      at all leaves h5.FS null, which surfaces as a bare "cannot read properties
      of null" a long way from the cause. */
-  Promise.all([
-    fetch(url, { signal: fetchController.signal }).then(function (response) {
+  var requestBytes = null;
+  var aborted = new Promise(function (_, reject) {
+    controller.signal.addEventListener("abort", function () {
+      requestBytes = null;
+      reject(new Error("cancelled"));
+    }, { once: true });
+  });
+  aborted.catch(function () {});
+  // Native decode is serialized. Superseded fetch/init waits release the lane.
+  var request = Promise.race([aborted, Promise.all([
+    fetch(url, { signal: controller.signal }).then(function (response) {
       if (!response.ok) throw new Error("HTTP " + response.status);
       return response.arrayBuffer().then(function (bytes) {
+        if (generation !== loadGeneration || controller.signal.aborted) throw new Error("cancelled");
         timings.fetch = performance.now() - t0;
-        return bytes;
+        requestBytes = bytes;
       });
     }),
     Promise.resolve().then(function () { return decoder(backend); })
       .then(function (value) { timings.init = performance.now() - t0; return value; })
       .catch(function (e) { if (generation === loadGeneration) phase = "init"; throw e; })
-  ])
-    .then(function (results) {
-      var buffer = results[0];
+  ])]);
+  request.catch(function () {});
+  loadTail = Promise.all([loadTail, request])
+    .then(async function (joined) {
+      var results = joined[1];
+      if (!results || generation !== loadGeneration) return;
+      var buffer = requestBytes;
+      requestBytes = null;
       if (generation !== loadGeneration) return;
       state.heapCapacity = heapCapacityFor(backend, results[1]);
       phase = "decode";
       post({ type: "progress", epoch: epoch, phase: "decode", ms: state.timings.fetch });
 
-      var stack = backend === "h5wasm" ? R2F2D.readStack(self.h5wasm, buffer, "stream.nc") :
-        R2FTerrio.readStack(results[1], buffer, backend === "terrio-slices");
-      if (generation !== loadGeneration) return;
+      var stack = await (backend === "h5wasm" ? R2F2D.readStack(self.h5wasm, buffer, "stream.nc") :
+        R2FTerrio.readStack(results[1], buffer, backend === "terrio-slices"));
+      if (generation !== loadGeneration) {
+        if (stack && stack.dispose) stack.dispose();
+        return;
+      }
       state.stack = stack;
       state.timings.decode = stack.decodeMs;
       state.timings.bytes = buffer.byteLength;
@@ -279,6 +310,8 @@ function load(epoch, url, backend) {
       prepareNext(generation);
     })
     .catch(function (error) {
+      requestBytes = null;
+      controller.abort();
       if (generation !== loadGeneration) return;
       disposeStack();
       // A cross-origin failure surfaces here as an opaque "Failed to fetch";
@@ -296,9 +329,8 @@ function load(epoch, url, backend) {
 self.onmessage = function (event) {
   var message = event.data || {};
   if (message.type === "load") {
-    state.verify = !!message.verify;
-    state.rampStops = message.rampStops || null;
-    load(message.epoch, message.url, message.backend || "h5wasm");
+    load(message.epoch, message.url, message.backend || "h5wasm",
+      !!message.verify, message.rampStops || null);
   } else if (message.type === "prioritize") {
     if (message.epoch !== state.epoch) return;
     var at = state.queue.indexOf(message.index);
@@ -315,4 +347,3 @@ self.onmessage = function (event) {
     state.reference = null;
   }
 };
-

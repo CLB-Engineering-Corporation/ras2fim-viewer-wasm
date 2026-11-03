@@ -1,0 +1,770 @@
+{
+  "schema": 1,
+  "provenance": {
+    "quiet": {
+      "path": "render-final-pin-quiet/raw.json",
+      "sha256": "30d6d0bdf196e6e339ed47b8acd3b9b2e1edc6046aca61af39f3cfd84a4608d5"
+    },
+    "stress": {
+      "path": "render-final-pin-long-webkit/raw.json",
+      "sha256": "2a18e608e068a7693e6c54f313e673a12210047d65556367e75881ed89579a4c"
+    },
+    "retention": {
+      "path": "retention-final-pin-frozen/raw.json",
+      "sha256": "d4eb5096c83096abaa7c053add42fa3ff847e313eb9fe6053b52b26d543a1c89"
+    }
+  },
+  "baselineSourcePins": {
+    "app.js": "f01a93897a5b6b69b968ee0af381fc5b3d334c53d2ca93a3ec6adafd3e75a3b4",
+    "netcdf.js": "1ec304aea364d58946235c1947a2c6447feeaeadc53ff052dd39654c0a8f7aa9",
+    "netcdf-worker.js": "29830e36ef4adc2a74d11221430c4451b574f309fd0c76e2cc459fed61402504",
+    "terrio-adapter.js": "a440c818d2d9cfbef5dff095b59f037b598483c74ebe2f7a527e7f8312e9c438",
+    "vendor/terrio/terrio_bg.wasm": "e9f0a57ce955b71a74779cac9da73e176926f31a6ba442d569923b228316ebd5"
+  },
+  "margins": {
+    "timingFactor": 1.5,
+    "timingAddMs": 100,
+    "rssFactor": 1.25,
+    "rssAddMiB": 128
+  },
+  "thresholds": [
+    {
+      "engine": "chromium",
+      "decoder": "h5wasm",
+      "timings": {
+        "h5wasm/first-render/cold": {
+          "baselineP95": 794.1999999880791,
+          "limitMs": 1292
+        },
+        "h5wasm/first-render/warm": {
+          "baselineP95": 711.3000000119209,
+          "limitMs": 1167
+        },
+        "h5wasm/slider-settled-render": {
+          "baselineP95": 268.30000001192093,
+          "limitMs": 503
+        },
+        "h5wasm/stream-render": {
+          "baselineP95": 537.3000000119209,
+          "limitMs": 906
+        }
+      },
+      "rss": {
+        "baselineMaxBytes": 713039872,
+        "limitBytes": 1025517568
+      }
+    },
+    {
+      "engine": "chromium",
+      "decoder": "terrio-slices",
+      "timings": {
+        "terrio-slices/first-render/cold": {
+          "baselineP95": 511.89999997615814,
+          "limitMs": 868
+        },
+        "terrio-slices/first-render/warm": {
+          "baselineP95": 419,
+          "limitMs": 729
+        },
+        "terrio-slices/slider-settled-render": {
+          "baselineP95": 267,
+          "limitMs": 501
+        },
+        "terrio-slices/stream-render": {
+          "baselineP95": 379.9000000357628,
+          "limitMs": 670
+        }
+      },
+      "rss": {
+        "baselineMaxBytes": 642834432,
+        "limitBytes": 937760768
+      }
+    },
+    {
+      "engine": "firefox",
+      "decoder": "h5wasm",
+      "timings": {
+        "h5wasm/first-render/cold": {
+          "baselineP95": 971,
+          "limitMs": 1557
+        },
+        "h5wasm/first-render/warm": {
+          "baselineP95": 1172,
+          "limitMs": 1858
+        },
+        "h5wasm/slider-settled-render": {
+          "baselineP95": 283,
+          "limitMs": 525
+        },
+        "h5wasm/stream-render": {
+          "baselineP95": 474,
+          "limitMs": 811
+        }
+      },
+      "rss": {
+        "baselineMaxBytes": 1273794560,
+        "limitBytes": 1726460928
+      }
+    },
+    {
+      "engine": "firefox",
+      "decoder": "terrio-slices",
+      "timings": {
+        "terrio-slices/first-render/cold": {
+          "baselineP95": 636,
+          "limitMs": 1054
+        },
+        "terrio-slices/first-render/warm": {
+          "baselineP95": 798,
+          "limitMs": 1297
+        },
+        "terrio-slices/slider-settled-render": {
+          "baselineP95": 275,
+          "limitMs": 513
+        },
+        "terrio-slices/stream-render": {
+          "baselineP95": 331,
+          "limitMs": 597
+        }
+      },
+      "rss": {
+        "baselineMaxBytes": 1211367424,
+        "limitBytes": 1648427008
+      }
+    },
+    {
+      "engine": "webkit",
+      "decoder": "h5wasm",
+      "timings": {
+        "h5wasm/first-render/cold": {
+          "baselineP95": 468,
+          "limitMs": 802
+        },
+        "h5wasm/first-render/warm": {
+          "baselineP95": 393,
+          "limitMs": 690
+        },
+        "h5wasm/slider-settled-render": {
+          "baselineP95": 267,
+          "limitMs": 501
+        },
+        "h5wasm/stream-render": {
+          "baselineP95": 415,
+          "limitMs": 723
+        }
+      },
+      "rss": {
+        "baselineMaxBytes": 854093824,
+        "limitBytes": 1201835008
+      }
+    },
+    {
+      "engine": "webkit",
+      "decoder": "terrio-slices",
+      "timings": {
+        "terrio-slices/first-render/cold": {
+          "baselineP95": 492,
+          "limitMs": 838
+        },
+        "terrio-slices/first-render/warm": {
+          "baselineP95": 446,
+          "limitMs": 769
+        },
+        "terrio-slices/slider-settled-render": {
+          "baselineP95": 247,
+          "limitMs": 471
+        },
+        "terrio-slices/stream-render": {
+          "baselineP95": 370,
+          "limitMs": 655
+        }
+      },
+      "rss": {
+        "baselineMaxBytes": 887595008,
+        "limitBytes": 1243711488
+      }
+    }
+  ],
+  "webkitLong": [
+    {
+      "decoder": "h5wasm",
+      "maxBytes": 1324396544,
+      "limitBytes": 1789713408
+    },
+    {
+      "decoder": "terrio-slices",
+      "maxBytes": 1460563968,
+      "limitBytes": 1959922688
+    }
+  ],
+  "retentionReuse": [
+    {
+      "decoder": "terrio-slices",
+      "samples": 20,
+      "rss": [
+        {
+          "phase": "before",
+          "at": "2026-11-03T02:04:03.439Z",
+          "processes": [
+            {
+              "Id": 2052,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12767232
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 20620,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12779520
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 36515840
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24162304
+            },
+            {
+              "Id": 24968,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 28704768
+            },
+            {
+              "Id": 13248,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 62631936
+            }
+          ],
+          "sumMiB": 181.51953125
+        },
+        {
+          "phase": "cycle",
+          "cycle": 4,
+          "at": "2026-11-03T02:04:04.507Z",
+          "processes": [
+            {
+              "Id": 2052,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12767232
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 20620,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12779520
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 36507648
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24162304
+            },
+            {
+              "Id": 24968,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 29700096
+            },
+            {
+              "Id": 13248,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 169644032
+            }
+          ],
+          "sumMiB": 284.515625
+        },
+        {
+          "phase": "cycle",
+          "cycle": 9,
+          "at": "2026-11-03T02:04:05.440Z",
+          "processes": [
+            {
+              "Id": 2052,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12767232
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 20620,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12779520
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 36442112
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24162304
+            },
+            {
+              "Id": 24968,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 29700096
+            },
+            {
+              "Id": 13248,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 163995648
+            }
+          ],
+          "sumMiB": 279.06640625
+        },
+        {
+          "phase": "cycle",
+          "cycle": 14,
+          "at": "2026-11-03T02:04:06.334Z",
+          "processes": [
+            {
+              "Id": 2052,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12767232
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 20620,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12779520
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 36450304
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24162304
+            },
+            {
+              "Id": 24968,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 29700096
+            },
+            {
+              "Id": 13248,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 164065280
+            }
+          ],
+          "sumMiB": 279.140625
+        },
+        {
+          "phase": "cycle",
+          "cycle": 19,
+          "at": "2026-11-03T02:04:07.252Z",
+          "processes": [
+            {
+              "Id": 2052,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12767232
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 20620,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12779520
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 36458496
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24162304
+            },
+            {
+              "Id": 24968,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 29700096
+            },
+            {
+              "Id": 13248,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 163790848
+            }
+          ],
+          "sumMiB": 278.88671875
+        },
+        {
+          "phase": "terminated-input-cleared",
+          "at": "2026-11-03T02:04:09.288Z",
+          "processes": [
+            {
+              "Id": 2052,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12767232
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 20620,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12779520
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 36311040
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24162304
+            },
+            {
+              "Id": 24968,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 29745152
+            },
+            {
+              "Id": 13248,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 107417600
+            }
+          ],
+          "sumMiB": 225.02734375
+        },
+        {
+          "phase": "context-closed",
+          "at": "2026-11-03T02:04:09.826Z",
+          "processes": [
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 32776192
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24096768
+            }
+          ],
+          "sumMiB": 66.421875
+        }
+      ]
+    },
+    {
+      "decoder": "h5wasm",
+      "samples": 20,
+      "rss": [
+        {
+          "phase": "before",
+          "at": "2026-11-03T02:04:28.757Z",
+          "processes": [
+            {
+              "Id": 9708,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12808192
+            },
+            {
+              "Id": 16452,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12800000
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 37502976
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24412160
+            },
+            {
+              "Id": 16916,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 28643328
+            },
+            {
+              "Id": 16636,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 62599168
+            }
+          ],
+          "sumMiB": 182.66796875
+        },
+        {
+          "phase": "cycle",
+          "cycle": 4,
+          "at": "2026-11-03T02:04:29.780Z",
+          "processes": [
+            {
+              "Id": 9708,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12808192
+            },
+            {
+              "Id": 16452,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12800000
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 37519360
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24412160
+            },
+            {
+              "Id": 16916,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 29040640
+            },
+            {
+              "Id": 16636,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 158629888
+            }
+          ],
+          "sumMiB": 274.64453125
+        },
+        {
+          "phase": "cycle",
+          "cycle": 9,
+          "at": "2026-11-03T02:04:30.690Z",
+          "processes": [
+            {
+              "Id": 9708,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12808192
+            },
+            {
+              "Id": 16452,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12800000
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 37330944
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24412160
+            },
+            {
+              "Id": 16916,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 29040640
+            },
+            {
+              "Id": 16636,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 156237824
+            }
+          ],
+          "sumMiB": 272.18359375
+        },
+        {
+          "phase": "cycle",
+          "cycle": 14,
+          "at": "2026-11-03T02:04:31.626Z",
+          "processes": [
+            {
+              "Id": 9708,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12808192
+            },
+            {
+              "Id": 16452,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12800000
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 37339136
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24412160
+            },
+            {
+              "Id": 16916,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 29040640
+            },
+            {
+              "Id": 16636,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 158220288
+            }
+          ],
+          "sumMiB": 274.08203125
+        },
+        {
+          "phase": "cycle",
+          "cycle": 19,
+          "at": "2026-11-03T02:04:32.558Z",
+          "processes": [
+            {
+              "Id": 9708,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12808192
+            },
+            {
+              "Id": 16452,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12800000
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 37347328
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24412160
+            },
+            {
+              "Id": 16916,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 29040640
+            },
+            {
+              "Id": 16636,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 160804864
+            }
+          ],
+          "sumMiB": 276.5546875
+        },
+        {
+          "phase": "terminated-input-cleared",
+          "at": "2026-11-03T02:04:34.642Z",
+          "processes": [
+            {
+              "Id": 9708,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12808192
+            },
+            {
+              "Id": 16452,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12800000
+            },
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 37281792
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24363008
+            },
+            {
+              "Id": 16916,
+              "ProcessName": "WebKitNetworkProcess",
+              "WorkingSet64": 29085696
+            },
+            {
+              "Id": 16636,
+              "ProcessName": "WebKitWebProcess",
+              "WorkingSet64": 112615424
+            }
+          ],
+          "sumMiB": 230.53125
+        },
+        {
+          "phase": "context-closed",
+          "at": "2026-11-03T02:04:35.186Z",
+          "processes": [
+            {
+              "Id": 19388,
+              "ProcessName": "conhost",
+              "WorkingSet64": 12775424
+            },
+            {
+              "Id": 9932,
+              "ProcessName": "Playwright",
+              "WorkingSet64": 33288192
+            },
+            {
+              "Id": 17448,
+              "ProcessName": "WebKitGPUProcess",
+              "WorkingSet64": 24317952
+            }
+          ],
+          "sumMiB": 67.12109375
+        }
+      ]
+    }
+  ]
+}

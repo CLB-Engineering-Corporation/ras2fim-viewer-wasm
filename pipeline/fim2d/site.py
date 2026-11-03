@@ -169,7 +169,10 @@ def build(
     data_base_url: str | None,
     clean: bool = False,  # noqa: ARG001 - accepted and ignored; see main()
     terrio_package: str | None = None,
+    reader_backend: str = "terrio",
 ) -> int:
+    from ..common.terrio_assets import resolve_package
+    package = resolve_package(terrio_package, reader_backend=reader_backend)
     viewer = _viewer_root(viewer_root)
     vendor = _ensure_vendor(viewer)
     _assert_safe_layout(source, out, viewer, vendor)
@@ -195,9 +198,9 @@ def build(
             shutil.copy2(viewer / name, staging / name)
         for name in VENDOR_FILES:
             shutil.copy2(vendor / name, staging / "vendor" / name)
-        if terrio_package:
+        if package is not None:
             from ..common.terrio_assets import copy_package
-            copy_package(Path(terrio_package), staging / "vendor" / "terrio")
+            copy_package(package, staging / "vendor" / "terrio", pinned=terrio_package is None)
         # Jekyll would otherwise process the site and can mangle or drop assets.
         (staging / ".nojekyll").write_text("", encoding="utf-8")
         print(f"  viewer: {len(VIEWER_FILES)} files, vendor: {len(VENDOR_FILES)} files")
@@ -220,6 +223,9 @@ def build(
                 f"FAIL  {len(inventory)} file(s) selected but {len(catalog['streams'])} "
                 f"in the manifest; inventory and manifest disagree"
             )
+
+        catalog["reader_backend"] = reader_backend
+        catalog["terrio_asset_policy"] = ("local-override" if terrio_package else "locked") if package else None
 
         if data_base_url:
             # Absolute URLs for a cross-origin data host. The bucket must send CORS.
@@ -262,7 +268,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", required=True, help="site output directory")
     parser.add_argument("--viewer", help="viewer source dir (default: src/viewer-2d)")
     parser.add_argument(
-        "--terrio-package", help="experimental Terrio web package; h5wasm remains the default")
+        "--terrio-package", help="explicit local Terrio web package override (recorded as unpinned)")
+    parser.add_argument("--reader-backend", choices=("terrio", "h5wasm"), default="terrio",
+                        help="reader assets to include (default: pinned Terrio; h5wasm is explicit)")
     parser.add_argument("--title", default="ras2fim-2d flood inundation")
     parser.add_argument("--attribution", help="credit for whoever produced the model output")
     parser.add_argument("--report", help="write the build report to this JSON path")
@@ -293,6 +301,7 @@ def main(argv: list[str] | None = None) -> int:
         data_base_url=args.data_base_url,
         clean=args.clean,
         terrio_package=args.terrio_package,
+        reader_backend=args.reader_backend,
     )
     if code == 0 and args.report:
         files = [p for p in out.rglob("*") if p.is_file()]
