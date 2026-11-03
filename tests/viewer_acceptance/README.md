@@ -91,3 +91,7 @@ bounds. The audit checks their consistency and the fixed four-stream rotation
 within every trial. The report pins the served app, worker, adapter, reader and
 WASM bytes with SHA256. An imported runner or partially completed report is not
 an acceptance result; run the separate audit after all engines complete.
+
+Checkpoints always carry `completed: false`. Only successful browser/context and
+server cleanup writes `completed: true` with a finish timestamp. The audit
+rejects an otherwise complete checkpoint without that final success marker.

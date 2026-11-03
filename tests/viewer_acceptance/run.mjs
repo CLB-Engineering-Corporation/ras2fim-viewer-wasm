@@ -39,7 +39,7 @@ function rss(pid){try{return JSON.parse(execFileSync('powershell',['-NoProfile',
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const base=`http://127.0.0.1:${server.address().port}`;
 const sourcePins=Object.fromEntries(['app.js','netcdf.js','netcdf-worker.js','terrio-adapter.js','vendor/terrio/terrio_bg.wasm'].map(name=>[name,createHash('sha256').update(readFileSync(resolve(site,name))).digest('hex')]));
-const report={sourcePins,cacheRouting:false,basemap:'same-origin-transparent',started:new Date().toISOString(),root,trials,cycles,dwell,head:execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),engines:[]};
+const report={completed:false,sourcePins,cacheRouting:false,basemap:'same-origin-transparent',started:new Date().toISOString(),root,trials,cycles,dwell,head:execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),engines:[]};
 async function settleMap(page){await page.waitForFunction(()=>{const m=window.__acceptance.map;return m.loaded()&&!m.isMoving()&&m.areTilesLoaded();},null,{timeout:60000});}
 async function waitRender(page,start,generation,index){await page.waitForFunction(({start,generation,index})=>window.__acceptance?.events.some(e=>e.at>=start&&e.generation===generation&&(index===null||e.index===index)&&e.layer&&e.sourceLoaded),{start,generation,index},{timeout:60000});return page.evaluate(({start,generation,index})=>window.__acceptance.events.find(e=>e.at>=start&&e.generation===generation&&(index===null||e.index===index)&&e.layer&&e.sourceLoaded),{start,generation,index});}
 try{for(const engine of (process.env.ENGINES || 'chromium,firefox,webkit').split(',')){
@@ -87,4 +87,7 @@ try{for(const engine of (process.env.ENGINES || 'chromium,firefox,webkit').split
  result.summaries={};for(const decoder of ['h5wasm','terrio-slices'])for(const kind of ['first-render','slider-settled-render','stream-render'])for(const phase of kind==='first-render'?['cold','warm']:[null]){result.summaries[[decoder,kind,phase].filter(Boolean).join('/')]=summary(result.samples.filter(x=>x.decoder===decoder&&x.kind===kind&&(!phase||x.phase===phase)).map(x=>x.ms));}
  writeFileSync(resolve(out,'raw.json'),JSON.stringify(report,null,2));console.log(engine,JSON.stringify(result.summaries),result.errors);
  }}finally{await new Promise(r=>server.close(r));}
-if(report.engines.some(e=>e.errors.length))process.exitCode=1;
+report.completed=!report.engines.some(e=>e.errors.length);
+report.finished=new Date().toISOString();
+writeFileSync(resolve(out,'raw.json'),JSON.stringify(report,null,2));
+if(!report.completed)process.exitCode=1;

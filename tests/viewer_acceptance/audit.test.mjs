@@ -11,13 +11,16 @@ function fixture() {
  ...['cold','warm'].map(phase=>({decoder,trial:0,kind:'first-render',phase,ms:1,started:0,generation:1,max:17,done:{generation:1},state:{generation:1},event:{...baseEvent,at:1,revision:1,generation:1,index:0}})),
  ...streams.map((stream,cycle)=>({decoder,trial:0,cycle,max:stream.max,generation:cycle+2,started:10+cycle*100,kind:'stream-render',stream:stream.id,done:{generation:cycle+2,timings:{wasmCapacityBytes:65536}},state:{generation:cycle+2,canvasRevision:10+cycle*4,sparseBytes:100},ms:2,event:{...baseEvent,at:12+cycle*100,revision:1+cycle*4,generation:cycle+2,index:0}})),
  ...streams.flatMap((stream,cycle)=>[0,stream.max,Math.floor(stream.max/2)].map((index,slot)=>({decoder,trial:0,cycle,index,max:stream.max,generation:cycle+2,started:20+cycle*100+slot*5,kind:'slider-settled-render',stream:stream.id,event:{...baseEvent,index,at:23+cycle*100+slot*5,revision:2+cycle*4+slot,generation:cycle+2,painted:cycle===3&&index===0?0:10},ms:3})))])});
- return {trials:1,cycles:4,engines:['chromium','firefox','webkit'].map(engine)};
+ return {completed:true,started:'2026-11-02T00:00:00Z',finished:'2026-11-02T00:01:00Z',trials:1,cycles:4,engines:['chromium','firefox','webkit'].map(engine)};
 }
 test('audit recomputes metrics from complete raw evidence',()=>{
  const results=audit(fixture());assert.equal(results.length,6);assert.equal(results[0].metrics['h5wasm/stream-render'].median,2);assert.equal(results[0].rssEndpointBytes.count,4);
 });
 test('audit rejects duplicate engines, samples, missing RSS, invalid metrics and errors',()=>{
  for(const mutate of [
+ d=>{d.completed=false;},
+ d=>{delete d.completed;},
+ d=>{delete d.finished;},
  d=>{d.engines[2].engine='chromium';},
  d=>{d.engines[0].samples[1]=d.engines[0].samples[0];},
  d=>{d.engines[0].samples.pop();},

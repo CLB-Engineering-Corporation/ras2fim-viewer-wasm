@@ -13,6 +13,8 @@ function unique(rows, key, expected) {
   assert.deepEqual(rows.map(key).sort(), expected.toSorted(), 'duplicate or missing sample key');
 }
 export function audit(report) {
+  assert.equal(report.completed,true,'runner cleanup did not complete successfully');
+  assert.ok(Number.isFinite(Date.parse(report.finished))&&Date.parse(report.finished)>=Date.parse(report.started),'missing or invalid completion timestamp');
   assert.ok(Number.isInteger(report.trials) && report.trials > 0);
   assert.ok(Number.isInteger(report.cycles) && report.cycles >= 4);
   unique(report.engines,e=>e.engine,['chromium','firefox','webkit']);
