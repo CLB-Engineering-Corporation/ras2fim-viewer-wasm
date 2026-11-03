@@ -139,3 +139,12 @@ acceptance separately from the archived fresh-worker experiments. Browser workin
 memory; these tests do not certify a target-device RAM budget, prove leak
 freedom or actual Safari-device performance. The renderer milestone is a completed
 MapLibre depth render, not physical display timing.
+
+
+`tests/terrio-default-publication.py` omits the backend option to verify actual
+Terrio defaults with the installed native artifact. It checks a real PMTiles
+profile against GDAL across all RGBA channels/coverage/bounds/zooms, and captures
+the exact supplied COG arrays after finish_cog builds them. Those arrays must
+match between backends; each lossy writer must meet its codec bound against
+its exact inputs. Pairwise lossy encodings can differ by twice that bound and
+are reported separately, without claiming exact COG pixel equality.
