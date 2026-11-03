@@ -102,3 +102,16 @@ small Node VM harness. It checks profile switching while sources are loading,
 initial style readiness, and the pixels copied to the 2D canvas on receding,
 disjoint, and dry frames. It runs in the existing Node CI job. These are
 orchestration tests; visual browser checks remain necessary for WebGL delivery.
+
+## Experimental Terrio acceptance
+
+The optional GDAL environment now runs the exact-extrema and PMTiles atomic
+publication regressions in `test_cog_extrema.py` and `test_depth_tiles_trial.py`.
+`terrio-empty-publication.py` builds a synthetic all-nodata / real-wet static
+release from the preserved local pilot corpus; `terrio-empty-browser.mjs` checks
+wet -> dry -> wet rendering with the actual shipped 1D app and MapLibre in all
+three browser engines. These scripts require the local `.terrio-validation/`
+fixtures described in the feature handover; generated datasets are not committed.
+The release uses one transparent z0 sentinel per empty profile, never an absent
+archive or a tile-service fallback. Browser render/retention measurements and
+strict evidence auditing are documented in `viewer_acceptance/README.md`.

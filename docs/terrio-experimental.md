@@ -68,8 +68,15 @@ lets the trial use base BILINEAR plus overview AVERAGE. Its minimum zoom also
 matches the available levels of a reopened GDAL MBTiles raster (including the
 first level below 256 pixels in both dimensions). The synthetic non-empty cases
 match exactly. Real-profile RGB mismatches still block promotion; see the handover.
-All-dry profiles fail explicitly and preserve an existing archive, because empty
-archive publication is not supported by the baseline pipeline.
+All-dry profiles use a valid PMTiles v3 archive with one transparent zoom-zero
+sentinel, source bounds, and explicit `empty: true` metadata. This works with
+standard readers and overzooming; it paints no water. Zero-entry archives were
+rejected by the independent Go verifier and are not used. The manifest records
+`depth_empty`; publication checks its payload/directory and rejects contradictory
+positive source extrema. All-nodata rasters use `(0, 0)` only as an explicitly
+verified normalization bound, never as a claimed observed sample. Failed reads
+on valid data still fail. Archive replacement is atomic; a failed site rename
+restores the previous release. GDAL remains the non-empty tile default.
 
 ## Bounded COG writer trial
 

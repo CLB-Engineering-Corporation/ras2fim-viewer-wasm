@@ -101,3 +101,10 @@ print(
         {"library_profiles": len(paths), "exact_library_max": maximum, "results": reports}, indent=2
     )
 )
+
+# This script is the pinned 72-profile pilot acceptance, not a generic directory scan.
+if "all" in sys.argv:
+    assert len(paths) == 72 and len({p.name for p in paths}) == 72, "incomplete pilot corpus"
+assert len(reports) == len(chosen) and len({r["profile"] for r in reports}) == len(chosen)
+assert all(not r.get("blocked") and r.get("coverage_equal") and r.get("bounds_zooms_equal")
+           and r.get("differing_channels") == 0 for r in reports), "exact RGBA gate failed"

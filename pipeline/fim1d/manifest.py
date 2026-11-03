@@ -27,12 +27,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 from osgeo import gdal, ogr, osr
 
 from ..common.geodesy import transform_bounds, union_bounds
+from ..common.raster_extrema import exact_depth_range
 from .source import Model, Unit, read_unit
 
 gdal.UseExceptions()
@@ -184,7 +187,7 @@ def _model_entry(
         # library's actual peak depth (17.5 ft instead of 31.8 ft on this unit).
         # The colour ramp is built from this number, so a low read would clip
         # the deepest water on every profile.
-        lo, hi = band.ComputeRasterMinMax(False)
+        lo, hi = exact_depth_range(band)
         ds = None
         bbox = union_bounds(bbox, _cog_bounds(cog))
         depth_max = max(depth_max, float(hi))
@@ -202,8 +205,21 @@ def _model_entry(
         # release that was built, not of the machine viewing it.
         baked = frontend / "pmtiles" / "depth" / cog.relative_to(cog_root_for(frontend)).with_suffix(".pmtiles")
         if baked.is_file():
+            import mmap
+
+            from pmtiles.reader import Reader
+            with baked.open("rb") as handle:
+                with mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ) as mapping:
+                    archive = Reader(lambda offset, length: mapping[offset:offset + length])
+                    empty = archive.metadata().get("empty", False)
+            if not isinstance(empty, bool) or empty != (hi <= 0):
+                raise RuntimeError(f"{baked}: empty archive state contradicts source depth maximum {hi}")
+            if empty:
+                from ..common.empty_tiles import validate_empty_archive
+                validate_empty_archive(baked)
             record["depth_pmtiles"] = baked.relative_to(frontend).as_posix()
             record["depth_pmtiles_bytes"] = baked.stat().st_size
+            record["depth_empty"] = empty
         profiles.append(record)
 
     if not profiles:
@@ -315,6 +331,25 @@ def build_manifest(
     }
 
 
+def _write_manifest(out: Path, manifest: dict) -> None:
+    """Replace only a completely serialized manifest; preserve the old one on failure."""
+    encoded = json.dumps(manifest, indent=1)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=out.parent, prefix=f".{out.name}.",
+            suffix=".partial", delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, out)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("unit", nargs="+", help="ras2fim output unit directory (repeatable)")
@@ -339,7 +374,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     out = frontend / "manifest.json"
-    out.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    _write_manifest(out, manifest)
 
     if args.report:
         Path(args.report).write_text(json.dumps({

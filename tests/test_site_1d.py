@@ -21,6 +21,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 from pipeline.fim1d import site
 
@@ -198,6 +199,34 @@ class BuildTest(unittest.TestCase):
         stray.write_bytes(b"stale")
         self._build()
         self.assertFalse(stray.exists())
+
+    def test_failed_release_replacement_restores_previous_output(self):
+        self._build()
+        old = (self.out / "manifest.json").read_bytes()
+        original = Path.replace
+
+        def injected(path, target):
+            if ".staging-" in path.name:
+                raise OSError("injected release rename failure")
+            return original(path, target)
+
+        with (
+            patch.object(Path, "replace", injected),
+            self.assertRaisesRegex(OSError, "injected release rename failure"),
+        ):
+            self._build()
+        self.assertEqual((self.out / "manifest.json").read_bytes(), old)
+        self.assertEqual(list(self.tmp.glob(".*.previous-*")), [])
+
+    def test_invalid_declared_empty_preserves_previous_release(self):
+        self._build()
+        old = (self.out / "manifest.json").read_bytes()
+        profile = self.manifest["units"][0]["models"][0]["fim"]["profiles"][0]
+        profile.update(depth_empty=True, depth_max_ft=0)
+        (self.source / "manifest.json").write_text(json.dumps(self.manifest), encoding="utf-8")
+        with self.assertRaisesRegex(site.SiteError, "invalid empty depth artifact"):
+            self._build()
+        self.assertEqual((self.out / "manifest.json").read_bytes(), old)
 
     def test_no_manifest_is_a_clear_failure(self):
         (self.source / "manifest.json").unlink()

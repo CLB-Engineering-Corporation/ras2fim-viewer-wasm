@@ -47,7 +47,8 @@ PUBLISH_CRS = "EPSG:4326"
 
 def _exact_depth_range(band) -> tuple[float, float]:
     """Overviews contain wet means and cannot supply the library ramp maximum."""
-    return band.ComputeRasterMinMax(False)
+    from ..common.raster_extrema import exact_depth_range
+    return exact_depth_range(band)
 
 
 def _stage_dir(out_root: Path) -> Path:
@@ -69,6 +70,7 @@ def _warp_to_publish_crs(
     ``STATISTICS_*`` tags: those are computed by whatever wrote the file, may be
     approximate, and say nothing about what survived the warp.
     """
+
     import numpy as np
 
     options = {
