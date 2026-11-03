@@ -116,6 +116,82 @@ class ReleaseTests(unittest.TestCase):
             r.extract(a, r.digest(a), dest, self.wl, self.nl)
         self.assertEqual((dest/'keep').read_text(), 'keep')
 
+class WheelAcquisitionTests(unittest.TestCase):
+    """One reviewed wheel per platform, verified before it is given its name."""
+
+    def setUp(self):
+        import json
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.wheel = self.root/'src'/'terrio-0.6.1+clb9c644f4.1-cp310-abi3-manylinux_2_17_x86_64.whl'
+        self.wheel.parent.mkdir()
+        self.wheel.write_bytes(b'reviewed wheel')
+        native = {'schema_version': 2, 'source_commit': r.COMMIT, 'version': '0.6.1',
+                  'python_sha256': {'__init__.py': '0'*64},
+                  'native': {'linux_x86_64': {'sys_platform': 'linux', 'machine': 'x86_64',
+                                              'file': '_terrio.abi3.so', 'sha256': '1'*64,
+                                              'wheel_platform': 'manylinux_2_17_x86_64'}}}
+        release = {'source_commit': r.COMMIT, 'wheels': {'linux_x86_64': {
+            'name': self.wheel.name, 'bytes': 14, 'sha256': r.digest(self.wheel)}}}
+        self.native, self.release = self.root/'native.json', self.root/'release.json'
+        self.native.write_text(json.dumps(native))
+        self.release.write_text(json.dumps(release))
+
+    def acquire(self, dest, **kw):
+        kw.setdefault('key', 'linux_x86_64')
+        return r.acquire_wheel(dest, release_lock=self.release, python_lock=self.native, **kw)
+
+    def test_offline_and_download(self):
+        got = self.acquire(self.root/'a', wheel=self.wheel)
+        self.assertEqual(got.read_bytes(), b'reviewed wheel')
+        def run(command, check):
+            self.assertEqual(command[:9], ['gh', 'release', 'download', r.TAG, '--repo', r.REPO,
+                                           '--pattern', self.wheel.name, '--dir'])
+            import shutil
+            shutil.copyfile(self.wheel, Path(command[-1])/self.wheel.name)
+        with patch.object(r.subprocess, 'run', side_effect=run):
+            self.assertEqual(self.acquire(self.root/'b').read_bytes(), b'reviewed wheel')
+
+    def test_altered_renamed_existing_and_unknown_refused(self):
+        self.wheel.write_bytes(b'altered wheel!')
+        with self.assertRaisesRegex(ValueError, 'SHA256'):
+            self.acquire(self.root/'a', wheel=self.wheel)
+        self.assertFalse((self.root/'a').exists())
+        other = self.root/'other.whl'
+        other.write_bytes(b'reviewed wheel')
+        with self.assertRaisesRegex(ValueError, 'filename'):
+            self.acquire(self.root/'b', wheel=other)
+        (self.root/'c').mkdir()
+        with self.assertRaisesRegex(ValueError, 'exist'):
+            self.acquire(self.root/'c', wheel=self.wheel)
+        with patch('pipeline.common.terrio_runtime.platform.machine', return_value='sparc64'),                 self.assertRaisesRegex(RuntimeError, 'No reviewed Terrio native artifact'):
+            r.acquire_wheel(self.root/'d', release_lock=self.release, python_lock=self.native)
+        self.assertFalse((self.root/'d').exists())
+
+
+class CommittedLockTests(unittest.TestCase):
+    def test_bundle_view_is_the_reviewed_windows_inventory(self):
+        hashes = r.lock(Path(__file__).parents[1]/'pipeline/common/terrio-python.lock.json')
+        self.assertEqual(hashes['_terrio.pyd'],
+                         '9ce8973a9420707d94694f5f02df92ffaed19d7ad50c52692774ae26ec8a14d3')
+        self.assertEqual(len(hashes), 51)
+
+    def test_every_reviewed_native_has_exactly_one_released_wheel(self):
+        import json
+        root = Path(__file__).parents[1]/'pipeline/common'
+        native = json.loads((root/'terrio-python.lock.json').read_text())
+        release = json.loads((root/'terrio-release.lock.json').read_text())
+        self.assertEqual(set(native['native']), set(release['wheels']))
+        names = set()
+        for key, wheel in release['wheels'].items():
+            platform = native['native'][key]['wheel_platform']
+            self.assertEqual(wheel['name'],
+                             f"terrio-{release['wheel_version']}-cp310-abi3-{platform}.whl")
+            self.assertRegex(wheel['sha256'], '^[0-9a-f]{64}$')
+            names.add(wheel['name'])
+        self.assertEqual(len(names), len(release['wheels']))
+
 
 if __name__ == '__main__':
     unittest.main()

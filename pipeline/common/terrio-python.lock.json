@@ -1,9 +1,9 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source_commit": "9c644f4a1729e253f9714813912f54d32e306c38",
   "version": "0.6.1",
-  "platform": "win_amd64",
-  "sha256": {
+  "python_line_endings": "CRLF, as checked out with core.autocrlf=true; identical on every platform",
+  "python_sha256": {
     "__init__.py": "b6e6bc4f9ac5d65e25f3c72200cde423e7bf0053a84a0c5ce00917837fc5d993",
     "__main__.py": "177467f18a126100c265ac8b8dceefc71cd695289dcc45c8510611ce959fb36d",
     "compat.py": "7051346fb6bcc0b108eb461e82a3875e492389474910f5ee09a166ca594df882",
@@ -53,7 +53,16 @@
     "xarray/_options.py": "68ba57f0b457849eb603d3e630186fe0cd717b25b4c0eca98d87530ad06724a3",
     "xarray/_spatial.py": "127b090e9e79ed930c4a9d4324b3fbc168ba0575c9175a1bbf77603955284100",
     "xarray/_writer.py": "42f542af33614172b40617208a78a1bef1ca4b857de2cccc5fac61de2aac84d4",
-    "xarray/exceptions.py": "e3af547fa315d87487ae28dc97131b9531a0adf88de581b4b22ae5a0f25fc237",
-    "_terrio.pyd": "9ce8973a9420707d94694f5f02df92ffaed19d7ad50c52692774ae26ec8a14d3"
+    "xarray/exceptions.py": "e3af547fa315d87487ae28dc97131b9531a0adf88de581b4b22ae5a0f25fc237"
+  },
+  "native": {
+    "win_amd64": {
+      "sys_platform": "win32",
+      "machine": "AMD64",
+      "file": "_terrio.pyd",
+      "sha256": "9ce8973a9420707d94694f5f02df92ffaed19d7ad50c52692774ae26ec8a14d3",
+      "wheel_platform": "win_amd64",
+      "build": "maturin develop, Cargo dev profile (debug=0), rustc 1.99.1, x86_64-pc-windows-msvc, no optional features"
+    }
   }
 }

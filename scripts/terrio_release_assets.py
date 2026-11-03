@@ -11,10 +11,17 @@ import sys
 import tempfile
 import zipfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from pipeline.common.terrio_runtime import load_lock, platform_key, platform_view  # noqa: E402
+
 COMMIT = '9c644f4a1729e253f9714813912f54d32e306c38'
 REPO = 'CLB-Engineering-Corporation/ras2fim-viewer-wasm'
 TAG = 'viewer-runtime-9c644f4'
 ASSET = 'terrio-viewer-runtime-9c644f4.zip'
+RELEASE_LOCK = Path(__file__).resolve().parents[1]/'pipeline/common/terrio-release.lock.json'
+# The runtime bundle carries the reviewed Windows extension; its inner Python
+# inventory is the win_amd64 view of the multi-platform lock.
+BUNDLE_PLATFORM = 'win_amd64'
 LICENSES = ('LICENSE', 'NOTICE', 'LICENSE-THIRD-PARTY.md')
 # 154,677,760 byte native extension plus ~14 MB WASM: bounded headroom.
 MAX_TOTAL, MAX_FILE, MAX_ENTRIES = 256*1024*1024, 192*1024*1024, 1024
@@ -40,6 +47,8 @@ def safe_name(name):
 
 def lock(path):
     obj = json.loads(Path(path).read_text(encoding='utf-8'))
+    if obj.get('schema_version') == 2:
+        obj = platform_view(load_lock(path), BUNDLE_PLATFORM)
     if obj.get('source_commit') != COMMIT or not obj.get('sha256'):
         raise ValueError('lock must identify reviewed source and hashes')
     for n, h in obj['sha256'].items():
@@ -143,6 +152,38 @@ def bundle(web_root, native_root, output, web, native, compression):
     print(digest(output))
 
 
+def acquire_wheel(destination, key=None, wheel=None, release_lock=RELEASE_LOCK, python_lock=None):
+    """Download (or take offline) the reviewed wheel for one platform; verify before naming it."""
+    native = load_lock(python_lock) if python_lock else load_lock()
+    key = key or platform_key(native)
+    release = json.loads(Path(release_lock).read_text(encoding='utf-8'))
+    if release.get('source_commit') != COMMIT or native['source_commit'] != COMMIT:
+        raise ValueError('release and Python locks must identify the reviewed source')
+    entry = release['wheels'][key]
+    if not entry['name'].endswith(native['native'][key]['wheel_platform']+'.whl'):
+        raise ValueError('release wheel does not match the reviewed native platform')
+    destination = Path(destination)
+    if destination.exists():
+        raise ValueError('destination must not exist')
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=destination.parent.resolve(), prefix='.terrio-wheel-') as tmp:
+        staged = Path(tmp)/'wheel'
+        staged.mkdir()
+        if wheel is None:
+            subprocess.run(['gh', 'release', 'download', TAG, '--repo', REPO, '--pattern', entry['name'], '--dir', str(staged)], check=True)
+        else:
+            if Path(wheel).name != entry['name']:
+                raise ValueError('offline wheel must carry the reviewed filename')
+            shutil.copyfile(wheel, staged/entry['name'])
+        got = staged/entry['name']
+        if sorted(p.name for p in staged.iterdir()) != [entry['name']]:
+            raise ValueError('unexpected download inventory')
+        if got.stat().st_size != entry['bytes'] or digest(got) != entry['sha256']:
+            raise ValueError(f'wheel SHA256 mismatch for {key}: reviewed pin required')
+        staged.rename(destination)
+    return destination/entry['name']
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--web-lock', type=Path, default=Path('pipeline/common/terrio-assets.lock.json'))
@@ -157,7 +198,14 @@ def main(argv=None):
     a.add_argument('--sha256', required=True, help='externally approved archive digest')
     a.add_argument('--destination', type=Path, required=True)
     a.add_argument('--native-destination', type=Path, help='new explicit import root containing terrio/ and licenses/')
+    w = sub.add_parser('wheel', help='acquire the reviewed native wheel for one platform')
+    w.add_argument('--destination', type=Path, required=True, help='new directory')
+    w.add_argument('--platform', help='lock entry key; default: this interpreter')
+    w.add_argument('--wheel', type=Path, help='offline input with the reviewed filename')
     args = p.parse_args(argv)
+    if args.command == 'wheel':
+        print(acquire_wheel(args.destination, args.platform, args.wheel, python_lock=args.python_lock))
+        return 0
     web, native = lock(args.web_lock), lock(args.python_lock)
     if args.command == 'bundle':
         bundle(args.web, args.python, args.output, web, native, zipfile.ZIP_STORED if args.compression == 'stored' else zipfile.ZIP_DEFLATED)
@@ -188,5 +236,5 @@ def main(argv=None):
 if __name__ == '__main__':
     try:
         raise SystemExit(main())
-    except (ValueError, OSError, KeyError, TypeError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
+    except (ValueError, OSError, KeyError, TypeError, RuntimeError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
         sys.exit(f'Terrio release acquisition failed; no fallback: {error}')

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source_commit": "9c644f4a1729e253f9714813912f54d32e306c38",
   "repository": "CLB-Engineering-Corporation/ras2fim-viewer-wasm",
   "tag": "viewer-runtime-9c644f4",
@@ -8,10 +8,12 @@
     "bytes": 171643130,
     "sha256": "5eb50b10bd4f3bf0f39423834d8428b64388d9a893165c36dc3f0327ecaadae6"
   },
-  "wheel": {
-    "name": "terrio-0.6.1+clb9c644f4.1-cp310-abi3-win_amd64.whl",
-    "bytes": 156287240,
-    "version": "0.6.1+clb9c644f4.1",
-    "sha256": "c40983634cc8f27f86135572722ed0f67193b67f8d18ae09e38cda2a814ba346"
+  "wheel_version": "0.6.1+clb9c644f4.1",
+  "wheels": {
+    "win_amd64": {
+      "name": "terrio-0.6.1+clb9c644f4.1-cp310-abi3-win_amd64.whl",
+      "bytes": 156287240,
+      "sha256": "c40983634cc8f27f86135572722ed0f67193b67f8d18ae09e38cda2a814ba346"
+    }
   }
 }
