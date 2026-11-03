@@ -14,6 +14,7 @@ from osgeo import gdal
 from PIL import Image
 from pmtiles.reader import Reader,all_tiles
 from pipeline.fim1d import cogs,depth_pmtiles as tiles
+from tests.codec_bounds import check_codec_bound
 source=sorted(Path('.terrio-validation/real-1d/cogs').rglob('depth_*.tif'))[-1].resolve()
 root=Path('.terrio-validation/adoption-default-dispatch');root.mkdir(exist_ok=True)
 def archive(p):
@@ -54,7 +55,7 @@ writer_errors=[]
 for i in range(2):
  row=[]
  for original,decoded in zip(stages[i],refs[i][4]):
-  err=float(np.max(np.abs(original-decoded)));tol=.01+float(np.spacing(np.float32(np.max(np.abs(original)))))
-  assert err<=tol,(i,err,tol);row.append(err)
+  err,tol=check_codec_bound(original,decoded)
+  row.append({"error":err,"tolerance":tol})
  writer_errors.append(row)
 print(json.dumps({'default_tiles':'exact full RGBA/bounds/zooms','tiles':len(a),'default_cog_writer':reports[1]['profiles'][0]['writer'],'lossy_writer_pair_errors':errors,'each_writer_vs_exact_supplied_arrays':writer_errors,'supplied_arrays_between_backends':'exact'},indent=2))
