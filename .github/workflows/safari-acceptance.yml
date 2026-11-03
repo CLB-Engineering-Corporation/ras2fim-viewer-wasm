@@ -48,6 +48,9 @@ jobs:
     timeout-minutes: 340
     strategy:
       fail-fast: false
+      # macOS arm64 hosted capacity is constrained; three simultaneous requests
+      # were cancelled unacquired. One VM at a time, Safari first.
+      max-parallel: 1
       matrix:
         engine: [safari, ios-simulator, webkit]
     steps:
