@@ -198,6 +198,33 @@
       }
       if (!flows.every(Number.isFinite)) throw new Error("flow values must be finite");
 
+      /* Backwater-aware stacks (fim-commander ADR 0013) repeat a flow once per
+         downstream control and say which control each layer is: per-layer
+         `boundary_condition` (0 = nd, 1 = kwse) and `ds_wse` (feet). Both are
+         optional; a flow-only stack reports null for each. */
+      var dsWse = null, boundaryCondition = null;
+      var bcDs = file.get("boundary_condition");
+      var dsDs = file.get("ds_wse");
+      if (bcDs || dsDs) {
+        if (!bcDs || !dsDs) throw new Error("boundary_condition and ds_wse must be present together");
+        var bcRaw = Array.from(bcDs.value), dsRaw = Array.from(dsDs.value);
+        if (bcRaw.length !== shape[0] || dsRaw.length !== shape[0]) {
+          throw new Error("boundary_condition/ds_wse length does not match the layer count");
+        }
+        var dsFill = numberOr(attrValue(dsDs.attrs["_FillValue"]), NaN);
+        boundaryCondition = bcRaw.map(function (code) {
+          return code === 0 ? "nd" : code === 1 ? "kwse" : null;
+        });
+        dsWse = dsRaw.map(function (v, i) {
+          var value = Number(v);
+          if (!Number.isFinite(value) || value === dsFill) value = null;
+          if (boundaryCondition[i] === "kwse" && value === null) {
+            throw new Error("kwse layer " + i + " has no ds_wse");
+          }
+          return value;
+        });
+      }
+
       var ny = shape[1], nx = shape[2];
       var west = gt.originX;
       var north = gt.originY;
@@ -226,6 +253,8 @@
         streamId: attrValue(file.attrs["00_stream_id"]),
         verticalFilter: attrValue(file.attrs["09_vertical_filter"]),
         flows: flows,
+        dsWse: dsWse,
+        boundaryCondition: boundaryCondition,
         nFlow: shape[0], ny: ny, nx: nx,
         scale: main.scale, offset: main.offset,
         hasFill: main.hasFill, fill: main.fill,
@@ -506,6 +535,38 @@
       nodata: total - stats.valid };
   }
 
+  /** Pick the layer for a flow and a downstream control, the flows2fim way.
+   *
+   * `control` is "nd" (normal depth: only nd layers compete, nearest by flow)
+   * or a stage in the file's vertical units (every layer competes, nearest by
+   * |flow - Q| first and then by |ds_wse - control|). No interpolation; ties
+   * keep source order. A flow-only stack (no `boundaryCondition`) treats every
+   * layer as nd. Returns { index, flow, dsWse, boundaryCondition, flowGap,
+   * stageGap } or null when nothing qualifies. The caller judges the gaps
+   * (flows2fim warns past 1 ft of stage or 25% of flow); this does not.
+   */
+  function resolveLayer(meta, flow, control) {
+    if (!meta || !Array.isArray(meta.flows)) throw new Error("meta.flows is required");
+    if (!Number.isFinite(flow)) throw new Error("flow must be finite");
+    var nd = control === "nd" || control === undefined || control === null;
+    if (!nd && !Number.isFinite(control)) throw new Error("control must be \"nd\" or a finite stage");
+    var conditions = meta.boundaryCondition || null;
+    var stages = meta.dsWse || null;
+    var best = null;
+    for (var i = 0; i < meta.flows.length; i += 1) {
+      var condition = conditions ? conditions[i] : "nd";
+      if (nd && condition !== "nd") continue;
+      var stage = stages ? stages[i] : null;
+      var flowGap = Math.abs(meta.flows[i] - flow);
+      var stageGap = nd || stage === null ? Infinity : Math.abs(stage - control);
+      if (!best || flowGap < best.flowGap || (flowGap === best.flowGap && stageGap < best.stageGap)) {
+        best = { index: i, flow: meta.flows[i], dsWse: stage, boundaryCondition: condition,
+          flowGap: flowGap, stageGap: stageGap };
+      }
+    }
+    return best;
+  }
+
   /** Own one worker and its prepared layers; canvas and map ownership stay with
    * the host. No browser globals are needed until workerFactory is called.
    * See docs/native-viewer-api.md for callback and buffer ownership. */
@@ -634,6 +695,14 @@
         } catch (e) { fail(e.message); return; }
         notify();
       },
+      selectControl: function (flow, control) {
+        active();
+        if (!meta) throw new Error("selectControl needs metadata; use select before load completes");
+        var hit = resolveLayer(meta, flow, control);
+        if (!hit) throw new RangeError("no layer qualifies for that control");
+        this.select(hit.index);
+        return hit;
+      },
       select: function (index) {
         active(); validIndex(index); selected = index;
         if (!meta || phase === "error") { notify(); return; }
@@ -706,6 +775,7 @@
     paintSparse: paintSparse,
     paintExtent: paintExtent,
     layerCells: layerCells,
+    resolveLayer: resolveLayer,
     createSession: createSession,
     clearSparse: clearSparse,
     buildRampU32: buildRampU32,

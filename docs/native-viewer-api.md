@@ -128,6 +128,14 @@ The reader accepts NetCDF4/HDF5 with the existing public layout:
   order. Flow units are reported verbatim or null when absent, never guessed
   as cfs. A consuming catalog must separately verify units, flow matching and
   rung identity; this reader does not infer hydraulic equivalence.
+- Optionally, together, per-layer `boundary_condition` (`uint8`, `0 = nd`,
+  `1 = kwse`) and `ds_wse` (the downstream stage in the file's vertical units,
+  with a declared `_FillValue`) — a backwater-aware stack (fim-commander
+  ADR 0013, the ripple1d `rating_curves` key). A flow may then repeat once per
+  downstream control; `(flow, boundary_condition, ds_wse)` is the layer key.
+  Every `kwse` layer must carry a stage. `meta.boundaryCondition` and
+  `meta.dsWse` report the arrays, or null for a flow-only stack. One present
+  without the other is an error.
 - `spatial_ref.GeoTransform` with six finite values, positive pixel width,
   negative pixel height and zero rotation, covering a positive-size grid.
   It describes cell corners, not center-coordinate extents.
@@ -136,6 +144,18 @@ The reader accepts NetCDF4/HDF5 with the existing public layout:
   EPSG authority/ID. Conflicting declarations, missing/unsupported CRS and
   rotated/reversed grids fail before geographic corners are calculated.
   This is a bounded CRS check, not a general WKT parser or reprojection engine.
+
+## Resolving a layer under backwater
+
+`R2F2D.resolveLayer(meta, flow, control)` is the flows2fim `controls` rule:
+`control` is `"nd"` (only `nd` layers compete, nearest by flow) or a stage
+(every layer competes, nearest by `|flow − Q|` first and then by
+`|ds_wse − control|`). No interpolation; ties keep source order. It returns
+`{ index, flow, dsWse, boundaryCondition, flowGap, stageGap }` or null.
+`session.selectControl(flow, control)` resolves and selects in one call once
+metadata is known. The host judges the gaps (flows2fim warns past 1 ft of
+stage or 25% of flow) and supplies the control stage from the downstream
+reach's own resolved layer, outlet to headwater; the reader does neither.
 
 Metadata adds `crs`, `geoTransform`, `depthUnits`, `maskPolicy`; existing
 field names and protocol version remain unchanged. Supported, explicitly

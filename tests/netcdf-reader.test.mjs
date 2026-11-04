@@ -379,3 +379,38 @@ test("offsets and depths are exactly sized so they can be transferred alone", ()
   assert.equal(index.offsets.byteOffset, 0);
   assert.equal(index.offsets.buffer.byteLength, index.painted * 4);
 });
+
+/* --------------------------------------------------------------------------
+ * Backwater-aware stacks: the flows2fim lookup rule (fim-commander ADR 0013)
+ * ----------------------------------------------------------------------- */
+
+const BACKWATER_META = {
+  flows: [100, 200, 200, 200, 300],
+  boundaryCondition: ["nd", "nd", "kwse", "kwse", "nd"],
+  dsWse: [101.2, 102.0, 104.0, 106.0, 103.1],
+};
+
+test("resolveLayer under normal depth considers only nd layers, nearest by flow", () => {
+  const hit = R.resolveLayer(BACKWATER_META, 210, "nd");
+  assert.equal(hit.index, 1);
+  assert.equal(hit.boundaryCondition, "nd");
+  assert.equal(R.resolveLayer(BACKWATER_META, 210).index, 1, "undefined control means nd");
+});
+
+test("resolveLayer with a control stage orders by flow first, then stage", () => {
+  assert.equal(R.resolveLayer(BACKWATER_META, 210, 105.8).index, 3);
+  assert.equal(R.resolveLayer(BACKWATER_META, 210, 102.4).index, 1, "an nd layer can win on stage");
+  assert.equal(R.resolveLayer(BACKWATER_META, 260, 105.8).index, 4, "flow gap beats stage gap");
+  const hit = R.resolveLayer(BACKWATER_META, 200, 105.0);
+  assert.equal(hit.index, 2, "ties on stage keep source order");
+  assert.equal(hit.stageGap, 1);
+});
+
+test("resolveLayer treats a flow-only stack as all nd and rejects bad inputs", () => {
+  const plain = { flows: [100, 500, 2000] };
+  assert.equal(R.resolveLayer(plain, 480, 999).index, 1);
+  assert.equal(R.resolveLayer(plain, 480, "nd").index, 1);
+  assert.equal(R.resolveLayer({ flows: [] }, 1, "nd"), null);
+  assert.throws(() => R.resolveLayer(plain, NaN, "nd"), /finite/);
+  assert.throws(() => R.resolveLayer(plain, 1, "normal"), /control/);
+});

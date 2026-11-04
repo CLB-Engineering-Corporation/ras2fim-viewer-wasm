@@ -72,6 +72,27 @@ test("reader never guesses vertical or flow units and rejects mismatched WSEL te
   assert.throws(w.read, /units/);
 });
 
+test("reader reports backwater controls together and rejects partial or stageless kwse", () => {
+  const plainStack = fixture().read();
+  assert.equal(plainStack.boundaryCondition, null); assert.equal(plainStack.dsWse, null);
+  const f = fixture();
+  f.datasets.boundary_condition = { shape: [3], attrs: {}, value: Uint8Array.from([0, 1, 1]) };
+  f.datasets.ds_wse = { shape: [3], attrs: { _FillValue: -9999, units: "feet" }, value: [-9999, 104, 106] };
+  const stack = f.read();
+  assert.deepEqual(plain(stack.boundaryCondition), ["nd", "kwse", "kwse"]);
+  assert.deepEqual(plain(stack.dsWse), [null, 104, 106]);
+  const lone = fixture(); lone.datasets.ds_wse = f.datasets.ds_wse;
+  assert.throws(lone.read, /present together/);
+  const stageless = fixture();
+  stageless.datasets.boundary_condition = f.datasets.boundary_condition;
+  stageless.datasets.ds_wse = { shape: [3], attrs: { _FillValue: -9999 }, value: [-9999, -9999, 106] };
+  assert.throws(stageless.read, /kwse layer 1 has no ds_wse/);
+  const short = fixture();
+  short.datasets.boundary_condition = { shape: [2], attrs: {}, value: Uint8Array.from([0, 1]) };
+  short.datasets.ds_wse = { shape: [2], attrs: {}, value: [1, 2] };
+  assert.throws(short.read, /length/);
+});
+
 test("reader rejects invalid shape, flow, packing and grid orientation with cleanup", () => {
   const mutations = [
     (d) => { d.depth.shape = [0, 1, 4]; },

@@ -85,6 +85,20 @@ def describe(path: Path, root: Path) -> dict | None:
         if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in raw_flows):
             return None
         flows = [int(v) if float(v).is_integer() else float(v) for v in raw_flows]
+        # Backwater-aware stacks (fim-commander ADR 0013): per-layer boundary
+        # family and downstream stage. Reported so a catalog can tell a
+        # flow-only library from one that needs a control stage to resolve.
+        controls = None
+        if "boundary_condition" in nc.variables and "ds_wse" in nc.variables:
+            codes = [int(v) for v in nc.variables["boundary_condition"][:]]
+            kwse_stages = [float(s) for c, s in zip(codes, nc.variables["ds_wse"][:]) if c == 1]
+            controls = {
+                "nd": codes.count(0),
+                "kwse": codes.count(1),
+                "kwse_ds_wse_range": [min(kwse_stages), max(kwse_stages)] if kwse_stages else None,
+                "ds_wse_units": _attr(nc.variables["ds_wse"], "units", "feet"),
+                "lookup": "nearest by |flow - Q| then |ds_wse - control|; no interpolation",
+            }
         return {
             "id": _attr(nc, "00_stream_id") or path.stem,
             "file": path.relative_to(root).as_posix(),
@@ -98,6 +112,7 @@ def describe(path: Path, root: Path) -> dict | None:
             "vertical_units": _attr(var, "units", "feet"),
             "vertical_filter": _attr(nc, "09_vertical_filter"),
             "bounds": [round(lon_w, 6), round(lat_s, 6), round(lon_e, 6), round(lat_n, 6)],
+            "controls": controls,
         }
 
 
