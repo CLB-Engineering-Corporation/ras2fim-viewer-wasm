@@ -189,6 +189,33 @@ def validate_data(site: Path, manifest: dict, report: Report) -> None:
             report.check(all(b >= a for a, b in zip(flows, flows[1:])),
                          f"{name}: flow values are not ascending; the slider assumes they are")
 
+            # A backwater-aware stack (fim-commander ADR 0013) repeats a flow
+            # once per downstream control. Then the key the viewer resolves on is
+            # (flow, boundary_condition, ds_wse), and it must be unique; without
+            # the two variables a repeated flow is two layers nobody can tell apart.
+            has_bc, has_ds = "boundary_condition" in nc.variables, "ds_wse" in nc.variables
+            if has_bc or has_ds:
+                if report.check(has_bc and has_ds,
+                                f"{name}: boundary_condition and ds_wse must be present together"):
+                    codes = [int(v) for v in nc.variables["boundary_condition"][:]]
+                    stages = nc.variables["ds_wse"][:].filled(float("nan")).tolist() \
+                        if hasattr(nc.variables["ds_wse"][:], "filled") \
+                        else [float(v) for v in nc.variables["ds_wse"][:]]
+                    report.check(len(codes) == n_flow and len(stages) == n_flow,
+                                 f"{name}: boundary_condition/ds_wse length != layer count")
+                    report.check(all(c in (0, 1) for c in codes),
+                                 f"{name}: boundary_condition codes must be 0 (nd) or 1 (kwse)")
+                    report.check(all(math.isfinite(s) for c, s in zip(codes, stages) if c == 1),
+                                 f"{name}: a kwse layer has no ds_wse")
+                    keys = list(zip(flows, codes, [round(s, 1) if math.isfinite(s) else None
+                                                   for s in stages]))
+                    report.check(len(set(keys)) == len(keys),
+                                 f"{name}: duplicate (flow, boundary_condition, ds_wse) layers")
+            else:
+                report.check(len(set(flows)) == len(flows),
+                             f"{name}: repeated flow without boundary_condition/ds_wse; "
+                             f"the layers cannot be told apart")
+
             if variable == "wsel":
                 if not report.check("terrain" in nc.variables,
                                     f"{name}: wsel stack has no terrain"):

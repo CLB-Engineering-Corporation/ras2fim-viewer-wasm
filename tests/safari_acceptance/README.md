@@ -89,3 +89,10 @@ as the record; the owner accepted these results for merge on 2026-11-03. Any
 rerun needs a replacement method declared before it runs (a fresh Safari
 process per trial with process caches cleared, and/or a same-VM Playwright
 WebKit control).
+
+Candidate re-pinned 2026-11-04 for backwater-aware stack support (additive
+`boundary_condition`/`ds_wse` reading and `resolveLayer`; flow-only stacks take
+the same code paths). `app.js` and `netcdf.js` changed from
+`22550a6af361…`/`1ec304aea364…`. The audited long-session results above
+were measured on the previous candidate (main `ca6bbf3`); they have not been
+rerun on this one. Rerun with a pre-declared method before citing them for it.

@@ -303,7 +303,13 @@
         : "0 cells"]
     ]);
 
-    byId("flow-value").textContent = fmt(stack.flows[index]) + " " + (stack.flowUnits || "(units unknown)");
+    byId("flow-value").textContent = fmt(stack.flows[index]) + " " + (stack.flowUnits || "(units unknown)") +
+      // Backwater-aware stacks repeat a flow per downstream control; say which.
+      (stack.boundaryCondition
+        ? (stack.boundaryCondition[index] === "kwse"
+          ? " · kwse, outlet " + fmt(stack.dsWse[index], 1) + " " + stack.depthUnits
+          : " · nd")
+        : "");
     fillList("timings", [
       ["Download", [seg(fmt(timings.fetch, 0) + " ms", "metric"),
                     seg(" (" + (stack.bytes / 1e6).toFixed(2) + " MB)")]],
@@ -418,7 +424,10 @@
       ["Stream", meta.streamId],
       ["Variable", meta.mode === "depth" ? meta.variable + " (already depth)" : meta.variable + " → depth"],
       ["Grid", meta.nx + " × " + meta.ny + " @ 3 m"],
-      ["Layers", meta.nFlow + " flows"],
+      ["Layers", meta.boundaryCondition
+        ? meta.nFlow + " (" + meta.boundaryCondition.filter(function (c) { return c === "nd"; }).length +
+          " nd, " + meta.boundaryCondition.filter(function (c) { return c === "kwse"; }).length + " kwse)"
+        : meta.nFlow + " flows"],
       ["Packing", "uint16 × " + meta.scale + (meta.offset ? " + " + meta.offset : "") +
         (meta.hasFill ? ", fill " + meta.fill : ", no fill value")],
       ["Filter", meta.verticalFilter ? meta.verticalFilter + " " + meta.depthUnits : "—"],

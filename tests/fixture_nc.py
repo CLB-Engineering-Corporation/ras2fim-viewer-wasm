@@ -38,11 +38,17 @@ def write_stack(
     scale: float = 0.1,
     vertical_filter: str | None = "none",
     rotated: bool = False,
+    controls: tuple[tuple[str, float | None], ...] | None = None,
 ) -> Path:
     """Write one stack and return its path.
 
     ``variable`` is ``wsel`` (with terrain, the common case) or ``depth``
     (already depth, no terrain -- the branch that had never been exercised).
+
+    ``controls``, one ``(boundary_condition, ds_wse)`` per flow, writes the
+    backwater-aware variables of fim-commander ADR 0013: ``boundary_condition``
+    (``0 = nd``, ``1 = kwse``) and ``ds_wse`` (feet, fill -9999). With it,
+    ``flows`` may repeat; that is the point.
     """
     import netCDF4
 
@@ -70,6 +76,18 @@ def write_stack(
         flow = nc.createVariable("flow", "f8", ("flow",))
         flow.units = "cfs"
         flow[:] = np.array(flows, dtype="f8")
+
+        if controls is not None:
+            if len(controls) != len(flows):
+                raise ValueError("one control per flow")
+            codes = {"nd": 0, "kwse": 1}
+            bc = nc.createVariable("boundary_condition", "u1", ("flow",), fill_value=255)
+            bc.flag_values = np.array([0, 1], dtype="u1")
+            bc.flag_meanings = "nd kwse"
+            bc[:] = np.array([codes[c] for c, _ in controls], dtype="u1")
+            ds = nc.createVariable("ds_wse", "f8", ("flow",), fill_value=-9999.0)
+            ds.units = "feet"
+            ds[:] = np.array([-9999.0 if s is None else s for _, s in controls], dtype="f8")
 
         # Cell centres, not corners -- which is exactly why the extent is read
         # from the GeoTransform instead of from these.
