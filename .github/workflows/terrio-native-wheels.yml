@@ -91,7 +91,7 @@ jobs:
           ls -l terrio/python/dist
           python viewer/scripts/build_terrio_wheel.py from-maturin terrio/python/dist/*.whl terrio out \
             --platform ${{ matrix.key }} --sys-platform ${{ matrix.sys_platform }} --machine ${{ matrix.machine }}
-          shasum -a 256 out/*.whl terrio/python/dist/*.whl
+          sha256sum out/*.whl terrio/python/dist/*.whl  # shasum is absent from Windows runners' Git Bash
       - name: the extension loads on this runner and is the one recorded
         run: |
           python -m venv "$RUNNER_TEMP/smoke"
