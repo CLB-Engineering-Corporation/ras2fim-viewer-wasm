@@ -124,10 +124,10 @@ class WheelAcquisitionTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        self.wheel = self.root/'src'/'terrio-0.6.1+clb9c644f4.1-cp310-abi3-manylinux_2_17_x86_64.whl'
+        self.wheel = self.root/'src'/'terrio-0.9.0+clb7f1996f.1-cp310-abi3-manylinux_2_17_x86_64.whl'
         self.wheel.parent.mkdir()
         self.wheel.write_bytes(b'reviewed wheel')
-        native = {'schema_version': 2, 'source_commit': r.COMMIT, 'version': '0.6.1',
+        native = {'schema_version': 2, 'source_commit': r.COMMIT, 'version': '0.9.0',
                   'python_sha256': {'__init__.py': '0'*64},
                   'native': {'linux_x86_64': {'sys_platform': 'linux', 'machine': 'x86_64',
                                               'file': '_terrio.abi3.so', 'sha256': '1'*64,
@@ -174,8 +174,8 @@ class CommittedLockTests(unittest.TestCase):
     def test_bundle_view_is_the_reviewed_windows_inventory(self):
         hashes = r.lock(Path(__file__).parents[1]/'pipeline/common/terrio-python.lock.json')
         self.assertEqual(hashes['_terrio.pyd'],
-                         '9ce8973a9420707d94694f5f02df92ffaed19d7ad50c52692774ae26ec8a14d3')
-        self.assertEqual(len(hashes), 51)
+                         '06f986f2c46d69344abb78b9ed055bf7a44882d24a3446770eaed81cbf3aa777')
+        self.assertEqual(len(hashes), 56)  # 55 Python files and the extension
 
     def test_every_reviewed_native_has_exactly_one_released_wheel(self):
         import json

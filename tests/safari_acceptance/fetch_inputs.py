@@ -15,7 +15,7 @@ import tempfile
 from pathlib import Path
 
 REPO = "CLB-Engineering-Corporation/ras2fim-viewer-wasm"
-TAG = "viewer-runtime-9c644f4"
+TAG = "viewer-runtime-7f1996f"  # same bytes as before, re-attached to the current runtime draft
 
 
 def fetch(name, entry, tmp):

@@ -30,10 +30,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: CLB-Engineering-Corporation/terrio
-          ref: 9c644f4a1729e253f9714813912f54d32e306c38
+          ref: 7f1996f972645c7d4b71822702b9fc331ad36df9
           persist-credentials: false
       - name: verify source pin
-        run: test "$(git rev-parse HEAD)" = 9c644f4a1729e253f9714813912f54d32e306c38
+        run: test "$(git rev-parse HEAD)" = 7f1996f972645c7d4b71822702b9fc331ad36df9
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -42,7 +42,7 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: clb-runtime-9c644f4-rust199
+          shared-key: clb-runtime-7f1996f-rust199
       - name: format
         run: cargo fmt --all -- --check
       - name: workspace Clippy

@@ -57,7 +57,7 @@ fim1d = [
   # The reviewed native publication runtime: not on PyPI, one reviewed wheel per
   # platform (docs/terrio-assets.md). Install it before resolving this group.
   # Explicit equality only: PEP 508 `in` is a substring test.
-  "terrio==0.6.1+clb9c644f4.1; (platform_system == 'Windows' and platform_machine == 'AMD64') or (platform_system == 'Linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (platform_system == 'Darwin' and (platform_machine == 'arm64' or platform_machine == 'x86_64'))",
+  "terrio==0.9.0+clb7f1996f.1; (platform_system == 'Windows' and platform_machine == 'AMD64') or (platform_system == 'Linux' and platform_machine == 'x86_64')",
 ]
 
 # serve/dev_tiles.py, the local TiTiler stand-in. It only reads COGs and encodes

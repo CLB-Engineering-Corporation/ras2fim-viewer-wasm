@@ -116,7 +116,7 @@ def verify_locked(package: Path) -> None:
     lock = asset_lock()
     root = package.resolve()
     # npm metadata not served by copy_package is permitted; all runtime snippets
-    # must be locked (this particular build generated none).
+    # must be locked (the 7f1996f build has one, imported by terrio.js).
     actual = {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
     allowed = set(lock["sha256"]) | {"README.md", ".gitignore", "provenance.json"}
     if actual - allowed:

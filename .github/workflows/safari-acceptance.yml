@@ -17,14 +17,17 @@ name: Safari acceptance
 # for the engine, not device certification.
 
 on:
-  # push, not pull_request: a push's path filter sees that push's files, so
-  # unrelated commits do not restart hour-long sessions.
-  push:
-    branches-ignore: [gh-pages]
-    paths:
-      - '.github/workflows/safari-acceptance.yml'
-      - 'tests/safari_acceptance/**'
-      - 'tests/adoption_acceptance/**'
+  # Manual only while Terrio 0.9.0 (7f1996f) is the candidate: Safari acceptance
+  # is skipped for this upgrade and recorded as not measured (maintainer
+  # decision, 2026-11-21). Its candidate pins moved with the runtime, and the
+  # former push trigger (on tests/safari_acceptance/** and this file) would have
+  # started macOS sessions on that edit. Restore it when a run is scheduled:
+  #   push:
+  #     branches-ignore: [gh-pages]
+  #     paths:
+  #       - '.github/workflows/safari-acceptance.yml'
+  #       - 'tests/safari_acceptance/**'
+  #       - 'tests/adoption_acceptance/**'
   workflow_dispatch:
 
 permissions:

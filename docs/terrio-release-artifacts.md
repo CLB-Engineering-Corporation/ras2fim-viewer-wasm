@@ -1,7 +1,9 @@
 # Reviewed Terrio candidate artifacts
 
-The viewer fork holds candidate artifacts under draft tag `viewer-runtime-9c644f4`.
-The source runtime is CLB Terrio `9c644f4a1729e253f9714813912f54d32e306c38`.
+The viewer fork holds candidate artifacts under draft tag `viewer-runtime-7f1996f`.
+The source runtime is CLB Terrio 0.9.0, `7f1996f972645c7d4b71822702b9fc331ad36df9`
+(fork branch `reconcile/upstream-80c9e7a`, fork PR #45). The previous runtime's
+draft, `viewer-runtime-9c644f4`, is kept unchanged for rollback.
 The checked-in `pipeline/common/terrio-release.lock.json` records actual archive
 and wheel digests separately from the complete inner web/Python locks. Draft
 preparation is not a public application deployment or a production release.
@@ -9,7 +11,7 @@ preparation is not a public application deployment or a production release.
 From a fresh checkout with authenticated GitHub CLI (same-repository draft-capable access):
 
 ```sh
-python scripts/terrio_release_assets.py acquire --sha256 5eb50b10bd4f3bf0f39423834d8428b64388d9a893165c36dc3f0327ecaadae6 --destination .terrio-validation/runtime
+python scripts/terrio_release_assets.py acquire --sha256 c0dcfdf5cecc05df19636caf25f785b1c9a3ba7aeeddfc0f4d384afdcf5fd00c --destination .terrio-validation/runtime
 python -m pipeline.fim2d.site <nc-directory> --out <site-directory>
 python -m pipeline.fim2d.validate <site-directory> --deep
 ```
@@ -29,50 +31,51 @@ into secrets. Fork PR tokens retain GitHub's read-only cap and cannot silently
 bypass the default gate. CI uses the committed digest , never a digest
 fetched beside the download; pinned default-site validation is required by all-green.
 
-The bundle is 171643130 bytes. It contains `web/`, `python/terrio/`, three
-license/notice files and a complete manifest. Entry/file/total/manifest limits
-are 1024 / 192 MiB / 256 MiB / 1 MiB, justified by the 154677760-byte extension
-plus 14376789-byte WASM. Traversal, case aliases, drive/ADS paths, symlinks,
+The bundle is 189596505 bytes, 71 entries. It contains `web/` (the nine locked
+files, including the wasm-bindgen snippet), `python/terrio/` (55 Python files,
+`_terrio.pyi`, `py.typed` and the Windows extension), three license/notice files
+and a complete manifest. Entry/file/total/manifest limits are
+1024 / 192 MiB / 256 MiB / 1 MiB, justified by the 171731968-byte extension
+plus 15056333-byte WASM. Traversal, case aliases, drive/ADS paths, symlinks,
 special files, encryption and unsupported codecs are rejected. Parent paths
 remain caller-controlled; do not permit concurrent untrusted parent mutation.
 A later importer failure leaves verified directories for inspection.
 
-The native publication wheels are separate assets, one per platform; names,
-sizes, digests and asset IDs are in `pipeline/common/terrio-release.lock.json`
-(`wheels`) and the table in [terrio-assets.md](terrio-assets.md):
+The native publication wheels are separate assets, one per reviewed platform
+(Windows AMD64 and Linux x86_64 since 0.9.0); names, sizes, digests and asset
+IDs are in `pipeline/common/terrio-release.lock.json` (`wheels`) and the table in
+[terrio-assets.md](terrio-assets.md):
 
 | Asset | Bytes | SHA256 | Asset ID |
 |---|---:|---|---:|
-| `terrio-0.6.1+clb9c644f4.1-cp310-abi3-win_amd64.whl` | 156287240 | `c40983634cc8f27f86135572722ed0f67193b67f8d18ae09e38cda2a814ba346` | 705274190 |
-| `terrio-0.6.1+clb9c644f4.1-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl` | 326687500 | `d4fa7a2d2ead71b173156e2e8859fb0370b5ad04d6da88b69824db85402c9e3d` | 705967216 |
-| `terrio-0.6.1+clb9c644f4.1-cp310-abi3-manylinux_2_28_aarch64.whl` | 313167433 | `3095366023a5ca095aa528477ce60b54021002b09948f2d58d8515c30260cb93` | 705967211 |
-| `terrio-0.6.1+clb9c644f4.1-cp310-abi3-macosx_11_0_arm64.whl` | 289463026 | `6b7b20e914ec6c6b32da816c3c79b3fa96171933016bdb45cc88394863e9c228` | 705967212 |
-| `terrio-0.6.1+clb9c644f4.1-cp310-abi3-macosx_10_12_x86_64.whl` | 280884685 | `3b6381af2e0e82450282ad09e220e8efe531a9d26d3df3956a19543296ff7e9a` | 705967214 |
+| `terrio-0.9.0+clb7f1996f.1-cp310-abi3-win_amd64.whl` | 173508688 | `a27f001339c1015dbf0009f9a960c592ded643db2a04737a1a761410037fe938` | 776910363 |
+| `terrio-0.9.0+clb7f1996f.1-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl` | 368942948 | `9ee1b1a0d33bee1dd43e28e5e5b26aa99383def3b5e190bc3306b5b6dec4387b` | 776910358 |
 
 `python scripts/terrio_release_assets.py wheel --destination <new-dir>
 [--platform KEY]` downloads the exact committed filename with authenticated
 `gh`, checks size and SHA256 before naming it, and refuses an existing
-destination; `--wheel PATH` does the same offline. The Windows wheel wraps the
-reviewed binary without recompiling. The four Linux/macOS wheels were compiled
-from `9c644f4` by `.github/workflows/terrio-native-wheels.yml` in the Windows
-artifact's configuration (see terrio-assets.md), independently reviewed
-(digest, RECORD, Python files byte-identical to the Windows wheel, licenses,
-architecture, no vendored libraries) and uploaded as new assets; three were
-reproduced byte for byte by a second CI build. Every wheel's embedded
-`terrio-source.json` equals the committed lock's `platform_view()` for its
-platform. The guard verifies the actual loaded native origin and inventory per
+destination; `--wheel PATH` does the same offline. Both wheels were compiled
+from `7f1996f` in the Cargo dev profile and repackaged by
+`build_terrio_wheel.py from-maturin` (Windows on a CLB workstation, Linux x86_64
+on the CLB Slurm cluster in the workflow's pinned manylinux2014 image; see
+terrio-assets.md), checked (digest, RECORD, Python files byte-identical between
+the two wheels, licenses, architecture, no vendored libraries) and uploaded as
+new assets. Each wheel's embedded `terrio-source.json` equals the committed
+lock's `platform_view()` for its platform. The guard verifies the actual loaded native origin and inventory per
 platform; another platform's or an unreviewed ABI-qualified extension is refused.
 
 The draft also carries three acceptance inputs used by the Safari acceptance
 workflow (`acceptance-filter_depth_wb-2427467.nc`, `acceptance-fixture-*.nc`),
-pinned in `tests/safari_acceptance/inputs.json`. They are test data, not runtime.
+pinned in `tests/safari_acceptance/inputs.json`. They are test data, not runtime,
+and byte-identical to the copies on `viewer-runtime-9c644f4`. Safari acceptance
+has not been run against the 0.9.0 runtime.
 
 Reproduction tools package existing reviewed inputs without recompiling:
 `scripts/terrio_release_assets.py bundle --web <reviewed-web> --python <reviewed-python-package>
 --output <new-zip> --compression stored` and
 `scripts/build_terrio_wheel.py wrap <reviewed-python-package> <license-root> <new-output-dir>`
-(byte-identical regeneration of the Windows wheel was re-verified after the
-multi-platform refactor) and `scripts/build_terrio_wheel.py from-maturin ...` for CI builds.
+and `scripts/build_terrio_wheel.py from-maturin ...` for maturin builds (both
+0.9.0 wheels; it refuses Python bytes that differ from the lock).
 Stored ZIP entries have fixed timestamps/order/permissions. The wheel RECORD
 covers every payload. Deflated bundle mode additionally depends on zlib version.
 This is artifact verification/repacking, not a hermetic compiler-build claim.
@@ -85,9 +88,10 @@ in place; a changed artifact needs a new reviewed tag/digest. Final adoption QAQ
 records exact draft asset IDs/locations, fresh acquisition and browser evidence.
 
 
-Packaging revision `.1` (shared by every platform's wheel) corrects License-File paths to be relative to the
-`.dist-info/licenses/` directory as required by the
+Packaging revision `.1` (`REVISION` in `build_terrio_wheel.py`, shared by every
+platform's wheel) writes License-File paths relative to the `.dist-info/licenses/`
+directory as required by the
 [wheel specification](https://packaging.python.org/en/latest/specifications/binary-distribution-format/).
-A regression resolves every declared license path. Native and Python executable
-bytes are unchanged. The earlier wheel remains in the draft audit trail and is
-superseded; acquisition/install instructions select the exact revised filename.
+A regression resolves every declared license path. For `9c644f4` it corrected an
+earlier revision-0 Windows wheel, which remains in that draft's audit trail as
+superseded; the 0.9.0 wheels were only ever packaged at revision `.1`.

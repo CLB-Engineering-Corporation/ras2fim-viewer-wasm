@@ -77,7 +77,7 @@ class DepthTileError(RuntimeError):
 
 def _to_terrio_pmtiles(rgba: Path, destination: Path, name: str) -> dict:
     """Trial the generic lazy tile writer; preserve the RGBA input and ramp."""
-    from ..common.terrio_runtime import require_terrio
+    from ..common.terrio_runtime import load_lock, require_terrio
     terrio = require_terrio()
     source = gdal.Open(str(rgba))
     projected = gdal.AutoCreateWarpedVRT(source, None, "EPSG:3857", gdal.GRA_Bilinear)
@@ -93,7 +93,7 @@ def _to_terrio_pmtiles(rgba: Path, destination: Path, name: str) -> dict:
     terrio.open_raster(str(rgba), lazy=True).write(
         str(destination), driver="PMTiles", options=options)
     return {"backend": "terrio", "version": getattr(terrio, "__version__", "unknown"),
-            "options": options, "source_commit": "9c644f4a1729e253f9714813912f54d32e306c38"}
+            "options": options, "source_commit": load_lock()["source_commit"]}
 
 
 def _minimum_tile_zoom(width: float, height: float, maximum: int) -> int:

@@ -35,6 +35,12 @@ EXPECTED_SCHEMA = 1
 #: without executing anything.
 LOADER_RE = re.compile(r"""(?:new\s+Worker\(|importScripts\()\s*["']([^"']+)["']""")
 ASSET_RE = re.compile(r"""(?:src|href)\s*=\s*["']([^"']+)["']""")
+#: Relative ES module specifiers: `import ... from './x.js'`, `export ... from`,
+#: bare `import './x.js'` and `import('./x.js')`. wasm-bindgen emits inline JS as
+#: `snippets/<crate>-<hash>/inline<N>.js` imported by `terrio.js`; a package
+#: without it loads nothing, and the browser reports only a failed module fetch.
+MODULE_IMPORT_RE = re.compile(
+    r"""(?:\bfrom\s*|\bimport\s*\(\s*|^\s*import\s*)["'](\.{1,2}/[^"']+)["']""", re.MULTILINE)
 
 
 class Report:
@@ -76,6 +82,13 @@ def validate_site_files(site: Path, report: Report) -> None:
         from ..common.terrio_assets import verify_package
         errors = verify_package(terrio)
         report.check(not errors, "; ".join(errors))
+        for script in sorted(terrio.rglob("*.js")):
+            source = script.read_text(encoding="utf-8", errors="replace")
+            for reference in MODULE_IMPORT_RE.findall(source):
+                target = (script.parent / reference).resolve()
+                report.check(target.is_relative_to(terrio.resolve()) and target.is_file(),
+                             f"vendor/terrio/{script.relative_to(terrio).as_posix()} imports "
+                             f"{reference}, which is not in the Terrio package")
     report.warn((site / ".nojekyll").is_file(),
                 "no .nojekyll -- GitHub Pages will run Jekyll over the site")
 

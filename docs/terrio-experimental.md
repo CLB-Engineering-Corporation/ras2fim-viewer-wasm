@@ -115,6 +115,10 @@ bound plus Float32 readback rounding; the exact observed errors are reported.
 
 ## Final fork package and retained acceptance evidence
 
+Historical: this section records the `9c644f4` package that was the viewer pin
+until 2026-11-21. The current pin is Terrio 0.9.0, `7f1996f`; its identities,
+sizes and measured differences are in [terrio-assets.md](terrio-assets.md).
+
 The reconciled fork branch `feat/clb-semantic-reconciliation-resume` at
 `9c644f4a1729e253f9714813912f54d32e306c38` preserves the CLB scientific policies
 and upstream mask/typed-storage correctness. Its tile-only NaN staging uses

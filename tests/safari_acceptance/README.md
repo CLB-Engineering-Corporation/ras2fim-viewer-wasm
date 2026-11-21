@@ -4,6 +4,17 @@ The adoption acceptance design (`tests/adoption_acceptance/`) run against real
 Safari, Mobile Safari in an iOS Simulator, and Playwright WebKit for
 comparison, on GitHub-hosted macOS (`.github/workflows/safari-acceptance.yml`).
 
+## Status for Terrio 0.9.0 (`7f1996f`): not measured
+
+The candidate pins now name the `7f1996f` runtime (`terrio_bg.wasm`,
+`terrio.js`), so the site the workflow would build is the current candidate,
+and `safari.test.mjs` keeps the pins in step with the asset lock. No Safari,
+Mobile Safari or WebKit session has been run against it: Safari acceptance was
+skipped for this upgrade by maintainer decision (2026-11-21), and the workflow's
+push trigger is disabled until a run is scheduled (`workflow_dispatch` only).
+`thresholds.json` is unchanged. Results recorded for the previous runtime
+(`9c644f4`) say nothing about this one.
+
 ## What runs
 
 Per engine, one virtual machine: build the packaged default site on the runner
