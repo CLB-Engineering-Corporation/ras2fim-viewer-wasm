@@ -105,6 +105,14 @@ layout, METADATA, licenses and RECORD scheme. Unoptimized dev-profile extensions
 are large (171.7 MB on Windows, where symbols live in a `.pdb`; 367.2 MB on
 Linux, where they stay in the binary).
 
+Both wheels were repackaged on the Windows workstation. `from-maturin` output
+depends on the host that runs it in one header field only: Python's `zipfile`
+records the creating system (0 on Windows, 3 elsewhere) in every entry.
+Repackaging the same maturin builds on Linux gives byte-identical entries but
+wheel digests `a0011a45...` (Linux) and `6c83abed...` (Windows) instead of the
+locked ones; a CI rerun reports those, with `matches_reviewed_entry: true`
+(that compares the native extension).
+
 The workflow builds both platforms again as a reproducibility observation
 (`matches_reviewed_entry`). Windows links embed a timestamp and paths, so the
 Windows native is not expected to repeat across machines. A different digest is
@@ -120,8 +128,13 @@ Terrio-vs-GDAL PMTiles RGBA, coverage, zooms and bounds on the dry / one-pixel
 within the unchanged 0.01 + one-ULP bound of its exact supplied arrays;
 failure atomicity) and `tests/terrio-synthetic-default.py` (omitted-backend
 default dispatch on a synthetic EPSG:2277 grid). `native-identity` then holds
-the Linux wheel's Terrio tiles to the Windows wheel's wherever the tilers
-received identical input.
+the Linux wheel's Terrio tiles to the Windows wheel's: a difference where the
+tilers received identical input fails, and byte-identical Terrio RGBA counts as
+identity even where the input differs GDAL-side. Linux x86_64's tiler input has
+always differed from Windows' in the last bits of the geotransform (3.4e-18 and
+7.1e-15 here; macOS x86_64 used to supply the identical-input comparison). With
+the `7f1996f` wheels all 34 synthetic Terrio tiles are byte-identical across the
+two platforms, as are GDAL's.
 
 The COG writer is called with `COG_OVERVIEW_POLICY=SOURCE`
 (`pipeline/fim1d/terrio_cog.py`). The supplied overview arrays have GDAL's ceil

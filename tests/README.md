@@ -127,7 +127,9 @@ exact supplied arrays; atomicity) and `terrio-synthetic-default.py`
 (omitted-backend default dispatch on a synthetic State Plane grid). Set
 `PMTILES_CLI` to the go-pmtiles binary. `native-identity` then requires the
 Linux wheel's Terrio tiles to equal the Windows wheel's wherever the tilers
-received identical input (`terrio-synthetic-compare.py`). See
+received identical input, and accepts byte-identical Terrio tiles as identity
+where the input differs only GDAL-side (`terrio-synthetic-compare.py`; Linux's
+geotransform differs from Windows' in its last bits). See
 docs/terrio-assets.md for what is exact and what is reported.
 
 ## Safari and Mobile Safari

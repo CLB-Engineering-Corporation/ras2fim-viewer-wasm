@@ -24,7 +24,7 @@ name: pinned Terrio native wheels
 
 on:
   # push: a push's path filter sees only that push's files, so unrelated
-  # commits do not rebuild four ~300 MB artifacts.
+  # commits do not rebuild two 170-370 MB artifacts.
   push:
     branches-ignore: [gh-pages]
     paths:
