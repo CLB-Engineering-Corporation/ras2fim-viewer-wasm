@@ -57,7 +57,9 @@ is now the freeze.
   contributor's uncommitted change and linked worktrees, and the runner does not
   permit `worktree`.
 - **Evidence** (baselines, ledger, test logs):
-  `D:\CLB-Dev\scratch\terrio-upgrade-2026-11\evidence\`.
+  `D:\CLB-Dev\scratch\terrio-upgrade-2026-11\evidence\`. This is workstation-local scratch, not part
+  of the repository; the status table's `evidence\...` paths are relative to it. The numbers that matter
+  for review are repeated in the viewer PR and in `docs/terrio-assets.md`.
 - **Viewer changes:** this repository, on a feature branch, through `clbgit`.
 
 ## Rules that hold throughout
@@ -151,6 +153,10 @@ Windows AMD64, Linux x86_64/arm64 and macOS x86_64/arm64. New versions,
 filenames, digests and provenance.
 
 **Exit:** independently verifiable WASM and five-platform native artifacts.
+
+*Narrowed 2026-11-21 (maintainer decisions below):* native wheels for Windows AMD64 and Linux x86_64
+only; Linux arm64 and macOS are not built for this runtime. The same applies to the five-platform
+checks in phase 7 and the macOS release gate.
 
 ### 6. Upgrade the viewer's integration together
 

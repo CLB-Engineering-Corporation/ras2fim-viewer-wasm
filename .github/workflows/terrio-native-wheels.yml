@@ -15,12 +15,17 @@ name: pinned Terrio native wheels
 # --profile dev --locked`, i.e. the Cargo dev profile (debug = 0 in the
 # workspace Cargo.toml; openjp2 optimized), rustc 1.99.1, PyO3 abi3-py310, no
 # optional features. The reviewed Windows wheel was built on a CLB workstation
-# and the reviewed Linux x86_64 wheel on the CLB Slurm cluster, in this job's
-# manylinux2014 image pinned by digest, both from core.autocrlf=true checkouts:
-# the locked Python files are CRLF, and the same checkout is reproduced here so
-# the Python bytes (and any text the Rust embeds) are identical on every
-# platform. Native bytes are not expected to repeat across machines (Windows
-# links embed a timestamp and paths), so a rerun here is an observation.
+# and the reviewed Linux x86_64 wheel on the CLB Slurm cluster in
+# quay.io/pypa/manylinux2014_x86_64@sha256:dc58399aca4cfb0de257f92e2de71b4f8421e60cce8542fcd5e28df0c0760942,
+# the image this job's maturin-action pulled for the previous runtime. This job
+# is NOT digest-pinned: `manylinux: auto` pulls that image's `:latest`. Both
+# reviewed builds used core.autocrlf=true checkouts: the locked Python files
+# are CRLF, and the same checkout is reproduced here so the Python bytes (and
+# any text the Rust embeds) are identical on every platform. Native bytes are
+# not expected to repeat across machines (Windows links embed a timestamp and
+# paths; the 7f1996f Linux extension built here, 7be5d692..., repeats across
+# runs but differs from the Slurm build's ff1a58ed...), so a rerun here is an
+# observation (`matches_reviewed_entry`), never a replacement.
 
 on:
   # push: a push's path filter sees only that push's files, so unrelated
