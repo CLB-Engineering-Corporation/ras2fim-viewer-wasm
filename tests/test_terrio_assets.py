@@ -55,6 +55,34 @@ class TerrioAssets(unittest.TestCase):
             for name, expected in evidence["sha256"].items():
                 self.assertEqual(hashlib.sha256((output / name).read_bytes()).hexdigest(), expected)
 
+    def test_site_validation_requires_every_module_terrio_js_imports(self):
+        # wasm-bindgen's inline JS lives in snippets/ and is reached only through
+        # terrio.js's static import; a package without it fails in the browser alone.
+        from pipeline.fim2d.validate import Report, validate_site_files
+
+        snippet = "snippets/terrio-js-0000000000000000/inline0.js"
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "input"
+            (source / "snippets/terrio-js-0000000000000000").mkdir(parents=True)
+            for name in FILES:
+                (source / name).write_text("{}" if name == "package.json" else name)
+            (source / "terrio.js").write_text(f"import {{ f }} from './{snippet}';\nexport {{ f }};\n")
+            (source / snippet).write_text("export function f() {}\n")
+            site = Path(tmp) / "site"
+            site.mkdir()
+            (site / "index.html").write_text("<!doctype html>")
+            (site / "manifest.json").write_text(json.dumps({"terrio_asset_policy": "local-override"}))
+            copy_package(source, site / "vendor" / "terrio")
+
+            report = Report()
+            validate_site_files(site, report)
+            self.assertEqual(report.failures, [])
+
+            (site / "vendor" / "terrio" / snippet).unlink()
+            report = Report()
+            validate_site_files(site, report)
+            self.assertTrue(any(f"imports ./{snippet}" in f for f in report.failures), report.failures)
+
     def test_node_package_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "input"

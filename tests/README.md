@@ -119,14 +119,17 @@ strict evidence auditing are documented in `viewer_acceptance/README.md`.
 ## Native publication on every reviewed platform
 
 The `native` CI job runs, with GDAL 3.13.3 and each platform's reviewed Terrio
-wheel (Linux x86_64/arm64, macOS arm64/x86_64, Windows): the whole suite above
+wheel (Windows AMD64 and Linux x86_64; since Terrio 0.9.0 Linux arm64 and macOS
+have no reviewed wheel): the whole suite above
 (the GDAL-gated tests become active), `terrio-publication.py` (exact
 Terrio-vs-GDAL archives on synthetic fixtures; COG codec bounds against the
 exact supplied arrays; atomicity) and `terrio-synthetic-default.py`
 (omitted-backend default dispatch on a synthetic State Plane grid). Set
-`PMTILES_CLI` to the go-pmtiles binary. `native-identity` then requires every
-platform's Terrio tiles to equal the reviewed Windows wheel's wherever the
-tilers received identical input (`terrio-synthetic-compare.py`). See
+`PMTILES_CLI` to the go-pmtiles binary. `native-identity` then requires the
+Linux wheel's Terrio tiles to equal the Windows wheel's wherever the tilers
+received identical input, and accepts byte-identical Terrio tiles as identity
+where the input differs only GDAL-side (`terrio-synthetic-compare.py`; Linux's
+geotransform differs from Windows' in its last bits). See
 docs/terrio-assets.md for what is exact and what is reported.
 
 ## Safari and Mobile Safari

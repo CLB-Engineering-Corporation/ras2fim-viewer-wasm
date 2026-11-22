@@ -9,10 +9,13 @@ Gate: where a platform's tilers received the same RGBA raster (``tiler_input``:
 identical pixel bytes, geotransform, size and CRS identity), its Terrio tile
 RGBA must equal the Windows wheel's byte for byte; a difference there is the
 native build behaving differently.
-Where the shared input differs, the cause is upstream of Terrio (GDAL-side
-floating point on that architecture) and Terrio identity is not attributable;
-that is reported with the GDAL-side comparison, never silently passed as
-"identical". Same-platform Terrio-vs-GDAL coverage/alpha/zoom/bounds are
+Where the shared input differs but the Terrio RGBA is still byte-identical,
+that is reported as identity with the input differences named. Where both
+differ, the cause is upstream of Terrio (GDAL-side floating point on that
+architecture) and Terrio identity is not attributable; that is reported with
+the GDAL-side comparison, never silently passed as "identical". With only
+Windows and Linux x86_64 reviewed (Terrio 0.9.0), Linux's tiler input has
+always differed from Windows' in the last bits of the geotransform. Same-platform Terrio-vs-GDAL coverage/alpha/zoom/bounds are
 already gated inside each report's own run.
 """
 
@@ -43,13 +46,20 @@ for path in sys.argv[2:]:
             row["verdict"] = "FAIL: identical tiler input, different Terrio output"
         elif same_input:
             row["verdict"] = "Terrio output byte-identical to the reviewed Windows wheel"
+        elif terrio_same:
+            # Identical output despite differing input is identity evidence, not an
+            # attribution question: since 0.9.0 the only other platform is Linux x86_64,
+            # whose GDAL warp differs from Windows' in the last bits of the geotransform.
+            row["verdict"] = ("Terrio output byte-identical to the reviewed Windows wheel "
+                              "(tiler input differs: " + ", ".join(row["tiler_input_differences"]) + ")")
         else:
             row["verdict"] = "not attributable: GDAL-side tiler input differs on this platform"
         summary.append(row)
 print(json.dumps(summary, indent=2))
-attributable = [r for r in summary if r["tiler_input_identical"]]
-if not attributable:
+compared = [r for r in summary if r["tiler_input_identical"] or r["terrio_rgba_identical"]]
+if not compared:
     # Otherwise a drifted GDAL stack would turn this gate into a silent no-op.
-    print("FAIL: no platform received input identical to the reference; nothing was compared")
+    print("FAIL: no platform received input identical to the reference or produced identical "
+          "Terrio output; nothing was compared")
     failed = True
 sys.exit(1 if failed else 0)

@@ -76,7 +76,7 @@ class RuntimePinTests(unittest.TestCase):
 
     def test_committed_lock_selects_one_entry_per_platform(self):
         lock = load_lock(LOCK)
-        self.assertEqual(lock["source_commit"], "9c644f4a1729e253f9714813912f54d32e306c38")
+        self.assertEqual(lock["source_commit"], "7f1996f972645c7d4b71822702b9fc331ad36df9")
         self.assertEqual(platform_key(lock, "win32", "AMD64"), "win_amd64")
         self.assertIn("__init__.py", lock["python_sha256"])
         for key, entry in lock["native"].items():
@@ -93,10 +93,10 @@ class RuntimePinTests(unittest.TestCase):
         view = platform_view(load_lock(LOCK), "win_amd64")
         self.assertEqual(sorted(view), ["platform", "schema_version", "sha256", "source_commit", "version"])
         self.assertEqual(view["schema_version"], 1)
-        # SHA256 of terrio-0.6.1+clb9c644f4.1.dist-info/terrio-source.json in the
-        # released win_amd64 wheel (c40983634cc8...).
+        # SHA256 of terrio-0.9.0+clb7f1996f.1.dist-info/terrio-source.json in the
+        # released win_amd64 wheel (a27f001339c1...).
         self.assertEqual(hashlib.sha256(json.dumps(view, sort_keys=True).encode()).hexdigest(),
-                         "6de59ec011df857e4090c3a7ef9d4a3ca0a10d1be8bcaec77a9682f9fc23e3fe")
+                         "bf056a2670bfb5fdcef649bc5f7bf5edc38e83ae62101e99c3926af7ade4b3c7")
 
     def test_import_failure_has_fallback_and_cause(self):
         with patch("pipeline.common.terrio_runtime.importlib.import_module", side_effect=ImportError("ABI")):
@@ -121,8 +121,11 @@ class DependencyMarkerTests(unittest.TestCase):
         self.assertEqual(len(terrio), 1)
         system = {"win32": "Windows", "linux": "Linux", "darwin": "Darwin"}
         reviewed = {(system[e["sys_platform"]], e["machine"]) for e in load_lock(LOCK)["native"].values()}
+        # Linux aarch64 and both macOS architectures had reviewed wheels before 0.9.0; they
+        # must now be refused like any other unreviewed platform.
         candidates = reviewed | {("Windows", "ARM64"), ("Linux", "arch64"), ("Linux", "ppc64le"),
-                                 ("Linux", "riscv64"), ("Darwin", "x86"), ("FreeBSD", "amd64")}
+                                 ("Linux", "riscv64"), ("Darwin", "x86"), ("FreeBSD", "amd64"),
+                                 ("Linux", "aarch64"), ("Darwin", "arm64"), ("Darwin", "x86_64")}
         for platform_system, machine in candidates:
             with self.subTest(platform=platform_system, machine=machine):
                 self.assertEqual(

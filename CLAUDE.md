@@ -123,24 +123,32 @@ CI (`.github/workflows/tests.yml`) runs these two commands (plus the
 acceptance-harness Node tests). The 1D pipeline's real-output gate is not in
 CI: it needs real ras2fim output, so it stays the manual `--deep` run below.
 The `native` job does run the default Terrio publication path with GDAL on
-synthetic fixtures on Linux x86_64/arm64, macOS arm64/x86_64 and Windows. See
-`tests/README.md`.
+synthetic fixtures on Linux x86_64 and Windows, the two platforms with a
+reviewed wheel since Terrio 0.9.0. See `tests/README.md`.
 
 ## Native Terrio wheels, one per platform
 
 - **`terrio-python.lock.json` is schema 2: one Python inventory, one native
-  extension per platform.** The Python files are CRLF on every platform --
-  that is how the reviewed Windows artifact was checked out. A Linux/macOS
-  build from an LF checkout produces different Python bytes and is refused by
-  `build_terrio_wheel.py from-maturin`. Do not "normalize" them.
-- **The native builds are Cargo dev-profile on purpose**: that is what the
-  reviewed Windows `_terrio.pyd` is. Switching to `--release` is a new
-  artifact identity for every platform, with fresh parity evidence.
+  extension per platform.** Since 0.9.0 the platforms are Windows AMD64 and
+  Linux x86_64 only; Linux arm64 and macOS are not built. The Python files are
+  CRLF on every platform -- both artifacts were built from a
+  `core.autocrlf=true` checkout. A Linux build from an LF checkout produces
+  different Python bytes and is refused by `build_terrio_wheel.py
+  from-maturin`. Do not "normalize" them.
+- **The native builds are Cargo dev-profile on purpose**: like for like with
+  the previous runtime's reviewed artifacts. Switching to `--release` (or
+  Terrio's own `wheel` profile) is a new artifact identity for every platform,
+  with fresh parity evidence.
+- **The COG writer passes `COG_OVERVIEW_POLICY=SOURCE`.** Terrio 0.9.0's
+  default overview policy refuses the ceil-sized supplied overview arrays
+  `terrio_cog.py` hands it. Do not drop the option.
 - **Never re-upload a wheel under an existing name.** A rebuild that does not
   reproduce the locked digest needs a new identity.
 - **Safari acceptance is `tests/safari_acceptance/`**, run by
   `.github/workflows/safari-acceptance.yml` on GitHub macOS VMs. Its limits are
   committed before a run; never edit `thresholds.json` after seeing results.
+  It has not been run against Terrio 0.9.0 (skipped by maintainer decision;
+  the workflow is `workflow_dispatch` only until a run is scheduled).
 
 ## Before calling a build done
 
@@ -156,7 +164,7 @@ python -m pipeline.fim2d.site <dir-of-nc> --out site/
 python -m pipeline.fim2d.validate site/ --deep
 ```
 
-454 checks pass on the pilot unit with one warning: reach `5789842`'s stage is
+1102 checks pass on the pilot unit with one warning: reach `5789842`'s stage is
 not monotonic with profile index. That is real — it steps backwards by 0.04 ft —
 and it is a property of the ras2fim run, which writes its own
 `warning_stage_diff_gt_1ft_<huc8>.csv`. Do not silence it.

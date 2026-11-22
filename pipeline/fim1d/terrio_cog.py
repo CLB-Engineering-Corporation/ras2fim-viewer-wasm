@@ -7,7 +7,7 @@ from osgeo import gdal
 
 
 def write_existing_overviews(source: Path, destination: Path, creation: list[str]) -> dict:
-    from ..common.terrio_runtime import require_terrio
+    from ..common.terrio_runtime import load_lock, require_terrio
     terrio = require_terrio()
 
     ds = gdal.Open(str(source))
@@ -20,6 +20,10 @@ def write_existing_overviews(source: Path, destination: Path, creation: list[str
     # Supplied arrays are authoritative; no writer resampler is selected.
     for key in ("OVERVIEWS", "OVERVIEW_RESAMPLING", "NUM_THREADS", "MAX_Z_ERROR_OVERVIEW"):
         options.pop(key, None)
+    # The supplied levels have GDAL's GTiff overview sizes, ceil(n / f). Terrio writes those
+    # only under its SOURCE overview policy; its default (GDAL_3_13) halves and floors each
+    # level and refuses them. Recorded in the returned options, so the report states it.
+    options["COG_OVERVIEW_POLICY"] = "SOURCE"
     terrio.open_raster(str(source), lazy=True).write(
         str(destination),
         driver="COG",
@@ -34,5 +38,5 @@ def write_existing_overviews(source: Path, destination: Path, creation: list[str
         "version": getattr(terrio, "__version__", "unknown"),
         "supplied_levels": levels,
         "options": options,
-        "source_commit": "9c644f4a1729e253f9714813912f54d32e306c38",
+        "source_commit": load_lock()["source_commit"],
     }

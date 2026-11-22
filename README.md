@@ -125,5 +125,7 @@ pyramid; State Plane warping and area-matched calculations stay with GDAL.
 `python -m pipeline.fim1d.cogs ... --writer-backend gdal` and
 `python -m pipeline.fim1d.depth_pmtiles ... --backend gdal` select the explicit
 reference publication paths. Terrio publication requires the reviewed native
-artifact; a same-version PyPI installation is insufficient. See the asset guide.
+artifact; a same-version PyPI installation is insufficient. The pinned runtime
+is Terrio 0.9.0 (`7f1996f`), with native wheels for Windows AMD64 and Linux
+x86_64 only; elsewhere use the GDAL paths. See the asset guide.
 No production deployment is implied by this feature branch.

@@ -14,16 +14,17 @@ import zipfile
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pipeline.common.terrio_runtime import load_lock, platform_key, platform_view  # noqa: E402
 
-COMMIT = '9c644f4a1729e253f9714813912f54d32e306c38'
+COMMIT = '7f1996f972645c7d4b71822702b9fc331ad36df9'
 REPO = 'CLB-Engineering-Corporation/ras2fim-viewer-wasm'
-TAG = 'viewer-runtime-9c644f4'
-ASSET = 'terrio-viewer-runtime-9c644f4.zip'
+TAG = 'viewer-runtime-7f1996f'
+ASSET = 'terrio-viewer-runtime-7f1996f.zip'
 RELEASE_LOCK = Path(__file__).resolve().parents[1]/'pipeline/common/terrio-release.lock.json'
 # The runtime bundle carries the reviewed Windows extension; its inner Python
 # inventory is the win_amd64 view of the multi-platform lock.
 BUNDLE_PLATFORM = 'win_amd64'
 LICENSES = ('LICENSE', 'NOTICE', 'LICENSE-THIRD-PARTY.md')
-# 154,677,760 byte native extension plus ~14 MB WASM: bounded headroom.
+# 171,731,968 byte native extension (7f1996f, dev profile) plus ~15 MB WASM:
+# bounded headroom.
 MAX_TOTAL, MAX_FILE, MAX_ENTRIES = 256*1024*1024, 192*1024*1024, 1024
 
 
