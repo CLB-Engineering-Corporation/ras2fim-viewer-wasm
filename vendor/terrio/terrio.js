@@ -1,4 +1,6 @@
 /* @ts-self-types="./terrio.d.ts" */
+import { setGeometries } from './snippets/terrio-js-45694ff93a19545f/inline0.js';
+
 
 /**
  * A raster or vector dataset opened from bytes.
@@ -163,6 +165,56 @@ export class Dataset {
         var ptr0 = isLikeNone(window) ? 0 : passArray32ToWasm0(window, wasm.__wbindgen_malloc);
         var len0 = WASM_VECTOR_LEN;
         const ret = wasm.dataset_readBand(this.__wbg_ptr, band, ptr0, len0, isLikeNone(overview) ? Number.MAX_SAFE_INTEGER : (overview) >>> 0);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
+     * Reads the mask bands of the bands `readResampled` reads, with the same options, as GDAL's
+     * `GetMaskBand()->RasterIO()`: a `Uint8Array`, band after band, 0 for invalid pixels and 255
+     * for valid ones (or values between where a kernel resampled the mask). Bands with a nodata
+     * value are read for their masks: `readResampledWithMasks` reads both without reading twice.
+     * @param {any} options
+     * @returns {Uint8Array}
+     */
+    readResampledMasks(options) {
+        const ret = wasm.dataset_readResampledMasks(this.__wbg_ptr, options);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
+     * Reads what `readResampled` and `readResampledMasks` read, at once (same options):
+     * `{ data, masks }`. Nodata masks are computed from the pixels read, rather than from a
+     * second read of their bands.
+     * @param {any} options
+     * @returns {any}
+     */
+    readResampledWithMasks(options) {
+        const ret = wasm.dataset_readResampledWithMasks(this.__wbg_ptr, options);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
+     * Reads a window into an output of another size, as GDAL's `RasterIO` reads it
+     * (`gdal_translate -outsize`): from the overview it would choose, resampled with its kernels,
+     * invalid pixels (masked, nodata, transparent) carrying no weight. Returns a typed array of
+     * the raster's own type, band after band, row after row.
+     *
+     * Options: `size` (`[width, height]`, required), `bands` (from 1, all by default), `window`
+     * (`[colOff, rowOff, width, height]` in full-resolution pixels, possibly fractional; the
+     * whole raster by default), `resampling` (`nearest`, the default, `bilinear`, `cubic`,
+     * `cubicspline`, `lanczos`, `average`, `rms`, `mode`) and `overview` (`"AUTO"`, the
+     * default, `"AUTO-n"`, `"NONE"` or an overview number, as `gdal_translate -ovr`).
+     * @param {any} options
+     * @returns {any}
+     */
+    readResampled(options) {
+        const ret = wasm.dataset_readResampled(this.__wbg_ptr, options);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
@@ -569,10 +621,11 @@ export class MultidimDataset {
     }
     /**
      * Serialize a numeric snapshot as netCDF-4 bytes.
+     * @param {number | null} [deflate]
      * @returns {Uint8Array}
      */
-    toBytes() {
-        const ret = wasm.multidimdataset_toBytes(this.__wbg_ptr);
+    toBytes(deflate) {
+        const ret = wasm.multidimdataset_toBytes(this.__wbg_ptr, isLikeNone(deflate) ? Number.MAX_SAFE_INTEGER : (deflate) >>> 0);
         if (ret[3]) {
             throw takeFromExternrefTable0(ret[2]);
         }
@@ -888,6 +941,36 @@ export class RemoteDataset {
         return ret;
     }
     /**
+     * Rasters: reads the mask bands of the bands `readResampled` reads, as
+     * `Dataset.readResampledMasks` does (same options): a `Uint8Array`.
+     * @param {any} options
+     * @returns {Promise<any>}
+     */
+    readResampledMasks(options) {
+        const ret = wasm.remotedataset_readResampledMasks(this.__wbg_ptr, options);
+        return ret;
+    }
+    /**
+     * Rasters: reads pixels and masks at once, as `Dataset.readResampledWithMasks` does (same
+     * options): `{ data, masks }`.
+     * @param {any} options
+     * @returns {Promise<any>}
+     */
+    readResampledWithMasks(options) {
+        const ret = wasm.remotedataset_readResampledWithMasks(this.__wbg_ptr, options);
+        return ret;
+    }
+    /**
+     * Rasters: reads a window into an output of another size, as `Dataset.readResampled` does
+     * (same options), fetching only the tiles of the overview `RasterIO` would choose.
+     * @param {any} options
+     * @returns {Promise<any>}
+     */
+    readResampled(options) {
+        const ret = wasm.remotedataset_readResampled(this.__wbg_ptr, options);
+        return ret;
+    }
+    /**
      * Reads into memory, as a `Dataset` (rasters, vector data) or a `PointCloud`:
      *
      * - rasters: `window`, `overview`, `bands`;
@@ -895,7 +978,8 @@ export class RemoteDataset {
      * - COPC: the options of `readPoints` (`bounds`, `zRange`, `classes`, `returns`,
      *   `maxLevel`, `resolution`, `maxPoints`), fetching only the octree nodes needed;
      * - FlatGeobuf: `bbox`, finding the features with the spatial index;
-     * - GeoParquet: `rowGroups`, `bbox` (skipping row groups by their statistics).
+     * - GeoParquet: `rowGroups`, `bbox` (skipping row groups by their statistics), `columns`
+     *   (fetching only the column chunks of those fields and the geometry).
      *
      * With `bbox`, the features are those that intersect it, as `ogr2ogr -spat` keeps them.
      * @param {any} options
@@ -968,6 +1052,138 @@ export class RemoteDataset {
 if (Symbol.dispose) RemoteDataset.prototype[Symbol.dispose] = RemoteDataset.prototype.free;
 
 /**
+ * Zonal statistics of arrays you produce strip by strip, equal to `zonalStats` over a raster
+ * holding the same values: the zones are computed once for the grid, then each `stream()`
+ * reduces one band, fed the `windows()` in order.
+ * Options: stats (default count, min, max, mean, sum, stddev; not the weighted ones), allTouched,
+ * fractional, layer (of a dataset with several), stripRows (rows per window; give a tiled source's
+ * block height to read each block once). Not tSrs or decimalPlaces: the results are unrounded
+ * arrays.
+ */
+export class ZonalReducer {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        ZonalReducerFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_zonalreducer_free(ptr, 0);
+    }
+    /**
+     * The number of zone features.
+     * @returns {number}
+     */
+    get featureCount() {
+        const ret = wasm.zonalreducer_featureCount(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * `transform` is the grid's GDAL-style geotransform; `crs` may be omitted only if the zones
+     * have none.
+     * @param {any} zones
+     * @param {number} width
+     * @param {number} height
+     * @param {Float64Array} transform
+     * @param {string | null | undefined} crs
+     * @param {any} options
+     */
+    constructor(zones, width, height, transform, crs, options) {
+        const ptr0 = passArrayF64ToWasm0(transform, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(crs) ? 0 : passStringToWasm0(crs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.zonalreducer_new(zones, width, height, ptr0, len0, ptr1, len1, options);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        this.__wbg_ptr = ret[0];
+        ZonalReducerFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * The statistics computed, by their canonical names (`stddev` for `std`), as fields name them.
+     * @returns {string[]}
+     */
+    get stats() {
+        const ret = wasm.zonalreducer_stats(this.__wbg_ptr);
+        var v1 = getArrayJsValueFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
+     * A reduction of one band over `windows()`; pixels equal to `nodata`, or not finite, are
+     * left out.
+     * @param {number | null} [nodata]
+     * @returns {ZonalStream}
+     */
+    stream(nodata) {
+        const ret = wasm.zonalreducer_stream(this.__wbg_ptr, !isLikeNone(nodata), isLikeNone(nodata) ? 0 : nodata);
+        return ZonalStream.__wrap(ret);
+    }
+    /**
+     * The windows to supply, in order, as `[x, y, width, height]`: strips of `stripRows` rows
+     * holding zone pixels, cropped to the rows and columns of those pixels.
+     * @returns {Array<any>}
+     */
+    windows() {
+        const ret = wasm.zonalreducer_windows(this.__wbg_ptr);
+        return ret;
+    }
+}
+if (Symbol.dispose) ZonalReducer.prototype[Symbol.dispose] = ZonalReducer.prototype.free;
+
+/**
+ * One band reduced by a `ZonalReducer`: `add` each window's pixels in order, then `finish`.
+ */
+export class ZonalStream {
+    static __wrap(ptr) {
+        const obj = Object.create(ZonalStream.prototype);
+        obj.__wbg_ptr = ptr;
+        ZonalStreamFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        ZonalStreamFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_zonalstream_free(ptr, 0);
+    }
+    /**
+     * Adds window number `window` (of `ZonalReducer.windows()`): a typed array of its
+     * `width * height` pixels, row after row. Windows must come in order; a wrong window or
+     * length throws and leaves the stream unchanged.
+     * @param {number} window
+     * @param {any} data
+     */
+    add(window, data) {
+        const ret = wasm.zonalstream_add(this.__wbg_ptr, window, data);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * The statistics, as `{name: Float64Array}` with one value per zone feature, in layer
+     * order; NaN where a zone has no valid pixels (`count` and `variety` are then 0). With
+     * windows missing, throws and the stream takes them still.
+     * @returns {object}
+     */
+    finish() {
+        const ret = wasm.zonalstream_finish(this.__wbg_ptr);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+}
+if (Symbol.dispose) ZonalStream.prototype[Symbol.dispose] = ZonalStream.prototype.free;
+
+/**
  * Adds internal GeoTIFF overview levels and returns updated file bytes.
  * Options: levels, minSize, resampling, compression, ignoreCogLayoutBreak.
  * @param {Uint8Array} bytes
@@ -1030,6 +1246,16 @@ export function blend(src, overlay, options) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return Dataset.__wrap(ret[0]);
+}
+
+/**
+ * The most bytes of decoded GeoTIFF/COG chunks the block cache keeps (GDAL's `GDALGetCacheMax64`):
+ * 64 MiB, since a module reads no environment variables; 0 means the cache is off.
+ * @returns {number}
+ */
+export function blockCacheMax() {
+    const ret = wasm.blockCacheMax();
+    return ret;
 }
 
 /**
@@ -1151,6 +1377,13 @@ export function cleanCoverage(src, options) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return Dataset.__wrap(ret[0]);
+}
+
+/**
+ * Empties the block cache of decoded GeoTIFF/COG chunks, giving its memory back.
+ */
+export function clearBlockCache() {
+    wasm.clearBlockCache();
 }
 
 /**
@@ -1311,6 +1544,53 @@ export function createVector(filename, options) {
 }
 
 /**
+ * The PROJ string of a CRS as PROJ 9.9.0 writes it (`projinfo -o PROJ`), `undefined` for a CRS
+ * PROJ has none for (an engineering CRS). Like PROJ's, it leaves out the datum transformation of
+ * an EPSG CRS: keep the code or WKT to keep the CRS.
+ * @param {string} crs
+ * @returns {string | undefined}
+ */
+export function crsToProj4(crs) {
+    const ptr0 = passStringToWasm0(crs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.crsToProj4(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * The PROJ string GDAL 3.13.3 writes for a CRS (`OSRExportToProj4`): `crsToProj4`'s without
+ * `+type=crs`, and for an EPSG or ESRI code (or a WKT whose root names one) with what GDAL adds:
+ * the datum transformation to WGS 84 as `+towgs84`, where PROJ finds a single one for the CRS's
+ * area of use, and a compound CRS's geoid model as `+geoidgrids` and `+geoid_crs`. A WKT with a
+ * datum shift of its own keeps it. `docs/crs.md` lists where it differs from GDAL (a PROJJSON,
+ * `+init=epsg:N`, compound CRSs given by a definition). `undefined` where `crsToProj4` is.
+ * @param {string} crs
+ * @returns {string | undefined}
+ */
+export function crsToProj4Gdal(crs) {
+    const ptr0 = passStringToWasm0(crs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.crsToProj4Gdal(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
  * The PROJJSON v0.7 of a CRS; throws for a CRS it would describe wrongly.
  * @param {string} crs
  * @returns {string}
@@ -1334,6 +1614,28 @@ export function crsToProjjson(crs) {
     } finally {
         wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
+}
+
+/**
+ * The WKT 1 of a CRS without GDAL's `EXTENSION["PROJ4", ...]`, for formats whose readers ignore
+ * it (a `.prj` file), as PROJ 9.9.0 exports `WKT1_GDAL`; `undefined` where WKT 1 needs the
+ * extension (a datum grid) or PROJ writes no WKT 1 (a geographic 3D CRS).
+ * @param {string} crs
+ * @returns {string | undefined}
+ */
+export function crsToWkt1Strict(crs) {
+    const ptr0 = passStringToWasm0(crs, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.crsToWkt1Strict(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
 }
 
 /**
@@ -1657,8 +1959,11 @@ export function fromArrowIPC(bytes, name) {
 }
 
 /**
- * Creates a vector dataset from GeoJSON: an object or a JSON string. `crs` is the coordinates'
- * CRS, EPSG:4326 by default.
+ * Creates a vector dataset from geometries: GeoJSON (a FeatureCollection, a Feature or a
+ * geometry) as an object or a JSON string, an array of geometries or Features, an
+ * `[xmin, ymin, xmax, ymax]` array of bounds, or WKT. `crs` is the coordinates' CRS, EPSG:4326
+ * by default. Bounds out of order are put in order (`xmin > xmax` longitudes cross the
+ * antimeridian), with a warning for `takeWarnings`.
  * @param {any} geojson
  * @param {string | null} [name]
  * @param {string | null} [crs]
@@ -1816,6 +2121,35 @@ export function linerefSubline(parts, begin, end, options) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return Dataset.__wrap(ret[0]);
+}
+
+/**
+ * The CRSs of the registries terrio carries (EPSG, ESRI and IAU_2015), for searchable CRS
+ * pickers, as GDAL's `OSRGetCRSInfoListFromDatabase` describes them (PROJ 9.9.0's database, EPSG
+ * v13.102): `[{ authority, code, name, kind, deprecated, replaced_by, area_name, bounds,
+ * projection_method, celestial_body }]`, in order of authority and code, `bounds` being `[west,
+ * south, east, north]` in degrees and `replaced_by` the codes of the CRSs that replace a
+ * deprecated EPSG CRS (`[5105]` for EPSG:4855). `` `${authority}:${code}` `` is a CRS the
+ * other functions take. A deprecated code gives its own CRS, as PROJ does; for GDAL's default
+ * (`OSR_USE_NON_DEPRECATED=YES`), pass the code of a single replacement instead.
+ *
+ * `text`: words each CRS must match, whatever their case: in the name, or beginning the code or
+ * `AUTHORITY:CODE` (`"Albers"`, `"3577"`, `"EPSG:3577"`); every CRS when `undefined`. Options:
+ * `authority` (`"EPSG"`, `"ESRI"`, `"IAU_2015"`, or an array), `kind` (`"geographic_2d"`,
+ * `"geographic_3d"`, `"geocentric"`, `"projected"`, `"vertical"`, `"compound"`, `"other"`, or an
+ * array) and `includeDeprecated`.
+ * @param {string | null | undefined} text
+ * @param {any} options
+ * @returns {any}
+ */
+export function listCrs(text, options) {
+    var ptr0 = isLikeNone(text) ? 0 : passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.listCrs(ptr0, len0, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -2035,6 +2369,22 @@ export function openMultidim(input) {
 }
 
 /**
+ * Reads OGC API Features over fetch, following the shared Rust reader's bounded requests.
+ * Options: layers, bbox, pageSize, maxFeatures, skipFeatures, datetime, crs,
+ * preferredCrs, serverFeatureAxisOrder, ignoreSchema, maxVectorBytes, maxPages,
+ * and optional fetch/headers. Requires CORS in browsers; fetch redirects are refused.
+ * @param {string} url
+ * @param {any} options
+ * @returns {Promise<Dataset>}
+ */
+export function openOapif(url, options) {
+    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.openOapif(ptr0, len0, options);
+    return ret;
+}
+
+/**
  * Point clouds are in the full module, `terrio-js`.
  * @param {Uint8Array} _bytes
  * @param {string} _filename
@@ -2057,10 +2407,17 @@ export function openPoints(_bytes, _filename) {
  * GeoTIFF, a PMTiles archive, a COPC point cloud, a FlatGeobuf file or a GeoParquet file. Only
  * its header is read now, in a request or two; reads fetch only the bytes they need.
  *
+ * A Zarr store (v2 or v3, sharded or not: a URL ending in `.zarr`, or `format: "Zarr"`) is read
+ * as a raster as well, the array `array` of the store or group at the URL (its path within it),
+ * by window: opening fetches its metadata documents, and a window the shard indexes and chunks
+ * it needs, nearby inner chunks of a shard in one request.
+ *
  * Options: `headers` (sent with every request, for authorization), `fetch` (the function to
  * call instead of `globalThis.fetch`), `blockSize` (64 KiB: reads fetch whole blocks),
  * `cacheSize` (256 MB kept between reads, not during one: a read holds all the bytes it needs),
- * `format` (when the URL does not tell it).
+ * `format` (when the URL does not tell it), `array` (Zarr), `allowMissingMetadata403`
+ * (false: opt in only for anonymous stores that report absent metadata as forbidden;
+ * v2 .zattrs documents, chunks and shards always fail; zarr.json probes remain ambiguous).
  *
  * Servers must answer range requests; in browsers, cross-origin servers must allow the `Range`
  * header and expose `Content-Range` (CORS).
@@ -2078,7 +2435,8 @@ export function openUrl(url, options) {
 /**
  * Opens a vector dataset from its bytes, with driver open options. `filename` names the file
  * (its extension tells the format when the content does not); `options` takes `layers` (names)
- * and `openOptions`, the driver's open options by their GDAL names: the CSV and XLSX options, the
+ * `skipFeatures` and `maxFeatures` (a range per selected layer), and `openOptions`,
+ * the driver's open options by their GDAL names: the CSV and XLSX options, the
  * tile archive options and those of the HECRAS driver for HEC-RAS geometry and plan HDF files
  * (`CELL_SUMMARIES`, `TIME_STEP`, ...). A list option takes a comma-separated string or an
  * array of names.
@@ -2105,7 +2463,9 @@ export function openVector(bytes, filename, options) {
 
 /**
  * Opens serialized VRT XML with a map of source file names to Uint8Array bytes.
- * Source GeoTIFFs and VRT pixel windows are read lazily, including in WebAssembly.
+ * Every reference must be mapped; missing entries never open files or URLs. A
+ * mapped source that is itself a VRT is opened against the same map; STAC, STACTA
+ * and STACIT documents are refused. Source GeoTIFFs and VRT pixel windows are read lazily, including in WebAssembly.
  * @param {string} xml
  * @param {any} sources
  * @returns {Dataset}
@@ -2341,6 +2701,15 @@ export function polygonize(src, options) {
 }
 
 /**
+ * Removes the calling thread's innermost configuration scope; returns whether one existed.
+ * @returns {boolean}
+ */
+export function popConfig() {
+    const ret = wasm.popConfig();
+    return ret !== 0;
+}
+
+/**
  * The distance from every pixel to the nearest target pixel, as `terrio proximity` (GDAL's
  * `gdal_proximity.py`).
  *
@@ -2356,6 +2725,19 @@ export function proximity(src, options) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return Dataset.__wrap(ret[0]);
+}
+
+/**
+ * Pushes configuration overrides for this module's calling thread. Values are strings; null
+ * unsets an option in this scope. Pair with `popConfig` in `finally`. Scopes also apply to
+ * subsequent reads and nested source opens; they are shared by calls on the same thread.
+ * @param {any} options
+ */
+export function pushConfig(options) {
+    const ret = wasm.pushConfig(options);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
 }
 
 /**
@@ -2424,6 +2806,14 @@ export function rasterTiles(input, options, on_tile) {
  * `src`: vector data (a `Dataset`, bytes or GeoJSON). Options: `burn` (a value, or one per
  * band) or `attribute`, `layers`, `sql`, `where`, `tr`, `ts`, `te`, `tap`, `like` (a raster
  * whose grid to use), `ot`, `init`, `nodata`, `allTouched`, `add`, `aSrs`.
+ * `background` copies a raster's pixels and metadata, then edits all bands. Separate validity
+ * masks are not copied; nodata masks follow the edited values.
+ * With `add`, covered nodata samples also receive offsets: -9999 plus -2.5 becomes -10001.5
+ * and is marked valid. NaN remains NaN. Check voids before adding offsets.
+ * Burn and add values use stored sample units. Band scale/offset are retained, not applied.
+ * With `add`, signed values raise or lower elevations. Cannot be combined with grid, size,
+ * resolution, extent, alignment, type, initialization, nodata or CRS overrides.
+ * Without `init`, uncovered pixels start at `nodata` when set, otherwise 0, for every format.
  * @param {any} src
  * @param {any} options
  * @returns {Dataset}
@@ -2545,6 +2935,42 @@ export function renameLayer(src, options) {
 }
 
 /**
+ * Draws a raster or vector dataset as RGBA pixels: {width, height, data}, data a
+ * Uint8ClampedArray ready for `new ImageData(data, width, height)`. src is a Dataset, file
+ * bytes ({bytes, filename}) or GeoJSON. Options: width, height (one keeps the aspect ratio),
+ * maxSize (1024; no enlarging), bands (one, or three as RGB), colormap (gray, viridis, magma,
+ * inferno, plasma, terrain, rdbu, rdylgn; _r reverses), stretch ("auto", "minmax",
+ * "pLOW,pHIGH", "LOW,HIGH"), layers and attribute (vector). Rasters are read from the coarsest
+ * fitting overview; nodata and masked pixels are transparent.
+ * @param {any} src
+ * @param {any} options
+ * @returns {any}
+ */
+export function render(src, options) {
+    const ret = wasm.render(src, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Draws a raster or vector dataset as PNG bytes, with the options of `render`.
+ * @param {any} src
+ * @param {any} options
+ * @returns {Uint8Array}
+ */
+export function renderPng(src, options) {
+    const ret = wasm.renderPng(src, options);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v1;
+}
+
+/**
  * Generate retile image files and optional index/CSV companions incrementally.
  * onFile(relativePath, Uint8Array) is synchronous; exceptions stop generation.
  * Optional readFile(relativePath) returns earlier bytes (or null), avoiding parent
@@ -2613,6 +3039,18 @@ export function segmentize(src, max_length) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return Dataset.__wrap(ret[0]);
+}
+
+/**
+ * Sets the most bytes the block cache keeps (GDAL's `GDALSetCacheMax64`); 0 turns it off. `bytes`
+ * must be an integer from 0 to `Number.MAX_SAFE_INTEGER`.
+ * @param {number} bytes
+ */
+export function setBlockCacheMax(bytes) {
+    const ret = wasm.setBlockCacheMax(bytes);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
 }
 
 /**
@@ -2806,7 +3244,8 @@ export function sozipValidate(input) {
 
 /**
  * Runs the documented read-only OGR SQL subset on vector inputs, returning a Dataset.
- * SELECT expressions and LEFT JOIN retain primary geometry; DISTINCT and summaries discard it.
+ * Attribute expressions and LEFT JOIN retain primary geometry; DISTINCT, GROUP BY and summaries discard it.
+ * Supports the spatial-function subset in docs/sql.md; explicit geometry expressions replace primary geometry.
  * @param {any} src
  * @param {string} query
  * @returns {Dataset}
@@ -2891,7 +3330,13 @@ export function transformPoints(xs, ys, src_crs, dst_crs, zs, options) {
  * `projwin` (`[ulx, uly, lrx, lry]`), `projwinSrs`, `outsize` (`[width, height]`, pixels or
  * percentages such as `"50%"`; 0 keeps the aspect ratio), `tr`, `resampling`, `scale` (`true`,
  * `[srcMin, srcMax]` or `[srcMin, srcMax, dstMin, dstMax]`), `exponent`, `aNodata` (a number or
- * `"none"`), `aSrs`, `aUllr`.
+ * `"none"`), `aSrs`, `aUllr`, `overview` (the stored resolution to read, as `gdal_translate
+ * -ovr`: `"AUTO"`, the default, `"AUTO-n"`, `"NONE"` or a level from 0). Inputs the lazy reader
+ * opens (GeoTIFFs, JPEG 2000, GRIB, tile archives...) are read by window, for the output alone,
+ * from that level where the reader exposes overviews; a TIFF it refuses is decoded whole, at
+ * full resolution, as are the formats it decodes whole. A level or `"AUTO-n"` is refused, before
+ * any whole decode, for bytes the lazy reader cannot open; on a raster without overviews it warns
+ * and reads full resolution, as `gdal_translate` and `terrio translate` do.
  * @param {any} src
  * @param {any} options
  * @returns {Dataset}
@@ -3065,7 +3510,7 @@ export function version() {
  * Single-observer visibility or minimum visible height on a projected DEM.
  * `ox`, `oy` are coordinates in the DEM CRS. Options: `band`, `oz` (observer height),
  * `tz` (target height), `md` (maximum distance, 0 unlimited), `cc` (curvature coefficient,
- * 1 minus refraction), `om` (NORMAL/DEM/GROUND), `ov` (out-of-range value).
+ * 1 minus refraction), `om` (NORMAL/DEM/GROUND/ACCUM), `os` (ACCUM observer spacing in pixels, default 10), `ov` (out-of-range value).
  * Numeric nodata is treated as elevation, as in GDAL; nonfinite elevations are rejected.
  * @param {any} src
  * @param {number} ox
@@ -3274,8 +3719,10 @@ export function xyz(src, options) {
 }
 
 /**
- * Statistics for each polygon and raster band. Source pixels are materialized.
- * Options: bands, prefixes, stats, allTouched, tSrs, decimalPlaces.
+ * Statistics for each polygon and raster band. Rasters are read lazily, by block.
+ * Options: bands, prefixes, stats, allTouched, fractional, weights, weightBand, tSrs, decimalPlaces.
+ * Rasters may also be labelled objects `{raster, time, label, band}`, whose fields are named
+ * TIME_LABEL_STATISTIC.
  * Default prefixes raster1, raster2, etc. produce PREFIX_bN_STATISTIC fields.
  * @param {any} zones
  * @param {any} rasters
@@ -3308,6 +3755,10 @@ function __wbg_get_imports() {
             getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
             getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
         },
+        __wbg___wbindgen_is_falsy_16bd49b68658263e: function(arg0) {
+            const ret = !arg0;
+            return ret;
+        },
         __wbg___wbindgen_is_function_1f9d30630b8b1d3d: function(arg0) {
             const ret = typeof(arg0) === 'function';
             return ret;
@@ -3327,6 +3778,10 @@ function __wbg_get_imports() {
         },
         __wbg___wbindgen_is_undefined_8865fb403f8fe9d8: function(arg0) {
             const ret = arg0 === undefined;
+            return ret;
+        },
+        __wbg___wbindgen_jsval_eq_02babf21faa37971: function(arg0, arg1) {
+            const ret = arg0 === arg1;
             return ret;
         },
         __wbg___wbindgen_memory_caa4a6165639c8b5: function() {
@@ -3352,10 +3807,6 @@ function __wbg_get_imports() {
         },
         __wbg__wbg_cb_unref_dcc1a90847f04c41: function(arg0) {
             arg0._wbg_cb_unref();
-        },
-        __wbg_allSettled_f26c6af8232ba69f: function(arg0) {
-            const ret = Promise.allSettled(arg0);
-            return ret;
         },
         __wbg_apply_a910804df6e1e433: function() { return handleError(function (arg0, arg1, arg2) {
             const ret = arg0.apply(arg1, arg2);
@@ -3389,6 +3840,10 @@ function __wbg_get_imports() {
             const ret = Reflect.deleteProperty(arg0, arg1);
             return ret;
         }, arguments); },
+        __wbg_encodeURIComponent_efaac779eb523147: function(arg0, arg1) {
+            const ret = encodeURIComponent(getStringFromWasm0(arg0, arg1));
+            return ret;
+        },
         __wbg_entries_3602f27ad32994b8: function(arg0) {
             const ret = arg0.entries();
             return ret;
@@ -3408,6 +3863,10 @@ function __wbg_get_imports() {
                 wasm.__wbindgen_free(deferred0_0, deferred0_1, 1);
             }
         },
+        __wbg_flat_f65875480b13ec61: function(arg0, arg1) {
+            const ret = arg0.flat(arg1);
+            return ret;
+        },
         __wbg_fromEntries_5159142be68954c3: function() { return handleError(function (arg0) {
             const ret = Object.fromEntries(arg0);
             return ret;
@@ -3424,16 +3883,31 @@ function __wbg_get_imports() {
             const ret = Object.getPrototypeOf(arg0);
             return ret;
         },
+        __wbg_getRandomValues_436a51d0629d84e1: function() { return handleError(function (arg0, arg1) {
+            globalThis.crypto.getRandomValues(getArrayU8FromWasm0(arg0, arg1));
+        }, arguments); },
+        __wbg_getTime_f5a55efff2585d5d: function(arg0) {
+            const ret = arg0.getTime();
+            return ret;
+        },
         __wbg_get_31af05bd4842a84f: function() { return handleError(function (arg0, arg1) {
             const ret = Reflect.get(arg0, arg1);
             return ret;
         }, arguments); },
+        __wbg_get_464ae6d03ecb8ac7: function(arg0, arg1) {
+            const ret = arg0.get(arg1);
+            return ret;
+        },
         __wbg_get_6c896e0571ddae51: function(arg0, arg1) {
             const ret = arg0[arg1 >>> 0];
             return ret;
         },
         __wbg_get_unchecked_288889d017702237: function(arg0, arg1) {
             const ret = arg0[arg1 >>> 0];
+            return ret;
+        },
+        __wbg_has_3ecd46fb997be19c: function(arg0, arg1) {
+            const ret = arg0.has(arg1);
             return ret;
         },
         __wbg_has_5d6706e5209576c1: function() { return handleError(function (arg0, arg1) {
@@ -3454,6 +3928,16 @@ function __wbg_get_imports() {
             let result;
             try {
                 result = arg0 instanceof BigUint64Array;
+            } catch (_) {
+                result = false;
+            }
+            const ret = result;
+            return ret;
+        },
+        __wbg_instanceof_Date_31bc0134230c39be: function(arg0) {
+            let result;
+            try {
+                result = arg0 instanceof Date;
             } catch (_) {
                 result = false;
             }
@@ -3598,6 +4082,10 @@ function __wbg_get_imports() {
             const ret = ArrayBuffer.isView(arg0);
             return ret;
         },
+        __wbg_is_4b278c0bd3caba97: function(arg0, arg1) {
+            const ret = Object.is(arg0, arg1);
+            return ret;
+        },
         __wbg_iterator_e3c31c892080e444: function() {
             const ret = Symbol.iterator;
             return ret;
@@ -3666,6 +4154,10 @@ function __wbg_get_imports() {
             const ret = new Error();
             return ret;
         },
+        __wbg_new_28744009d011f847: function() {
+            const ret = new Map();
+            return ret;
+        },
         __wbg_new_5502aad30c185fc8: function(arg0, arg1) {
             try {
                 var state0 = {a: arg0, b: arg1};
@@ -3724,6 +4216,10 @@ function __wbg_get_imports() {
             const ret = new Float32Array(getArrayF32FromWasm0(arg0, arg1));
             return ret;
         },
+        __wbg_new_from_slice_f3c12fffea516829: function(arg0, arg1) {
+            const ret = new Uint8ClampedArray(getArrayU8FromWasm0(arg0, arg1));
+            return ret;
+        },
         __wbg_new_from_slice_f545fd22ddc142b8: function(arg0, arg1) {
             const ret = new Float64Array(getArrayF64FromWasm0(arg0, arg1));
             return ret;
@@ -3756,6 +4252,10 @@ function __wbg_get_imports() {
         },
         __wbg_of_20798cb14708764f: function(arg0, arg1) {
             const ret = Array.of(arg0, arg1);
+            return ret;
+        },
+        __wbg_of_c3eeaf412c4e95ae: function(arg0, arg1, arg2, arg3) {
+            const ret = Array.of(arg0, arg1, arg2, arg3);
             return ret;
         },
         __wbg_of_dde0b9d3265685ee: function(arg0, arg1, arg2) {
@@ -3818,10 +4318,24 @@ function __wbg_get_imports() {
             const ret = Promise.resolve(arg0);
             return ret;
         },
+        __wbg_setGeometries_1b9bb106e535bb62: function(arg0, arg1, arg2, arg3, arg4) {
+            setGeometries(arg0, getArrayF64FromWasm0(arg1, arg2), getArrayU32FromWasm0(arg3, arg4));
+        },
         __wbg_set_145a351398b48c65: function() { return handleError(function (arg0, arg1, arg2) {
             const ret = Reflect.set(arg0, arg1, arg2);
             return ret;
         }, arguments); },
+        __wbg_set_6ae97e73113c4f0b: function(arg0, arg1, arg2) {
+            const ret = arg0.set(arg1, arg2);
+            return ret;
+        },
+        __wbg_slice_6da4cdc5d543fcd0: function(arg0, arg1) {
+            const ret = arg1.slice();
+            const ptr1 = passArrayJsValueToWasm0(ret, wasm.__wbindgen_malloc);
+            const len1 = WASM_VECTOR_LEN;
+            getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
+            getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
+        },
         __wbg_stack_3b0d974bbf31e44f: function(arg0, arg1) {
             const ret = arg1.stack;
             const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -3861,12 +4375,16 @@ function __wbg_get_imports() {
             const ret = arg0.then(arg1);
             return ret;
         },
+        __wbg_toISOString_3217c36cf55f719b: function(arg0) {
+            const ret = arg0.toISOString();
+            return ret;
+        },
         __wbg_toStringTag_c2bddd7ea795065c: function() {
             const ret = Symbol.toStringTag;
             return ret;
         },
         __wbindgen_generic_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 185, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 229, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_2965c4ec8bfbc987___convert__closures_____invoke___wasm_bindgen_2965c4ec8bfbc987___JsValue__core_37ee0ce0c4cd57d5___result__Result_____wasm_bindgen_2965c4ec8bfbc987___JsError___true_);
             return ret;
         },
@@ -3928,6 +4446,12 @@ const PipelineResultFinalization = (typeof FinalizationRegistry === 'undefined')
 const RemoteDatasetFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_remotedataset_free(ptr, 1));
+const ZonalReducerFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_zonalreducer_free(ptr, 1));
+const ZonalStreamFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_zonalstream_free(ptr, 1));
 
 function addToExternrefTable0(obj) {
     const idx = wasm.__externref_table_alloc();

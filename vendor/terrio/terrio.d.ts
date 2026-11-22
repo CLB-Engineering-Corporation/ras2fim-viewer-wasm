@@ -23,6 +23,32 @@ export class Dataset {
      */
     readBand(band: number, window?: Uint32Array | null, overview?: number | null): any;
     /**
+     * Reads the mask bands of the bands `readResampled` reads, with the same options, as GDAL's
+     * `GetMaskBand()->RasterIO()`: a `Uint8Array`, band after band, 0 for invalid pixels and 255
+     * for valid ones (or values between where a kernel resampled the mask). Bands with a nodata
+     * value are read for their masks: `readResampledWithMasks` reads both without reading twice.
+     */
+    readResampledMasks(options: any): Uint8Array;
+    /**
+     * Reads what `readResampled` and `readResampledMasks` read, at once (same options):
+     * `{ data, masks }`. Nodata masks are computed from the pixels read, rather than from a
+     * second read of their bands.
+     */
+    readResampledWithMasks(options: any): any;
+    /**
+     * Reads a window into an output of another size, as GDAL's `RasterIO` reads it
+     * (`gdal_translate -outsize`): from the overview it would choose, resampled with its kernels,
+     * invalid pixels (masked, nodata, transparent) carrying no weight. Returns a typed array of
+     * the raster's own type, band after band, row after row.
+     *
+     * Options: `size` (`[width, height]`, required), `bands` (from 1, all by default), `window`
+     * (`[colOff, rowOff, width, height]` in full-resolution pixels, possibly fractional; the
+     * whole raster by default), `resampling` (`nearest`, the default, `bilinear`, `cubic`,
+     * `cubicspline`, `lanczos`, `average`, `rms`, `mode`) and `overview` (`"AUTO"`, the
+     * default, `"AUTO-n"`, `"NONE"` or an overview number, as `gdal_translate -ovr`).
+     */
+    readResampled(options: any): any;
+    /**
      * A vector layer (by name or position, the first by default) as an Arrow IPC stream, with
      * its geometries in a GeoArrow column (and the CRS as PROJJSON in its metadata): read it
      * with Apache Arrow JS (`tableFromIPC`), DuckDB-Wasm or GeoArrow-aware libraries.
@@ -200,7 +226,7 @@ export class MultidimDataset {
     /**
      * Serialize a numeric snapshot as netCDF-4 bytes.
      */
-    toBytes(): Uint8Array;
+    toBytes(deflate?: number | null): Uint8Array;
     /**
      * Serialize a numeric Zarr v2 snapshot as relative keys mapped to Uint8Array values.
      */
@@ -290,6 +316,21 @@ export class RemoteDataset {
      */
     readBand(band: number, window?: Uint32Array | null, overview?: number | null): Promise<any>;
     /**
+     * Rasters: reads the mask bands of the bands `readResampled` reads, as
+     * `Dataset.readResampledMasks` does (same options): a `Uint8Array`.
+     */
+    readResampledMasks(options: any): Promise<any>;
+    /**
+     * Rasters: reads pixels and masks at once, as `Dataset.readResampledWithMasks` does (same
+     * options): `{ data, masks }`.
+     */
+    readResampledWithMasks(options: any): Promise<any>;
+    /**
+     * Rasters: reads a window into an output of another size, as `Dataset.readResampled` does
+     * (same options), fetching only the tiles of the overview `RasterIO` would choose.
+     */
+    readResampled(options: any): Promise<any>;
+    /**
      * Reads into memory, as a `Dataset` (rasters, vector data) or a `PointCloud`:
      *
      * - rasters: `window`, `overview`, `bands`;
@@ -297,7 +338,8 @@ export class RemoteDataset {
      * - COPC: the options of `readPoints` (`bounds`, `zRange`, `classes`, `returns`,
      *   `maxLevel`, `resolution`, `maxPoints`), fetching only the octree nodes needed;
      * - FlatGeobuf: `bbox`, finding the features with the spatial index;
-     * - GeoParquet: `rowGroups`, `bbox` (skipping row groups by their statistics).
+     * - GeoParquet: `rowGroups`, `bbox` (skipping row groups by their statistics), `columns`
+     *   (fetching only the column chunks of those fields and the geometry).
      *
      * With `bbox`, the features are those that intersect it, as `ogr2ogr -spat` keeps them.
      */
@@ -358,6 +400,64 @@ export class RemoteDataset {
 }
 
 /**
+ * Zonal statistics of arrays you produce strip by strip, equal to `zonalStats` over a raster
+ * holding the same values: the zones are computed once for the grid, then each `stream()`
+ * reduces one band, fed the `windows()` in order.
+ * Options: stats (default count, min, max, mean, sum, stddev; not the weighted ones), allTouched,
+ * fractional, layer (of a dataset with several), stripRows (rows per window; give a tiled source's
+ * block height to read each block once). Not tSrs or decimalPlaces: the results are unrounded
+ * arrays.
+ */
+export class ZonalReducer {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * `transform` is the grid's GDAL-style geotransform; `crs` may be omitted only if the zones
+     * have none.
+     */
+    constructor(zones: any, width: number, height: number, transform: Float64Array, crs: string | null | undefined, options: any);
+    /**
+     * A reduction of one band over `windows()`; pixels equal to `nodata`, or not finite, are
+     * left out.
+     */
+    stream(nodata?: number | null): ZonalStream;
+    /**
+     * The windows to supply, in order, as `[x, y, width, height]`: strips of `stripRows` rows
+     * holding zone pixels, cropped to the rows and columns of those pixels.
+     */
+    windows(): Array<any>;
+    /**
+     * The number of zone features.
+     */
+    readonly featureCount: number;
+    /**
+     * The statistics computed, by their canonical names (`stddev` for `std`), as fields name them.
+     */
+    readonly stats: string[];
+}
+
+/**
+ * One band reduced by a `ZonalReducer`: `add` each window's pixels in order, then `finish`.
+ */
+export class ZonalStream {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Adds window number `window` (of `ZonalReducer.windows()`): a typed array of its
+     * `width * height` pixels, row after row. Windows must come in order; a wrong window or
+     * length throws and leaves the stream unchanged.
+     */
+    add(window: number, data: any): void;
+    /**
+     * The statistics, as `{name: Float64Array}` with one value per zone feature, in layer
+     * order; NaN where a zone has no valid pixels (`count` and `variety` are then 0). With
+     * windows missing, throws and the stream takes them still.
+     */
+    finish(): object;
+}
+
+/**
  * Adds internal GeoTIFF overview levels and returns updated file bytes.
  * Options: levels, minSize, resampling, compression, ignoreCogLayoutBreak.
  */
@@ -380,6 +480,12 @@ export function attachPalette(src: any, color_map: any): Dataset;
  * Blends equal-sized Byte images. Options: operator (GDAL name), opacity (0..100).
  */
 export function blend(src: any, overlay: any, options: any): Dataset;
+
+/**
+ * The most bytes of decoded GeoTIFF/COG chunks the block cache keeps (GDAL's `GDALGetCacheMax64`):
+ * 64 MiB, since a module reads no environment variables; 0 means the cache is off.
+ */
+export function blockCacheMax(): number;
 
 /**
  * Planar buffers in CRS units. Options: quadrantSegments (default 30).
@@ -432,6 +538,11 @@ export function cleanCollar(src: any, options: any): Dataset;
  * Attributes and CRS remain. Inactive layers are copied.
  */
 export function cleanCoverage(src: any, options: any): Dataset;
+
+/**
+ * Empties the block cache of decoded GeoTIFF/COG chunks, giving its memory back.
+ */
+export function clearBlockCache(): void;
 
 /**
  * Clips vector features. Supply exactly one of `bbox: [xmin,ymin,xmax,ymax]`,
@@ -505,9 +616,33 @@ export function createRaster(like: any, options: any): Dataset;
 export function createVector(filename: string, options: any): Uint8Array;
 
 /**
+ * The PROJ string of a CRS as PROJ 9.9.0 writes it (`projinfo -o PROJ`), `undefined` for a CRS
+ * PROJ has none for (an engineering CRS). Like PROJ's, it leaves out the datum transformation of
+ * an EPSG CRS: keep the code or WKT to keep the CRS.
+ */
+export function crsToProj4(crs: string): string | undefined;
+
+/**
+ * The PROJ string GDAL 3.13.3 writes for a CRS (`OSRExportToProj4`): `crsToProj4`'s without
+ * `+type=crs`, and for an EPSG or ESRI code (or a WKT whose root names one) with what GDAL adds:
+ * the datum transformation to WGS 84 as `+towgs84`, where PROJ finds a single one for the CRS's
+ * area of use, and a compound CRS's geoid model as `+geoidgrids` and `+geoid_crs`. A WKT with a
+ * datum shift of its own keeps it. `docs/crs.md` lists where it differs from GDAL (a PROJJSON,
+ * `+init=epsg:N`, compound CRSs given by a definition). `undefined` where `crsToProj4` is.
+ */
+export function crsToProj4Gdal(crs: string): string | undefined;
+
+/**
  * The PROJJSON v0.7 of a CRS; throws for a CRS it would describe wrongly.
  */
 export function crsToProjjson(crs: string): string;
+
+/**
+ * The WKT 1 of a CRS without GDAL's `EXTENSION["PROJ4", ...]`, for formats whose readers ignore
+ * it (a `.prj` file), as PROJ 9.9.0 exports `WKT1_GDAL`; `undefined` where WKT 1 needs the
+ * extension (a datum grid) or PROJ writes no WKT 1 (a geographic 3D CRS).
+ */
+export function crsToWkt1Strict(crs: string): string | undefined;
 
 /**
  * Copies a dataset file set without conversion. Options: `format`, `overwrite`, `allowExternalReferences`.
@@ -633,8 +768,11 @@ export function footprint(src: any, options: any): Dataset;
 export function fromArrowIPC(bytes: Uint8Array, name?: string | null): Dataset;
 
 /**
- * Creates a vector dataset from GeoJSON: an object or a JSON string. `crs` is the coordinates'
- * CRS, EPSG:4326 by default.
+ * Creates a vector dataset from geometries: GeoJSON (a FeatureCollection, a Feature or a
+ * geometry) as an object or a JSON string, an array of geometries or Features, an
+ * `[xmin, ymin, xmax, ymax]` array of bounds, or WKT. `crs` is the coordinates' CRS, EPSG:4326
+ * by default. Bounds out of order are put in order (`xmin > xmax` longitudes cross the
+ * antimeridian), with a warning for `takeWarnings`.
  */
 export function fromGeoJSON(geojson: any, name?: string | null, crs?: string | null): Dataset;
 
@@ -691,6 +829,24 @@ export function linerefPosition(parts: any, x: number, y: number, options: any):
  * `ogrlineref -get_subline`): one line feature with `beg`, `end` and `scale` fields.
  */
 export function linerefSubline(parts: any, begin: number, end: number, options: any): Dataset;
+
+/**
+ * The CRSs of the registries terrio carries (EPSG, ESRI and IAU_2015), for searchable CRS
+ * pickers, as GDAL's `OSRGetCRSInfoListFromDatabase` describes them (PROJ 9.9.0's database, EPSG
+ * v13.102): `[{ authority, code, name, kind, deprecated, replaced_by, area_name, bounds,
+ * projection_method, celestial_body }]`, in order of authority and code, `bounds` being `[west,
+ * south, east, north]` in degrees and `replaced_by` the codes of the CRSs that replace a
+ * deprecated EPSG CRS (`[5105]` for EPSG:4855). `` `${authority}:${code}` `` is a CRS the
+ * other functions take. A deprecated code gives its own CRS, as PROJ does; for GDAL's default
+ * (`OSR_USE_NON_DEPRECATED=YES`), pass the code of a single replacement instead.
+ *
+ * `text`: words each CRS must match, whatever their case: in the name, or beginning the code or
+ * `AUTHORITY:CODE` (`"Albers"`, `"3577"`, `"EPSG:3577"`); every CRS when `undefined`. Options:
+ * `authority` (`"EPSG"`, `"ESRI"`, `"IAU_2015"`, or an array), `kind` (`"geographic_2d"`,
+ * `"geographic_3d"`, `"geocentric"`, `"projected"`, `"vertical"`, `"compound"`, `"other"`, or an
+ * array) and `includeDeprecated`.
+ */
+export function listCrs(text: string | null | undefined, options: any): any;
 
 /**
  * Lists a remote directory with `fetch`, as `gdal vsi list` lists `/vsis3/`, `/vsigs/`,
@@ -791,6 +947,14 @@ export function openCatalog(index: any, sources: any, options: any): Dataset;
 export function openMultidim(input: any): MultidimDataset;
 
 /**
+ * Reads OGC API Features over fetch, following the shared Rust reader's bounded requests.
+ * Options: layers, bbox, pageSize, maxFeatures, skipFeatures, datetime, crs,
+ * preferredCrs, serverFeatureAxisOrder, ignoreSchema, maxVectorBytes, maxPages,
+ * and optional fetch/headers. Requires CORS in browsers; fetch redirects are refused.
+ */
+export function openOapif(url: string, options: any): Promise<Dataset>;
+
+/**
  * Point clouds are in the full module, `terrio-js`.
  */
 export function openPoints(_bytes: Uint8Array, _filename: string): any;
@@ -800,10 +964,17 @@ export function openPoints(_bytes: Uint8Array, _filename: string): any;
  * GeoTIFF, a PMTiles archive, a COPC point cloud, a FlatGeobuf file or a GeoParquet file. Only
  * its header is read now, in a request or two; reads fetch only the bytes they need.
  *
+ * A Zarr store (v2 or v3, sharded or not: a URL ending in `.zarr`, or `format: "Zarr"`) is read
+ * as a raster as well, the array `array` of the store or group at the URL (its path within it),
+ * by window: opening fetches its metadata documents, and a window the shard indexes and chunks
+ * it needs, nearby inner chunks of a shard in one request.
+ *
  * Options: `headers` (sent with every request, for authorization), `fetch` (the function to
  * call instead of `globalThis.fetch`), `blockSize` (64 KiB: reads fetch whole blocks),
  * `cacheSize` (256 MB kept between reads, not during one: a read holds all the bytes it needs),
- * `format` (when the URL does not tell it).
+ * `format` (when the URL does not tell it), `array` (Zarr), `allowMissingMetadata403`
+ * (false: opt in only for anonymous stores that report absent metadata as forbidden;
+ * v2 .zattrs documents, chunks and shards always fail; zarr.json probes remain ambiguous).
  *
  * Servers must answer range requests; in browsers, cross-origin servers must allow the `Range`
  * header and expose `Content-Range` (CORS).
@@ -813,7 +984,8 @@ export function openUrl(url: string, options: any): Promise<RemoteDataset>;
 /**
  * Opens a vector dataset from its bytes, with driver open options. `filename` names the file
  * (its extension tells the format when the content does not); `options` takes `layers` (names)
- * and `openOptions`, the driver's open options by their GDAL names: the CSV and XLSX options, the
+ * `skipFeatures` and `maxFeatures` (a range per selected layer), and `openOptions`,
+ * the driver's open options by their GDAL names: the CSV and XLSX options, the
  * tile archive options and those of the HECRAS driver for HEC-RAS geometry and plan HDF files
  * (`CELL_SUMMARIES`, `TIME_STEP`, ...). A list option takes a comma-separated string or an
  * array of names.
@@ -826,7 +998,9 @@ export function openVector(bytes: Uint8Array, filename: string, options: any): D
 
 /**
  * Opens serialized VRT XML with a map of source file names to Uint8Array bytes.
- * Source GeoTIFFs and VRT pixel windows are read lazily, including in WebAssembly.
+ * Every reference must be mapped; missing entries never open files or URLs. A
+ * mapped source that is itself a VRT is opened against the same map; STAC, STACTA
+ * and STACIT documents are refused. Source GeoTIFFs and VRT pixel windows are read lazily, including in WebAssembly.
  */
 export function openVrt(xml: string, sources: any): Dataset;
 
@@ -915,6 +1089,11 @@ export function pointsFromArrays(_arrays: object, _crs?: string | null): any;
 export function polygonize(src: any, options: any): Dataset;
 
 /**
+ * Removes the calling thread's innermost configuration scope; returns whether one existed.
+ */
+export function popConfig(): boolean;
+
+/**
  * The distance from every pixel to the nearest target pixel, as `terrio proximity` (GDAL's
  * `gdal_proximity.py`).
  *
@@ -922,6 +1101,13 @@ export function polygonize(src: any, options: any): Dataset;
  * (`PIXEL` or `GEO`), `maxdist`, `nodata`, `useInputNodata`, `fixedBufVal`, `ot` (`Float32`).
  */
 export function proximity(src: any, options: any): Dataset;
+
+/**
+ * Pushes configuration overrides for this module's calling thread. Values are strings; null
+ * unsets an option in this scope. Pair with `popConfig` in `finally`. Scopes also apply to
+ * subsequent reads and nested source opens; they are shared by calls on the same thread.
+ */
+export function pushConfig(options: any): void;
 
 /**
  * Creates a raster from a typed array of pixels, band after band, row after row.
@@ -953,6 +1139,14 @@ export function rasterTiles(input: any, options: any, on_tile: Function): any;
  * `src`: vector data (a `Dataset`, bytes or GeoJSON). Options: `burn` (a value, or one per
  * band) or `attribute`, `layers`, `sql`, `where`, `tr`, `ts`, `te`, `tap`, `like` (a raster
  * whose grid to use), `ot`, `init`, `nodata`, `allTouched`, `add`, `aSrs`.
+ * `background` copies a raster's pixels and metadata, then edits all bands. Separate validity
+ * masks are not copied; nodata masks follow the edited values.
+ * With `add`, covered nodata samples also receive offsets: -9999 plus -2.5 becomes -10001.5
+ * and is marked valid. NaN remains NaN. Check voids before adding offsets.
+ * Burn and add values use stored sample units. Band scale/offset are retained, not applied.
+ * With `add`, signed values raise or lower elevations. Cannot be combined with grid, size,
+ * resolution, extent, alignment, type, initialization, nodata or CRS overrides.
+ * Without `init`, uncovered pixels start at `nodata` when set, otherwise 0, for every format.
  */
 export function rasterize(src: any, options: any): Dataset;
 
@@ -998,6 +1192,22 @@ export function registerGrid(name: string, bytes: Uint8Array): void;
 export function renameLayer(src: any, options: any): Dataset;
 
 /**
+ * Draws a raster or vector dataset as RGBA pixels: {width, height, data}, data a
+ * Uint8ClampedArray ready for `new ImageData(data, width, height)`. src is a Dataset, file
+ * bytes ({bytes, filename}) or GeoJSON. Options: width, height (one keeps the aspect ratio),
+ * maxSize (1024; no enlarging), bands (one, or three as RGB), colormap (gray, viridis, magma,
+ * inferno, plasma, terrain, rdbu, rdylgn; _r reverses), stretch ("auto", "minmax",
+ * "pLOW,pHIGH", "LOW,HIGH"), layers and attribute (vector). Rasters are read from the coarsest
+ * fitting overview; nodata and masked pixels are transparent.
+ */
+export function render(src: any, options: any): any;
+
+/**
+ * Draws a raster or vector dataset as PNG bytes, with the options of `render`.
+ */
+export function renderPng(src: any, options: any): Uint8Array;
+
+/**
  * Generate retile image files and optional index/CSV companions incrementally.
  * onFile(relativePath, Uint8Array) is synchronous; exceptions stop generation.
  * Optional readFile(relativePath) returns earlier bytes (or null), avoiding parent
@@ -1027,6 +1237,12 @@ export function rpftocCreate(frames: any, options: any): Uint8Array;
  * segmentize`.
  */
 export function segmentize(src: any, max_length: number): Dataset;
+
+/**
+ * Sets the most bytes the block cache keeps (GDAL's `GDALSetCacheMax64`); 0 turns it off. `bytes`
+ * must be an integer from 0 to `Number.MAX_SAFE_INTEGER`.
+ */
+export function setBlockCacheMax(bytes: number): void;
 
 /**
  * Changes the type of vector fields with GDAL's value conversions, as `terrio set-field-type`
@@ -1105,7 +1321,8 @@ export function sozipValidate(input: string): any;
 
 /**
  * Runs the documented read-only OGR SQL subset on vector inputs, returning a Dataset.
- * SELECT expressions and LEFT JOIN retain primary geometry; DISTINCT and summaries discard it.
+ * Attribute expressions and LEFT JOIN retain primary geometry; DISTINCT, GROUP BY and summaries discard it.
+ * Supports the spatial-function subset in docs/sql.md; explicit geometry expressions replace primary geometry.
  */
 export function sql(src: any, query: string): Dataset;
 
@@ -1142,7 +1359,13 @@ export function transformPoints(xs: Float64Array, ys: Float64Array, src_crs: str
  * `projwin` (`[ulx, uly, lrx, lry]`), `projwinSrs`, `outsize` (`[width, height]`, pixels or
  * percentages such as `"50%"`; 0 keeps the aspect ratio), `tr`, `resampling`, `scale` (`true`,
  * `[srcMin, srcMax]` or `[srcMin, srcMax, dstMin, dstMax]`), `exponent`, `aNodata` (a number or
- * `"none"`), `aSrs`, `aUllr`.
+ * `"none"`), `aSrs`, `aUllr`, `overview` (the stored resolution to read, as `gdal_translate
+ * -ovr`: `"AUTO"`, the default, `"AUTO-n"`, `"NONE"` or a level from 0). Inputs the lazy reader
+ * opens (GeoTIFFs, JPEG 2000, GRIB, tile archives...) are read by window, for the output alone,
+ * from that level where the reader exposes overviews; a TIFF it refuses is decoded whole, at
+ * full resolution, as are the formats it decodes whole. A level or `"AUTO-n"` is refused, before
+ * any whole decode, for bytes the lazy reader cannot open; on a raster without overviews it warns
+ * and reads full resolution, as `gdal_translate` and `terrio translate` do.
  */
 export function translate(src: any, options: any): Dataset;
 
@@ -1211,7 +1434,7 @@ export function version(): string;
  * Single-observer visibility or minimum visible height on a projected DEM.
  * `ox`, `oy` are coordinates in the DEM CRS. Options: `band`, `oz` (observer height),
  * `tz` (target height), `md` (maximum distance, 0 unlimited), `cc` (curvature coefficient,
- * 1 minus refraction), `om` (NORMAL/DEM/GROUND), `ov` (out-of-range value).
+ * 1 minus refraction), `om` (NORMAL/DEM/GROUND/ACCUM), `os` (ACCUM observer spacing in pixels, default 10), `ov` (out-of-range value).
  * Numeric nodata is treated as elevation, as in GDAL; nonfinite elevations are rejected.
  */
 export function viewshed(src: any, ox: number, oy: number, options: any): Dataset;
@@ -1284,8 +1507,10 @@ export function warp(src: any, options: any): Dataset;
 export function xyz(src: any, options: any): string;
 
 /**
- * Statistics for each polygon and raster band. Source pixels are materialized.
- * Options: bands, prefixes, stats, allTouched, tSrs, decimalPlaces.
+ * Statistics for each polygon and raster band. Rasters are read lazily, by block.
+ * Options: bands, prefixes, stats, allTouched, fractional, weights, weightBand, tSrs, decimalPlaces.
+ * Rasters may also be labelled objects `{raster, time, label, band}`, whose fields are named
+ * TIME_LABEL_STATISTIC.
  * Default prefixes raster1, raster2, etc. produce PREFIX_bN_STATISTIC fields.
  */
 export function zonalStats(zones: any, rasters: any, options: any): Dataset;
@@ -1301,10 +1526,13 @@ export interface InitOutput {
     readonly __wbg_netcdfgroups_free: (a: number, b: number) => void;
     readonly __wbg_pipelineresult_free: (a: number, b: number) => void;
     readonly __wbg_remotedataset_free: (a: number, b: number) => void;
+    readonly __wbg_zonalreducer_free: (a: number, b: number) => void;
+    readonly __wbg_zonalstream_free: (a: number, b: number) => void;
     readonly addOverviews: (a: number, b: number, c: any) => [number, number, number, number];
     readonly asFeatures: (a: any, b: any) => [number, number, number];
     readonly attachPalette: (a: any, b: any) => [number, number, number];
     readonly blend: (a: any, b: any, c: any) => [number, number, number];
+    readonly blockCacheMax: () => number;
     readonly buffer: (a: any, b: number, c: any) => [number, number, number];
     readonly calc: (a: any, b: any, c: any) => [number, number, number];
     readonly checkCoverage: (a: any, b: any) => [number, number, number];
@@ -1312,6 +1540,7 @@ export interface InitOutput {
     readonly checkGeometry: (a: any) => [number, number, number];
     readonly cleanCollar: (a: any, b: any) => [number, number, number];
     readonly cleanCoverage: (a: any, b: any) => [number, number, number];
+    readonly clearBlockCache: () => void;
     readonly clipVector: (a: any, b: any) => [number, number, number];
     readonly combine: (a: any, b: any) => [number, number, number];
     readonly compare: (a: any, b: any, c: any) => [number, number, number];
@@ -1321,7 +1550,10 @@ export interface InitOutput {
     readonly convexHull: (a: any) => [number, number, number];
     readonly createRaster: (a: any, b: any) => [number, number, number];
     readonly createVector: (a: number, b: number, c: any) => [number, number, number, number];
+    readonly crsToProj4: (a: number, b: number) => [number, number, number, number];
+    readonly crsToProj4Gdal: (a: number, b: number) => [number, number, number, number];
     readonly crsToProjjson: (a: number, b: number) => [number, number, number, number];
+    readonly crsToWkt1Strict: (a: number, b: number) => [number, number, number, number];
     readonly datasetCopy: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly datasetDelete: (a: any, b: any) => [number, number, number];
     readonly datasetFiles: (a: number, b: number, c: any) => [number, number, number];
@@ -1337,6 +1569,9 @@ export interface InitOutput {
     readonly dataset_nodata: (a: number) => [number, number, number, number];
     readonly dataset_overviews: (a: number) => [number, number, number];
     readonly dataset_readBand: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
+    readonly dataset_readResampled: (a: number, b: any) => [number, number, number];
+    readonly dataset_readResampledMasks: (a: number, b: any) => [number, number, number];
+    readonly dataset_readResampledWithMasks: (a: number, b: any) => [number, number, number];
     readonly dataset_styleTable: (a: number) => any;
     readonly dataset_toArrowIPC: (a: number, b: any, c: any) => [number, number, number, number];
     readonly dataset_toBytes: (a: number, b: number, c: number, d: any) => [number, number, number, number];
@@ -1370,6 +1605,7 @@ export interface InitOutput {
     readonly linerefCreate: (a: any, b: any, c: any) => [number, number, number];
     readonly linerefPosition: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly linerefSubline: (a: any, b: number, c: number, d: any) => [number, number, number];
+    readonly listCrs: (a: number, b: number, c: any) => [number, number, number];
     readonly listUrl: (a: number, b: number, c: any) => any;
     readonly makePoint: (a: any, b: number, c: number, d: number, e: number, f: any) => [number, number, number];
     readonly makeValid: (a: any) => [number, number, number];
@@ -1391,7 +1627,7 @@ export interface InitOutput {
     readonly multidimdataset_arrayPaths: (a: number) => [number, number];
     readonly multidimdataset_check: (a: number) => [number, number, number];
     readonly multidimdataset_info: (a: number) => [number, number, number];
-    readonly multidimdataset_toBytes: (a: number) => [number, number, number, number];
+    readonly multidimdataset_toBytes: (a: number, b: number) => [number, number, number, number];
     readonly multidimdataset_toZarrStore: (a: number) => [number, number, number];
     readonly nearblack: (a: any, b: any) => [number, number, number];
     readonly neighbors: (a: any, b: any) => [number, number, number];
@@ -1403,6 +1639,7 @@ export interface InitOutput {
     readonly open: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly openCatalog: (a: any, b: any, c: any) => [number, number, number];
     readonly openMultidim: (a: any) => [number, number, number];
+    readonly openOapif: (a: number, b: number, c: any) => any;
     readonly openPoints: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly openUrl: (a: number, b: number, c: any) => any;
     readonly openVector: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
@@ -1422,7 +1659,9 @@ export interface InitOutput {
     readonly planRetile: (a: any, b: any) => [number, number, number];
     readonly pointsFromArrays: (a: any, b: number, c: number) => [number, number, number];
     readonly polygonize: (a: any, b: any) => [number, number, number];
+    readonly popConfig: () => number;
     readonly proximity: (a: any, b: any) => [number, number, number];
+    readonly pushConfig: (a: any) => [number, number];
     readonly rasterFromArray: (a: any, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number];
     readonly rasterIndex: (a: any, b: any) => [number, number, number];
     readonly rasterTiles: (a: any, b: any, c: any) => [number, number, number];
@@ -1444,16 +1683,22 @@ export interface InitOutput {
     readonly remotedataset_overviews: (a: number) => [number, number, number];
     readonly remotedataset_read: (a: number, b: any) => any;
     readonly remotedataset_readBand: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly remotedataset_readResampled: (a: number, b: any) => any;
+    readonly remotedataset_readResampledMasks: (a: number, b: any) => any;
+    readonly remotedataset_readResampledWithMasks: (a: number, b: any) => any;
     readonly remotedataset_size: (a: number) => number;
     readonly remotedataset_stats: (a: number) => [number, number, number];
     readonly remotedataset_transform: (a: number) => [number, number, number, number];
     readonly remotedataset_url: (a: number) => [number, number];
     readonly remotedataset_width: (a: number) => [number, number, number];
     readonly renameLayer: (a: any, b: any) => [number, number, number];
+    readonly render: (a: any, b: any) => [number, number, number];
+    readonly renderPng: (a: any, b: any) => [number, number, number, number];
     readonly retile: (a: any, b: any, c: any, d: number) => [number, number, number];
     readonly rgbToPalette: (a: any, b: any) => [number, number, number];
     readonly rpftocCreate: (a: any, b: any) => [number, number, number, number];
     readonly segmentize: (a: any, b: number) => [number, number, number];
+    readonly setBlockCacheMax: (a: number) => [number, number];
     readonly setFieldType: (a: any, b: number, c: number, d: any) => [number, number, number];
     readonly setGeomType: (a: any, b: any) => [number, number, number];
     readonly sieve: (a: any, b: any) => [number, number, number];
@@ -1492,6 +1737,13 @@ export interface InitOutput {
     readonly warp: (a: any, b: any) => [number, number, number];
     readonly xyz: (a: any, b: any) => [number, number, number, number];
     readonly zonalStats: (a: any, b: any, c: any) => [number, number, number];
+    readonly zonalreducer_featureCount: (a: number) => number;
+    readonly zonalreducer_new: (a: any, b: number, c: number, d: number, e: number, f: number, g: number, h: any) => [number, number, number];
+    readonly zonalreducer_stats: (a: number) => [number, number];
+    readonly zonalreducer_stream: (a: number, b: number, c: number) => number;
+    readonly zonalreducer_windows: (a: number) => any;
+    readonly zonalstream_add: (a: number, b: number, c: any) => [number, number];
+    readonly zonalstream_finish: (a: number) => [number, number, number];
     readonly wasm_bindgen_2965c4ec8bfbc987___convert__closures_____invoke___js_sys_12ec3bdfc075b477___Function_fn_wasm_bindgen_2965c4ec8bfbc987___JsValue_____wasm_bindgen_2965c4ec8bfbc987___sys__Undefined___js_sys_12ec3bdfc075b477___Function_fn_wasm_bindgen_2965c4ec8bfbc987___JsValue_____wasm_bindgen_2965c4ec8bfbc987___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
     readonly wasm_bindgen_2965c4ec8bfbc987___convert__closures_____invoke___wasm_bindgen_2965c4ec8bfbc987___JsValue__core_37ee0ce0c4cd57d5___result__Result_____wasm_bindgen_2965c4ec8bfbc987___JsError___true_: (a: number, b: number, c: any) => [number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;

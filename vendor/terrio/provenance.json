@@ -3,8 +3,8 @@
     "name": "terrio-js",
     "type": "module",
     "description": "WebAssembly bindings for terrio",
-    "version": "0.6.1",
-    "license": "(MIT AND MPL-2.0)",
+    "version": "0.9.0",
+    "license": "(MIT AND MPL-2.0 AND Apache-2.0)",
     "repository": {
       "type": "git",
       "url": "https://github.com/opengeos/terrio"
@@ -14,6 +14,7 @@
       "terrio.js",
       "terrio.d.ts",
       "terrio_bg.wasm.d.ts",
+      "snippets/",
       "LICENSE",
       "NOTICE",
       "LICENSE-THIRD-PARTY.md"
@@ -34,15 +35,16 @@
   },
   "sha256": {
     "LICENSE": "ce3200ce9d34ccfbdfaabf4e52f8863df8f2246551495b3b31f28189eb9077b7",
-    "LICENSE-THIRD-PARTY.md": "207c9ca0df96ac7d5885dab005946db0a8ac8527d682dd94eaaa85760be537e0",
-    "NOTICE": "edf69f580e01c31095220be4c243bad07f8acef07ac073b361d8972cff3332d3",
-    "package.json": "a4538c23c714b42764444b6c4dc6a7d00f4a2b476c8bccc3b1356a2ad77dce91",
-    "terrio.d.ts": "1a3e6a1eeceeccf0a5078859d73a192a42bed958304c39e949ef1c94c055b4ed",
-    "terrio.js": "e02046a1fd817971e6e633a913edd813fe801e2f5165803086a2c2d6953d5305",
-    "terrio_bg.wasm": "e9f0a57ce955b71a74779cac9da73e176926f31a6ba442d569923b228316ebd5",
-    "terrio_bg.wasm.d.ts": "a4bdd3ef6f995c12c545a6d11b435d0539a83d0998765f6f12dcad7b0cdbcba3"
+    "LICENSE-THIRD-PARTY.md": "b98a02affb0b7ff64ae1f9114b1d5d857b7481093ecd92973f1dfab81d931fe9",
+    "NOTICE": "242f4572bb48d6e7222b18ecce0fb763a08b945cbe8dd23fe3e682f49a9f4d9f",
+    "package.json": "7ecff6c38189be37f5026af2a9d4add4752115bd7be6f88ea851942504fab856",
+    "snippets/terrio-js-45694ff93a19545f/inline0.js": "6a5dec8a5a5dde4ae03fa0bd1733fbe564f8f7a7474dfebdc8ddd43adca70706",
+    "terrio.d.ts": "2996e97eb5af731ba267c6faea780bc47d3e4f02e8b6c9c27e8bc003c6e99c08",
+    "terrio.js": "49f6a04b9675408bd6a70499c10e373266a3355870eda0e42a9f8c9e0268b077",
+    "terrio_bg.wasm": "1619b0d88ac83d6a672e7824694e7b07c3668029aa333165c78092464e713147",
+    "terrio_bg.wasm.d.ts": "e230ba547fd87856221c2274de6dfac9fa123e4085978feffb0665cc67d2a143"
   },
   "asset_policy": "locked",
-  "source_commit": "9c644f4a1729e253f9714813912f54d32e306c38",
+  "source_commit": "7f1996f972645c7d4b71822702b9fc331ad36df9",
   "ownership": "whole-file input copy; JS-owned typed output copies"
 }

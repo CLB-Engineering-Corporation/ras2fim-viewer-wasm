@@ -1,6 +1,6 @@
 {
  "schema_version": 1,
- "generated_utc": "2026-11-03T14:10:32+00:00",
+ "generated_utc": "2026-11-22T13:49:34+00:00",
  "title": "ras2fim-2d flood inundation",
  "attribution": null,
  "bounds": [
@@ -35,7 +35,8 @@
     30.379044,
     -97.366669,
     30.409983
-   ]
+   ],
+   "controls": null
   },
   {
    "id": "wb-2427467",
@@ -61,7 +62,8 @@
     30.379044,
     -97.414477,
     30.381438
-   ]
+   ],
+   "controls": null
   }
  ],
  "reader_backend": "terrio",

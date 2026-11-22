@@ -12,7 +12,7 @@ each deploy.
 Neither page has a tile server behind it.
 
 The 2D viewer opens the `.nc` files under `data/` with the pinned Terrio WASM
-decoder (CLB Terrio `9c644f4`) in a Web Worker; `?decoder=h5wasm` switches to
+decoder (CLB Terrio `7f1996f9`) in a Web Worker; `?decoder=h5wasm` switches to
 the retained h5wasm reference reader.
 They are byte-for-byte as ras2fim-2d wrote them, with no conversion step.
 `?verify=1` runs the retained dense renderer alongside the sparse one and
